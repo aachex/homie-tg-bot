@@ -6,6 +6,7 @@ import (
 	"homie-api/internal/model"
 	"homie-api/internal/repository/postgres"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,6 +14,7 @@ import (
 type usersRepo interface {
 	RandUser(ctx context.Context) (model.User, error)
 	NewUser(ctx context.Context, userData model.User) error
+	EditUser(ctx context.Context, userId int64, patch model.UserEditData) error
 }
 
 type Users struct {
@@ -55,16 +57,48 @@ func (c Users) CreateUser(ctx *gin.Context) {
 		c.error(ctx, err, code)
 		return
 	}
+
+	ctx.JSON(http.StatusOK, defaultResp{
+		StatusCode: http.StatusOK,
+		Message:    "user created",
+	})
 }
 
-type errorResp struct {
-	StatusCode   int    `json:"statusCode"`
-	ErrorMessage string `json:"message"`
+func (c Users) EditUser(ctx *gin.Context) {
+	userIdStr := ctx.Param("id")
+	userId, err := strconv.ParseInt(userIdStr, 10, 64)
+	if err != nil {
+		c.error(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	var patch model.UserEditData
+	err = ctx.BindJSON(&patch)
+	if err != nil {
+		c.error(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	err = c.usersRepo.EditUser(ctx, userId, patch)
+	if err != nil {
+		c.error(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, defaultResp{
+		StatusCode: http.StatusOK,
+		Message:    "user data updated",
+	})
+}
+
+type defaultResp struct {
+	StatusCode int    `json:"statusCode"`
+	Message    string `json:"message"`
 }
 
 func (c Users) error(ctx *gin.Context, err error, code int) {
-	ctx.AbortWithStatusJSON(code, errorResp{
-		StatusCode:   code,
-		ErrorMessage: err.Error(),
+	ctx.AbortWithStatusJSON(code, defaultResp{
+		StatusCode: code,
+		Message:    err.Error(),
 	})
 }

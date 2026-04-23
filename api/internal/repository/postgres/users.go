@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"homie-api/internal/model"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,6 +47,38 @@ func (r UsersRepo) NewUser(ctx context.Context, userData model.User) error {
 		return r.createUserTx(ctx, tx, userData)
 	})
 
+	return err
+}
+
+func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserEditData) error {
+	args := pgx.NamedArgs{}
+
+	query := "UPDATE tg_user SET "
+	updates := []string{}
+
+	if patch.Name != "" {
+		updates = append(updates, "name = @name")
+		args["name"] = patch.Name
+	}
+	if patch.Age != 0 {
+		updates = append(updates, "age = @age")
+		args["age"] = patch.Age
+	}
+	if patch.Description != "" {
+		updates = append(updates, "description = @description")
+		args["description"] = patch.Description
+	}
+	if patch.City != "" {
+		updates = append(updates, "city = @city")
+		args["city"] = patch.City
+	}
+
+	query += strings.Join(updates, ",")
+
+	query += " WHERE id = @id"
+	args["id"] = userId
+
+	_, err := r.connPool.Exec(ctx, query, args)
 	return err
 }
 

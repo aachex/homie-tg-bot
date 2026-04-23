@@ -36,6 +36,7 @@ func main() {
 	v1 := r.Group("/api/v1")
 	v1.GET("/user/rand", usersController.GetRandUser)
 	v1.POST("/user", usersController.CreateUser)
+	v1.PATCH("/user/:id", usersController.EditUser)
 
 	log.Fatal(r.Run(":8080"))
 }
