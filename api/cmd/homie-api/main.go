@@ -10,18 +10,9 @@ import (
 )
 
 func main() {
-	fmt.Println("START")
-
-	dbUser := os.Getenv("POSTGRES_USER")
-	dbPassword := os.Getenv("POSTGRES_PASSWORD")
-	dbHost := os.Getenv("POSTGRES_HOST")
-	dbPort := os.Getenv("POSTGRES_PORT")
-	dbName := os.Getenv("POSTGRES_DB")
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
+	connStr := buildConnStr()
 
 	mustUpMigrations(connStr)
-
-	fmt.Println("SUCCESS")
 }
 
 func mustUpMigrations(connStr string) {
@@ -41,4 +32,14 @@ func mustUpMigrations(connStr string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func buildConnStr() string {
+	dbUser := os.Getenv("POSTGRES_USER")
+	dbPassword := os.Getenv("POSTGRES_PASSWORD")
+	dbHost := os.Getenv("POSTGRES_HOST")
+	dbPort := os.Getenv("POSTGRES_PORT")
+	dbName := os.Getenv("POSTGRES_DB")
+
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
 }
