@@ -1,18 +1,51 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"homie-api/internal/controller"
+	"homie-api/internal/repository/postgres"
+	"log"
 	"os"
 
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib" // postgres driver
 	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose/v3"
 )
 
 func main() {
+	// Подключение к БД и накат миграций
 	connStr := buildConnStr()
 
 	mustUpMigrations(connStr)
+
+	connPool := mustInitConnPool(connStr)
+	defer connPool.Close()
+
+	// Репозитории
+	usersRepo := postgres.NewUsersRepo(connPool)
+
+	// Контроллеры
+	usersController := controller.NewUsers(usersRepo)
+
+	// Запуск сервера
+	r := gin.New()
+
+	v1 := r.Group("/api/v1")
+	v1.GET("/user/rand", usersController.GetRandUser)
+	v1.POST("/user", usersController.CreateUser)
+
+	log.Fatal(r.Run(":8080"))
+}
+
+func mustInitConnPool(connStr string) *pgxpool.Pool {
+	connPool, err := pgxpool.New(context.Background(), connStr)
+	if err != nil {
+		panic(err)
+	}
+	return connPool
 }
 
 func mustUpMigrations(connStr string) {
