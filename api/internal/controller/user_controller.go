@@ -14,7 +14,7 @@ import (
 type usersRepo interface {
 	RandUser(ctx context.Context) (model.User, error)
 	NewUser(ctx context.Context, userData model.User) error
-	EditUser(ctx context.Context, userId int64, patch model.UserEditData) error
+	EditUser(ctx context.Context, userId int64, patch model.UserEdit) error
 }
 
 type Users struct {
@@ -30,7 +30,7 @@ func NewUsers(usersRepo usersRepo) *Users {
 func (c Users) GetRandUser(ctx *gin.Context) {
 	user, err := c.usersRepo.RandUser(ctx)
 	if err != nil {
-		c.error(ctx, err, http.StatusInternalServerError)
+		controllerError(ctx, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -42,7 +42,7 @@ func (c Users) CreateUser(ctx *gin.Context) {
 	var user model.User
 	err := ctx.BindJSON(&user)
 	if err != nil {
-		c.error(ctx, err, http.StatusBadRequest)
+		controllerError(ctx, err, http.StatusBadRequest)
 		return
 	}
 
@@ -54,7 +54,7 @@ func (c Users) CreateUser(ctx *gin.Context) {
 		if errors.Is(err, postgres.ErrUserExists) {
 			code = http.StatusConflict
 		}
-		c.error(ctx, err, code)
+		controllerError(ctx, err, code)
 		return
 	}
 
@@ -68,37 +68,25 @@ func (c Users) EditUser(ctx *gin.Context) {
 	userIdStr := ctx.Param("id")
 	userId, err := strconv.ParseInt(userIdStr, 10, 64)
 	if err != nil {
-		c.error(ctx, err, http.StatusBadRequest)
+		controllerError(ctx, err, http.StatusBadRequest)
 		return
 	}
 
-	var patch model.UserEditData
+	var patch model.UserEdit
 	err = ctx.BindJSON(&patch)
 	if err != nil {
-		c.error(ctx, err, http.StatusBadRequest)
+		controllerError(ctx, err, http.StatusBadRequest)
 		return
 	}
 
 	err = c.usersRepo.EditUser(ctx, userId, patch)
 	if err != nil {
-		c.error(ctx, err, http.StatusInternalServerError)
+		controllerError(ctx, err, http.StatusInternalServerError)
 		return
 	}
 
 	ctx.JSON(http.StatusOK, defaultResp{
 		StatusCode: http.StatusOK,
 		Message:    "user data updated",
-	})
-}
-
-type defaultResp struct {
-	StatusCode int    `json:"statusCode"`
-	Message    string `json:"message"`
-}
-
-func (c Users) error(ctx *gin.Context, err error, code int) {
-	ctx.AbortWithStatusJSON(code, defaultResp{
-		StatusCode: code,
-		Message:    err.Error(),
 	})
 }

@@ -50,7 +50,7 @@ func (r UsersRepo) NewUser(ctx context.Context, userData model.User) error {
 	return err
 }
 
-func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserEditData) error {
+func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserEdit) error {
 	args := pgx.NamedArgs{}
 
 	query := "UPDATE tg_user SET "

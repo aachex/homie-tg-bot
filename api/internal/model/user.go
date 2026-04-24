@@ -12,8 +12,8 @@ type User struct {
 	MediaFiles  []string `json:"media_files"`
 }
 
-// UserEditData представляет все данные пользователя, которые можно менять.
-type UserEditData struct {
+// UserEdit представляет все данные пользователя, которые можно менять.
+type UserEdit struct {
 	Name        string   `json:"name"`
 	Age         uint8    `json:"age"`
 	Description string   `json:"description"`
