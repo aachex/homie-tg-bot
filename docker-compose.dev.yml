@@ -1,0 +1,38 @@
+services:
+  postgres-db:
+    image: postgres:17.3-alpine3.21
+    container_name: postgres-db
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - homie-net
+    env_file:
+      - config/dev/postgres.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+
+  homie-api:
+    container_name: homie-api
+    build:
+      context: .
+      dockerfile: ./dockerfiles/api.dockerfile
+    env_file:
+      - config/dev/api.env
+    networks:
+      - homie-net
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+
+networks:
+  homie-net:
+    driver: bridge
+
+volumes:
+  db-data:
