@@ -9,4 +9,5 @@ type HouseOffer struct {
 	Price       decimal.Decimal `json:"price"`
 	Type        string          `json:"type"`
 	OwnerId     int64           `json:"owner_id"`
+	MediaFiles  []string        `json:"mediaFiles"`
 }

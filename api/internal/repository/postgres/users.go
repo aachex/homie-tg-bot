@@ -25,9 +25,9 @@ func NewUsersRepo(connPool *pgxpool.Pool) *UsersRepo {
 }
 
 func (r UsersRepo) RandUser(ctx context.Context) (user model.User, err error) {
-	query := `SELECT id, name, age, description, city FROM tg_user ORDER BY RANDOM() LIMIT 1`
+	query := `SELECT id, name, age, description, city, media_files FROM tg_user ORDER BY RANDOM() LIMIT 1`
 	row := r.connPool.QueryRow(ctx, query)
-	err = row.Scan(&user.Id, &user.Name, &user.Age, &user.Description, &user.City)
+	err = row.Scan(&user.Id, &user.Name, &user.Age, &user.Description, &user.City, &user.MediaFiles)
 	return user, err
 }
 
@@ -71,6 +71,14 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 	if patch.City != "" {
 		updates = append(updates, "city = @city")
 		args["city"] = patch.City
+	}
+	if patch.MediaFiles != nil {
+		updates = append(updates, "media_files = @media_files")
+		args["media_files"] = patch.MediaFiles
+	}
+
+	if len(updates) == 0 {
+		return nil
 	}
 
 	query += strings.Join(updates, ",")
