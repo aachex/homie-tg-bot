@@ -9,7 +9,7 @@ type User struct {
 	Age         uint8    `json:"age"`
 	Description string   `json:"description"`
 	City        string   `json:"city"`
-	MediaFiles  []string `json:"mediaFiles"`
+	MediaFiles  []string `json:"media_files"`
 }
 
 // UserEditData представляет все данные пользователя, которые можно менять.
@@ -18,5 +18,5 @@ type UserEditData struct {
 	Age         uint8    `json:"age"`
 	Description string   `json:"description"`
 	City        string   `json:"city"`
-	MediaFiles  []string `json:"mediaFiles"`
+	MediaFiles  []string `json:"media_files"`
 }
