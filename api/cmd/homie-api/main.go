@@ -26,9 +26,11 @@ func main() {
 
 	// Репозитории
 	usersRepo := postgres.NewUsersRepo(connPool)
+	offersRepo := postgres.NewOffersRepo(connPool)
 
 	// Контроллеры
 	usersController := controller.NewUsers(usersRepo)
+	offersController := controller.NewHouseOffers(offersRepo)
 
 	// Запуск сервера
 	r := gin.New()
@@ -37,6 +39,11 @@ func main() {
 	v1.GET("/user/rand", usersController.GetRandUser)
 	v1.POST("/user", usersController.CreateUser)
 	v1.PATCH("/user/:id", usersController.EditUser)
+
+	v1.GET("/offer/rand", offersController.RandOffer)
+	v1.POST("/offer", offersController.CreateOffer)
+	v1.DELETE("/offer/:id", offersController.DeleteOffer)
+	v1.PATCH("/offer/:id", offersController.SetActiveOffer)
 
 	log.Fatal(r.Run(":8080"))
 }
