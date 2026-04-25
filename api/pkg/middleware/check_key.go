@@ -1,4 +1,4 @@
-package cors
+package middleware
 
 import (
 	"net/http"
@@ -8,7 +8,7 @@ import (
 )
 
 // CheckKeyMiddleware проверяет API ключ из заголовка.
-func CheckKeyMiddleware() gin.HandlerFunc {
+func CheckKey() gin.HandlerFunc {
 	validKey := os.Getenv("VALID_KEY")
 
 	return func(ctx *gin.Context) {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"homie-api/internal/controller"
 	"homie-api/internal/repository/postgres"
-	"homie-api/pkg/cors"
+	"homie-api/pkg/middleware"
 	"log"
 	"os"
 
@@ -39,7 +39,7 @@ func main() {
 	v1 := r.Group("/api/v1")
 
 	// Middleware
-	v1.Use(cors.CheckKeyMiddleware())
+	v1.Use(middleware.CheckKey())
 
 	// Routes
 	v1.GET("/ping", controller.Ping)
