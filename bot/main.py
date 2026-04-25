@@ -2,18 +2,18 @@ import asyncio
 import os
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message
-from aiogram.filters import CommandStart
-
 from aiogram.client.session.aiohttp import AiohttpSession
 
-dp = Dispatcher()
+from app.create_user import router as createUserRouter
 
-@dp.message(CommandStart())
-async def start(msg: Message):
-    await msg.answer("Привет!")
+from dotenv import load_dotenv
 
 async def main():
+    load_dotenv("../config/dev/bot.env")
+
+    dp = Dispatcher()
+    dp.include_router(createUserRouter)
+
     proxy_url = os.getenv("PROXY_URL")
     session = AiohttpSession(proxy=proxy_url)
 
