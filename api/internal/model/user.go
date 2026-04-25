@@ -1,7 +1,5 @@
 package model
 
-// TODO: добавить поле для хранения фоток юзера
-
 // User представляет все данные пользователя.
 type User struct {
 	Id          int64    `json:"id"`
