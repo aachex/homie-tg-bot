@@ -7,12 +7,9 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-class Base(StatesGroup):
-    main_menu = State()
-
 router = Router()
 
-@router.message(CommandStart(), Base.main_menu)
+@router.message(CommandStart())
 async def start(msg: Message, state: FSMContext):
     await state.clear()
     await msg.answer(
@@ -21,12 +18,13 @@ async def start(msg: Message, state: FSMContext):
     )
     await show_main_menu(msg)
 
+@router.message(F.text == "Вернуться в главное меню")
 async def show_main_menu(msg: Message):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Найти жильё")],
             [KeyboardButton(text="Мои объявления")],
-            [KeyboardButton(text="Создать/редактировать профиль")],
+            [KeyboardButton(text="Мой профиль")],
         ],
         resize_keyboard=True
     )
@@ -36,3 +34,23 @@ async def show_main_menu(msg: Message):
         reply_markup=keyboard,
         parse_mode="HTML"
     )
+
+async def show_profile(msg: Message, name, age, city, descr, media_files):
+    caption = f"{name}, {age}, {city}"
+    if descr != "":
+        caption += f"\n\n{descr}"
+
+    media_group = MediaGroupBuilder(caption=caption)
+
+    media_files = media_files
+    for file_id in media_files:
+        media_group.add_photo(media=file_id)
+
+    await msg.answer("Так выглядит ваш профиль:", reply_markup=ReplyKeyboardRemove())
+    await msg.answer_media_group(media=media_group.build())
+
+    keyboard = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Заполнить профиль заново")],
+        [KeyboardButton(text="Вернуться в главное меню")],
+    ], resize_keyboard=True)
+    await msg.answer("Хотите заполнить профиль заново?", reply_markup=keyboard)

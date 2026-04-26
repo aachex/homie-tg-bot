@@ -1,13 +1,10 @@
 from aiogram import F, Router
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
-from aiogram.filters import CommandStart
-from aiogram.utils.media_group import MediaGroupBuilder
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-from .base_handlers import Base, show_main_menu
+from .base_handlers import show_profile
 
 class Auth(StatesGroup):
     name = State()
@@ -18,24 +15,20 @@ class Auth(StatesGroup):
 
 router = Router()
 
-@router.message(CommandStart())
-async def start(msg: Message):
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Найти жильё")],
-            [KeyboardButton(text="Мои объявления")],
-            [KeyboardButton(text="Создать/редактировать профиль")],
-        ],
-        resize_keyboard=True
+@router.message(F.text == "Мой профиль")
+async def my_profile(msg: Message):
+    # TODO: get user data by id...
+
+    await show_profile(
+        msg,
+        name="Артём",
+        age="18",
+        city="Петрозаводск",
+        descr="Ищу бюджетную комнату в центре",
+        media_files=["AgACAgIAAxkBAAIB3Gnt5TCKG34tV7DYkdBz-Zc7x2tRAAIZFmsbx0pxS1mW49mmcnPUAQADAgADeQADOwQ"]
     )
 
-    await msg.answer(
-        "Добро пожаловать в <b>Homie!</b> Здесь вы сможете найти или продать жильё в своём городе",
-        reply_markup=keyboard,
-        parse_mode="HTML"
-    )
-
-@router.message(F.text == "Создать/редактировать профиль")
+@router.message(F.text == "Заполнить профиль заново")
 async def auth_start(msg: Message, state: FSMContext):
     await msg.answer("Пожалуйста, введите Ваше имя", reply_markup=ReplyKeyboardRemove())
     await state.set_state(Auth.name)
@@ -67,6 +60,9 @@ async def auth_city(msg: Message, state: FSMContext):
 
 @router.message(Auth.descr)
 async def auth_descr(msg: Message, state: FSMContext):
+    if not msg.text:
+        await msg.answer("Нужно ввести текст")
+        return
     if msg.text != "Пропустить":
         await state.update_data(descr=msg.text)
 
@@ -74,29 +70,23 @@ async def auth_descr(msg: Message, state: FSMContext):
     await state.set_state(Auth.media_files)
 
 @router.message(Auth.media_files, F.text == "Завершить")
-async def send_profile(msg: Message, state: FSMContext):
+async def finalize_auth(msg: Message, state: FSMContext):
     data = await state.get_data()
-
-    caption = f"{data["name"]}, {data["age"]}, {data["city"]}"
-    if "descr" in data:
-        caption += f"\n\n{data["descr"]}"
-        
-    media_group = MediaGroupBuilder(caption=caption)
-
-    media_files = data["media_files"]
-    for file_id in media_files:
-        media_group.add_photo(media=file_id)
-
-    await msg.answer("Так выглядит ваш профиль:", reply_markup=ReplyKeyboardRemove())
-    await msg.answer_media_group(media=media_group.build())
-
+    await show_profile(msg, data["name"], data["age"], data["city"], data.get("descr", ""), data["media_files"])
     await state.clear()
-    await show_main_menu(msg)
+
+sent_media_group_warn: dict[tuple[int, int], bool] = {}
 
 @router.message(Auth.media_files)
 async def auth_media(msg: Message, state: FSMContext):
     if not msg.photo:
         await msg.answer("Пожалуйста, отправьте фотографию")
+        return
+    if msg.media_group_id:
+        key = (msg.chat.id, msg.media_group_id)
+        if key not in sent_media_group_warn:
+            sent_media_group_warn[key] = True
+            await msg.answer("Пожалуйста, отправляйте фотографии по одной")
         return
     
     file_id = msg.photo[-1].file_id
@@ -113,7 +103,7 @@ async def auth_media(msg: Message, state: FSMContext):
 
     # Достигли макс. количества фото
     if len(media_files) >= 3:
-        await send_profile(msg, state)
+        await finalize_auth(msg, state)
         return
 
     msgText = "Фотография успешно загружена"
@@ -123,4 +113,3 @@ async def auth_media(msg: Message, state: FSMContext):
     keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Завершить")]], resize_keyboard=True)
 
     await msg.answer(msgText, reply_markup=keyboard)
-

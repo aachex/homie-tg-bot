@@ -1,5 +1,6 @@
 import asyncio
 import os
+import requests
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -22,8 +23,8 @@ async def main():
     token = os.getenv("BOT_TOKEN")
     bot = Bot(token, session=session)
 
+    print("started bot")
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
-    print("START")
     asyncio.run(main())
