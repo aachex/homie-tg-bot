@@ -56,19 +56,19 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 	query := "UPDATE tg_user SET "
 	updates := []string{}
 
-	if patch.Name != "" {
+	if patch.Name != nil {
 		updates = append(updates, "name = @name")
 		args["name"] = patch.Name
 	}
-	if patch.Age != 0 {
+	if patch.Age != nil {
 		updates = append(updates, "age = @age")
 		args["age"] = patch.Age
 	}
-	if patch.Description != "" {
+	if patch.Description != nil {
 		updates = append(updates, "description = @description")
 		args["description"] = patch.Description
 	}
-	if patch.City != "" {
+	if patch.City != nil {
 		updates = append(updates, "city = @city")
 		args["city"] = patch.City
 	}

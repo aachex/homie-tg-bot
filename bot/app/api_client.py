@@ -10,15 +10,20 @@ API_KEY = os.getenv("API_KEY")
 
 @dataclass
 class UserEdit:
+    name: str | None = None
+    age: int | None = None
+    city: str | None = None
+    description: str | None = None
+    media_files: List[str] | None = None
+
+@dataclass
+class User(UserEdit):
+    id: int = -1
     name: str = ""
     age: int = 0
     city: str = ""
     description: str = ""
     media_files: List[str] = field(default_factory=list)
-
-@dataclass
-class User(UserEdit):
-    id: int = -1
 
 async def get_user_by_id(user_id: int) -> User:
     """Асинхронно получает пользователя по ID из API"""
@@ -71,7 +76,6 @@ async def create_user(u: User):
         print(f"Unexpected error: {e}")
         return None
 
-    
 async def edit_user(id: int, u: UserEdit):
     url = f"http://{API_HOST}:{API_PORT}/api/v1/user/{id}"
     headers = {

@@ -8,7 +8,7 @@ from aiogram import flags
 from .base_handlers import show_profile
 
 from . import api_client
-from .api_client import User
+from .api_client import User, UserEdit
 
 class Auth(StatesGroup):
     name = State()
@@ -109,7 +109,14 @@ async def finalize_auth(msg: Message, state: FSMContext):
     if new_user:
         await api_client.create_user(user)
     else:
-        await api_client.edit_user(user.id, user)
+        patch = UserEdit(
+            name=data.get("name"),
+            age=int(data.get("age")) if data.get("age") else None,
+            city=data.get("city"),
+            description=data.get("descr", ""),
+            media_files=data.get("media_files")
+        )
+        await api_client.edit_user(msg.from_user.id, patch)
 
     await show_profile(msg, user.name, user.age, user.city, user.description, user.media_files)
 
