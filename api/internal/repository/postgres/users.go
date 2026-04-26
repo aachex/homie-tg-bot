@@ -24,9 +24,9 @@ func NewUsersRepo(connPool *pgxpool.Pool) *UsersRepo {
 	}
 }
 
-func (r UsersRepo) RandUser(ctx context.Context) (user model.User, err error) {
-	query := `SELECT id, name, age, description, city, media_files FROM tg_user ORDER BY RANDOM() LIMIT 1`
-	row := r.connPool.QueryRow(ctx, query)
+func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err error) {
+	query := `SELECT id, name, age, description, city, media_files FROM tg_user WHERE id = $1`
+	row := r.connPool.QueryRow(ctx, query, id)
 	err = row.Scan(&user.Id, &user.Name, &user.Age, &user.Description, &user.City, &user.MediaFiles)
 	return user, err
 }

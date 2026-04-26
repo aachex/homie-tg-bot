@@ -12,7 +12,7 @@ import (
 )
 
 type usersRepo interface {
-	RandUser(ctx context.Context) (model.User, error)
+	GetById(ctx context.Context, id int64) (model.User, error)
 	NewUser(ctx context.Context, userData model.User) error
 	EditUser(ctx context.Context, userId int64, patch model.UserEdit) error
 }
@@ -27,8 +27,14 @@ func NewUsers(usersRepo usersRepo) *Users {
 	}
 }
 
-func (c Users) GetRandUser(ctx *gin.Context) {
-	user, err := c.usersRepo.RandUser(ctx)
+func (c Users) UserById(ctx *gin.Context) {
+	userId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		controllerError(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	user, err := c.usersRepo.GetById(ctx, userId)
 	if err != nil {
 		controllerError(ctx, err, http.StatusInternalServerError)
 		return

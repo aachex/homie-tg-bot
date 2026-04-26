@@ -44,7 +44,7 @@ func main() {
 	// Routes
 	v1.GET("/ping", controller.Ping)
 
-	v1.GET("/user/rand", usersController.GetRandUser)
+	v1.GET("/user/:id", usersController.UserById)
 	v1.POST("/user", usersController.CreateUser)
 	v1.PATCH("/user/:id", usersController.EditUser)
 
