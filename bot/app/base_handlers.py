@@ -2,9 +2,6 @@ from aiogram import F, Router
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from aiogram.filters import CommandStart
 from aiogram.utils.media_group import MediaGroupBuilder
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
-
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 router = Router()

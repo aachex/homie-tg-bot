@@ -35,6 +35,7 @@ func main() {
 
 	// Конфигурация сервера
 	r := gin.New()
+	r.GET("/ping", controller.Ping)
 
 	v1 := r.Group("/api/v1")
 
@@ -42,8 +43,6 @@ func main() {
 	v1.Use(middleware.CheckKey())
 
 	// Routes
-	v1.GET("/ping", controller.Ping)
-
 	v1.GET("/user/:id", usersController.UserById)
 	v1.POST("/user", usersController.CreateUser)
 	v1.PATCH("/user/:id", usersController.EditUser)

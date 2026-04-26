@@ -98,7 +98,7 @@ func (r UsersRepo) existsTx(ctx context.Context, tx pgx.Tx, userId int64) (exist
 }
 
 func (r UsersRepo) createUserTx(ctx context.Context, tx pgx.Tx, userData model.User) error {
-	query := `INSERT INTO tg_user (id, name, age, description, city) VALUES ($1, $2, $3, $4, $5)`
+	query := `INSERT INTO tg_user (id, name, age, description, city, media_files) VALUES ($1, $2, $3, $4, $5, $6)`
 	_, err := tx.Exec(
 		ctx,
 		query,
@@ -107,6 +107,7 @@ func (r UsersRepo) createUserTx(ctx context.Context, tx pgx.Tx, userData model.U
 		userData.Age,
 		userData.Description,
 		userData.City,
+		userData.MediaFiles,
 	)
 
 	return err

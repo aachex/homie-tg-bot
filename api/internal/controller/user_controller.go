@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"homie-api/internal/model"
 	"homie-api/internal/repository/postgres"
@@ -35,6 +36,11 @@ func (c Users) UserById(ctx *gin.Context) {
 	}
 
 	user, err := c.usersRepo.GetById(ctx, userId)
+	if errors.Is(err, sql.ErrNoRows) {
+		controllerError(ctx, errors.New("user not found"), http.StatusNotFound)
+		return
+	}
+
 	if err != nil {
 		controllerError(ctx, err, http.StatusInternalServerError)
 		return

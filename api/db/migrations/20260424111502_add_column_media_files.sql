@@ -1,10 +1,10 @@
 -- +goose Up
 -- +goose StatementBegin
 ALTER TABLE tg_user
-ADD COLUMN IF NOT EXISTS media_files TEXT[];
+ADD COLUMN IF NOT EXISTS media_files TEXT[] NOT NULL;
 
 ALTER TABLE tg_house_offer
-ADD COLUMN IF NOT EXISTS media_files TEXT[];
+ADD COLUMN IF NOT EXISTS media_files TEXT[] NOT NULL;
 -- +goose StatementEnd
 
 -- +goose Down

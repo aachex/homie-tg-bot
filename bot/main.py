@@ -1,6 +1,5 @@
 import asyncio
 import os
-import requests
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -8,11 +7,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from app.create_user_handlers import router as createUserRouter
 from app.base_handlers import router as base_router
 
-from dotenv import load_dotenv
-
 async def main():
-    load_dotenv("../config/dev/bot.env")
-
     dp = Dispatcher()
     dp.include_router(base_router)
     dp.include_router(createUserRouter)
