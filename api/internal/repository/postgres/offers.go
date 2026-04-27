@@ -31,7 +31,7 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 			media_files
 		FROM tg_house_offer 
 		WHERE id = $1`
-	row := r.connPool.QueryRow(ctx, query)
+	row := r.connPool.QueryRow(ctx, query, id)
 	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.Price, &offer.Type, &offer.MediaFiles)
 	return offer, err
 }

@@ -20,18 +20,20 @@ async def my_offers(msg: Message):
         keyboard.add(btn)
 
     await msg.answer(
-        "Ниже представлены ваши объявления. Активные отмечены 🟢зелёным цветом и находятся в начале списка",
+        "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом и находятся в начале списка",
         reply_markup=keyboard.adjust(1).as_markup())
 
-@router.callback_query(F.data.startswith("show_offer"))
+@router.callback_query(F.data.startswith("show_offer:"))
 async def show_offer(callback: CallbackQuery):
+    await callback.answer()
+
     offer_id = int(callback.data.split(":")[1])
     offer = await get_offer_by_id(offer_id)
 
     # TODO: attach media_files
-    callback.message.answer(
-        f"""
-        <b>{offer.title}</b>\n\n
-        Город: <i>{offer.city}</i>\n\n
-        Стоимость: {str(offer.price) + " рублей / месяц" if offer.type == "RENT" else " рублей"}\n\n
-        {offer.description}""", parse_mode="HTML")
+    await callback.message.answer(
+f"""
+<b>{offer.title}</b>\n\n
+Город: <i>{offer.city}</i>\n\n
+Стоимость: {str(offer.price) + " рублей / месяц" if offer.type == "RENT" else " рублей"}\n\n
+{offer.description}""", parse_mode="HTML")
