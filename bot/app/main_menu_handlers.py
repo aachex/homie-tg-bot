@@ -5,7 +5,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 
 from .auth_handlers import auth_start
-from .api_client import user_exists
+from .api.users import user_exists
 from .util import show_main_menu
 
 router = Router()

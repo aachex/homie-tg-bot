@@ -7,8 +7,7 @@ from aiogram import flags
 
 from .util import show_profile
 
-from . import api_client
-from .api_client import User, UserEdit
+from .api.users import get_user_by_id, create_user, edit_user, User, UserEdit
 
 class Auth(StatesGroup):
     name = State()
@@ -22,7 +21,7 @@ router = Router()
 @flags.rate_limit(rate=1, key="user")
 @router.message(F.text == "Мой профиль")
 async def my_profile(msg: Message, state: FSMContext):
-    user = await api_client.get_user_by_id(msg.from_user.id)
+    user = await get_user_by_id(msg.from_user.id)
 
     await show_profile(
         msg,
@@ -99,7 +98,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
 
     new_user = bool(data.get("new_user", False))
     if new_user:
-        await api_client.create_user(user)
+        await create_user(user)
     else:
         patch = UserEdit(
             name=user.name,
@@ -108,7 +107,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
             description=user.description,
             media_files=user.media_files,
         )
-        await api_client.edit_user(msg.from_user.id, patch)
+        await edit_user(msg.from_user.id, patch)
 
     await show_profile(msg, user.name, user.age, user.city, user.description, user.media_files)
 
@@ -131,7 +130,6 @@ async def auth_media(msg: Message, state: FSMContext):
     keys_to_delete = [key for key in sent_media_group_warn.keys() if key[0] == msg.chat.id]
     for key in keys_to_delete:
         del sent_media_group_warn[key]
-        
     
     file_id = msg.photo[-1].file_id
         
