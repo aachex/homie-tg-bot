@@ -1,21 +1,6 @@
-from aiogram import F, Router
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
-from aiogram.filters import CommandStart
 from aiogram.utils.media_group import MediaGroupBuilder
-from aiogram.fsm.context import FSMContext
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
-router = Router()
-
-@router.message(CommandStart())
-async def start(msg: Message, state: FSMContext):
-    await state.clear()
-    await msg.answer(
-        "Добро пожаловать в <b>Homie!</b> Здесь вы сможете найти или продать жильё в своём городе",
-        parse_mode="HTML"
-    )
-    await show_main_menu(msg)
-
-@router.message(F.text == "Вернуться в главное меню")
 async def show_main_menu(msg: Message):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[

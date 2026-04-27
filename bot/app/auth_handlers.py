@@ -5,7 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram import flags
 
-from .base_handlers import show_profile
+from .util import show_profile
 
 from . import api_client
 from .api_client import User, UserEdit
@@ -23,14 +23,6 @@ router = Router()
 @router.message(F.text == "Мой профиль")
 async def my_profile(msg: Message, state: FSMContext):
     user = await api_client.get_user_by_id(msg.from_user.id)
-    if user == None:
-        await msg.answer("Возникла непредвиденная ошибка на сервере. Попробуйте ещё раз")
-        return
-    if user.id == -1:
-        await msg.answer("У вас ещё нет профиля. Нужно его создать", reply_markup=ReplyKeyboardRemove())
-        await state.update_data(new_user=True)
-        await auth_start(msg, state)
-        return
 
     await show_profile(
         msg,
@@ -110,11 +102,11 @@ async def finalize_auth(msg: Message, state: FSMContext):
         await api_client.create_user(user)
     else:
         patch = UserEdit(
-            name=data.get("name"),
-            age=int(data.get("age")) if data.get("age") else None,
-            city=data.get("city"),
-            description=data.get("descr", ""),
-            media_files=data.get("media_files")
+            name=user.name,
+            age=user.age,
+            city=user.city,
+            description=user.description,
+            media_files=user.media_files,
         )
         await api_client.edit_user(msg.from_user.id, patch)
 

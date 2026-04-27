@@ -118,3 +118,7 @@ async def create_user(u: User) -> bool:
 
 async def edit_user(id: int, u: UserEdit) -> bool:
     return await _client.edit_user(id, u)
+
+async def user_exists(user_id: int) -> bool:
+    user = await _client.get_user_by_id(user_id)
+    return user != None
