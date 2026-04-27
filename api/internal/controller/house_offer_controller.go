@@ -13,6 +13,7 @@ import (
 )
 
 type houseOffersRepo interface {
+	OfferById(ctx context.Context, id int64) (model.HouseOffer, error)
 	RandOffer(ctx context.Context) (model.HouseOffer, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
@@ -28,6 +29,22 @@ func NewHouseOffers(houseOffersRepo houseOffersRepo) *HouseOffers {
 	return &HouseOffers{
 		houseOffersRepo: houseOffersRepo,
 	}
+}
+
+func (c HouseOffers) OfferById(ctx *gin.Context) {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		controllerError(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	offer, err := c.houseOffersRepo.OfferById(ctx, id)
+	if err != nil {
+		controllerError(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, offer)
 }
 
 func (c HouseOffers) RandOffer(ctx *gin.Context) {

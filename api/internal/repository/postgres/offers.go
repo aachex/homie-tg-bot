@@ -17,6 +17,25 @@ func NewOffersRepo(connPool *pgxpool.Pool) *OffersRepo {
 	return r
 }
 
+func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseOffer, err error) {
+	query := `
+		SELECT 
+			id,
+			is_active,
+			owner_id,
+			title,
+			description,
+			city,
+			price,
+			type,
+			media_files
+		FROM tg_house_offer 
+		WHERE id = $1`
+	row := r.connPool.QueryRow(ctx, query)
+	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.Price, &offer.Type, &offer.MediaFiles)
+	return offer, err
+}
+
 func (r OffersRepo) RandOffer(ctx context.Context) (offer model.HouseOffer, err error) {
 	query := `
 		SELECT 
