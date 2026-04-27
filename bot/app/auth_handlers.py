@@ -5,9 +5,9 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram import flags
 
-from .util import show_profile
+from .util import show_profile, is_int, handle_media_upload
 
-from .api.users import get_user_by_id, create_user, edit_user, User, UserEdit
+from .api.users import create_user, edit_user, User, UserEdit
 
 class Auth(StatesGroup):
     name = State()
@@ -21,15 +21,16 @@ router = Router()
 @flags.rate_limit(rate=1, key="user")
 @router.message(F.text == "Мой профиль")
 async def my_profile(msg: Message, state: FSMContext):
-    user = await get_user_by_id(msg.from_user.id)
+    data = await state.get_data()
+    user = data["user"]
 
     await show_profile(
         msg,
-        name=user.name,
-        age=user.age,
-        city=user.city,
-        descr=user.description,
-        media_files=user.media_files
+        name=user["name"],
+        age=int(user["age"]),
+        city=user["city"],
+        descr=user["description"],
+        media_files=user["media_files"]
     )
 
 @flags.rate_limit(rate=1, key="user")
@@ -111,54 +112,10 @@ async def finalize_auth(msg: Message, state: FSMContext):
 
     await show_profile(msg, user.name, user.age, user.city, user.description, user.media_files)
 
-sent_media_group_warn: dict[tuple[int, int], bool] = {}
-
 @flags.rate_limit(rate=1, key="user")
 @router.message(Auth.media_files)
 async def auth_media(msg: Message, state: FSMContext):
-    if not msg.photo:
-        await msg.answer("Пожалуйста, отправьте фотографию")
-        return
-    if msg.media_group_id:
-        key = (msg.chat.id, msg.media_group_id)
-        if key not in sent_media_group_warn:
-            sent_media_group_warn[key] = True
-            await msg.answer("Пожалуйста, отправляйте фотографии по одной")
-        return
-    
-    # Очистка
-    keys_to_delete = [key for key in sent_media_group_warn.keys() if key[0] == msg.chat.id]
-    for key in keys_to_delete:
-        del sent_media_group_warn[key]
-    
-    file_id = msg.photo[-1].file_id
-        
-    data = await state.get_data()
-    if "media_files" not in data:
-        data["media_files"] = []
-
-    media_files = data["media_files"]
-    media_files.append(file_id)
-
-    if len(media_files) <= 3:
-        await state.update_data(media_files=media_files)
-
-    # Достигли макс. количества фото
-    if len(media_files) >= 3:
+    done = await handle_media_upload(msg, state, 3)
+    if done:
         await finalize_auth(msg, state)
-        return
 
-    msgText = "Фотография успешно загружена"
-    if len(media_files) < 3:
-        msgText += f". Вы можете отправить ещё {3-len(media_files)}"
-
-    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Завершить")]], resize_keyboard=True)
-
-    await msg.answer(msgText, reply_markup=keyboard)
-
-def is_int(n):
-    try:
-        int(n)
-        return True
-    except:
-        return False

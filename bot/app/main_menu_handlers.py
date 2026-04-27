@@ -5,7 +5,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 
 from .auth_handlers import auth_start
-from .api.users import user_exists
+from .api.users import user_exists, get_user_by_id
 from .util import show_main_menu
 
 router = Router()
@@ -28,8 +28,11 @@ async def start(msg: Message, state: FSMContext):
         "Добро пожаловать в <b>Homie!</b> Здесь вы сможете найти или продать жильё в своём городе",
         parse_mode="HTML"
     )
-    await show_main_menu(msg)
+    await main_menu(msg, state)
 
 @router.message(F.text == "Вернуться в главное меню")
-async def main_menu(msg: Message):
+async def main_menu(msg: Message, state: FSMContext):
+    user = await get_user_by_id(msg.from_user.id)
+    await state.update_data(user=user.__dict__)
+
     await show_main_menu(msg)
