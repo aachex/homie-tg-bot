@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 from .base import APIClient
 
@@ -11,7 +12,7 @@ class HouseOffer:
     title: str = ""
     description: str = ""
     city: str = ""
-    price: int = 0
+    price: Decimal = 0
     type: str = ""
     media_files: list[str] = field(default_factory=list)
 
@@ -21,7 +22,7 @@ class HouseOfferCreate:
     title: str = ""
     description: str = ""
     city: str = ""
-    price: int = 0
+    price: Decimal = 0
     type: str = ""
     media_files: list[str] = field(default_factory=list)
 
@@ -35,11 +36,23 @@ class HouseOfferPreview:
 
 class HouseOffersApi(APIClient):
     async def get_by_id(self, offer_id: int) -> HouseOffer:
-        offer = await self._request("GET", f"offer/{offer_id}")
+        offer_json = await self._request("GET", f"offer/{offer_id}")
+        offer = HouseOffer(
+            id=offer_id,
+            owner_id=int(offer_json["owner_id"]),
+            is_active=offer_json["is_active"],
+            title=offer_json["title"],
+            description=offer_json["description"],
+            city=offer_json["city"],
+            price=Decimal(offer_json["price"]),
+            type=offer_json["type"],
+            media_files=offer_json["media_files"],
+        )
+        return offer
 
     async def get_user_offers(self, user_id: int) -> list[HouseOfferPreview]:
-        offersJson = await self._request("GET", f"user/{user_id}/offers")
-        offers = list(offersJson)
+        offers_json = await self._request("GET", f"user/{user_id}/offers")
+        offers = list(offers_json)
         result = [
             HouseOfferPreview(
                 id=int(offer["id"]),
@@ -51,6 +64,9 @@ class HouseOffersApi(APIClient):
         return result
     
 _offers_api = HouseOffersApi()
+
+async def get_offer_by_id(offer_id: int) -> HouseOffer:
+    return await _offers_api.get_by_id(offer_id)
 
 async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:
     return await _offers_api.get_user_offers(user_id)
