@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"homie-api/internal/model"
 	"net/http"
@@ -12,6 +14,7 @@ import (
 
 type houseOffersRepo interface {
 	RandOffer(ctx context.Context) (model.HouseOffer, error)
+	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
 	SetActive(ctx context.Context, id int64, active bool) error
@@ -35,6 +38,22 @@ func (c HouseOffers) RandOffer(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, offer)
+}
+
+func (c HouseOffers) UserOffers(ctx *gin.Context) {
+	userId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		controllerError(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	offers, err := c.houseOffersRepo.UserOffers(ctx, userId)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		controllerError(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, offers)
 }
 
 func (c HouseOffers) CreateOffer(ctx *gin.Context) {

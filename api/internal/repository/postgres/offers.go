@@ -12,9 +12,9 @@ type OffersRepo struct {
 }
 
 func NewOffersRepo(connPool *pgxpool.Pool) *OffersRepo {
-	return &OffersRepo{
-		connPool: connPool,
-	}
+	r := new(OffersRepo)
+	r.connPool = connPool
+	return r
 }
 
 func (r OffersRepo) RandOffer(ctx context.Context) (offer model.HouseOffer, err error) {
@@ -36,6 +36,27 @@ func (r OffersRepo) RandOffer(ctx context.Context) (offer model.HouseOffer, err 
 	row := r.connPool.QueryRow(ctx, query)
 	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.Price, &offer.Type, &offer.MediaFiles)
 	return offer, err
+}
+
+func (r OffersRepo) UserOffers(ctx context.Context, userId int64) (offers []model.HouseOfferPreview, err error) {
+	offers = []model.HouseOfferPreview{}
+
+	query := `SELECT id, is_active, title FROM tg_house_offer WHERE owner_id = $1`
+	rows, err := r.connPool.Query(ctx, query, userId)
+	if err != nil {
+		return offers, err
+	}
+
+	var offer model.HouseOfferPreview
+	for rows.Next() {
+		err = rows.Scan(&offer.Id, &offer.IsActive, &offer.Title)
+		if err != nil {
+			return offers, err
+		}
+		offers = append(offers, offer)
+	}
+
+	return offers, rows.Err()
 }
 
 func (r OffersRepo) CreateOffer(ctx context.Context, data model.HouseOfferCreate) (id int64, err error) {

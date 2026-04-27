@@ -25,3 +25,10 @@ type HouseOfferCreate struct {
 	Type        string          `json:"type"`
 	MediaFiles  []string        `json:"media_files"`
 }
+
+// HouseOfferPreview представляет поверхностные данные, которые видит владелец своих объявлений.
+type HouseOfferPreview struct {
+	Id       int64  `json:"id"`
+	IsActive bool   `json:"is_active"`
+	Title    string `json:"title"`
+}
