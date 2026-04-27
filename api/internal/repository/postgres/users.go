@@ -31,7 +31,7 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 	return user, err
 }
 
-func (r UsersRepo) NewUser(ctx context.Context, userData model.User) error {
+func (r UsersRepo) CreateUser(ctx context.Context, userData model.User) error {
 	err := r.transaction(ctx, func(tx pgx.Tx) error {
 		// Проверяем, что пользователь не существует
 		userExists, err := r.existsTx(ctx, tx, userData.Id)
