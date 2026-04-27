@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 from .base import APIClient
 
@@ -14,7 +13,7 @@ class HouseOffer:
     city: str = ""
     price: int = 0
     type: str = ""
-    media_files: List[str] = field(default_factory=list)
+    media_files: list[str] = field(default_factory=list)
 
 @dataclass
 class HouseOfferCreate:
@@ -24,7 +23,31 @@ class HouseOfferCreate:
     city: str = ""
     price: int = 0
     type: str = ""
-    media_files: List[str] = field(default_factory=list)
+    media_files: list[str] = field(default_factory=list)
+
+@dataclass
+class HouseOfferPreview:
+    """Поверхностные данные, которые видит владелец своих объявлений."""
+    id: int
+    is_active: bool
+    title: str
+
 
 class HouseOffersApi(APIClient):
-    ...
+    async def get_user_offers(self, user_id: int) -> list[HouseOfferPreview]:
+        offersJson = await self._request("GET", f"user/{user_id}/offers")
+        offers = list(offersJson)
+        result = [
+            HouseOfferPreview(
+                id=int(offer["id"]),
+                is_active=bool(offer["is_active"]),
+                title=offer["title"]
+            )
+            for offer in offers
+        ]
+        return result
+    
+_offersApi = HouseOffersApi()
+
+async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:
+    return await _offersApi.get_user_offers(user_id)

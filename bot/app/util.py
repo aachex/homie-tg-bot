@@ -28,11 +28,9 @@ async def show_profile(msg: Message, name, age, city, descr, media_files):
     for file_id in media_files:
         media_group.add_photo(media=file_id)
 
-    await msg.answer("Так выглядит ваш профиль:", reply_markup=ReplyKeyboardRemove())
-    await msg.answer_media_group(media=media_group.build())
-
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Заполнить профиль заново")],
         [KeyboardButton(text="Вернуться в главное меню")],
     ], resize_keyboard=True)
-    await msg.answer("Хотите заполнить профиль заново?", reply_markup=keyboard)
+    await msg.answer("Так выглядит ваш профиль:", reply_markup=keyboard)
+    await msg.answer_media_group(media=media_group.build())
