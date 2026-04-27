@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS tg_user (
     id BIGINT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     age INT NOT NULL CHECK (0 <= age AND age <= 150),
-    description TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
     city TEXT NOT NULL
 );
 -- +goose StatementEnd

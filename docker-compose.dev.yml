@@ -30,7 +30,7 @@ services:
       postgres_db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080/api/v1/ping"]
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080/ping"]
       interval: 1m30s
       timeout: 30s
       retries: 5
