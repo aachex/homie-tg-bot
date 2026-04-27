@@ -34,6 +34,9 @@ class HouseOfferPreview:
 
 
 class HouseOffersApi(APIClient):
+    async def get_by_id(self, offer_id: int) -> HouseOffer:
+        offer = await self._request("GET", f"offer/{offer_id}")
+
     async def get_user_offers(self, user_id: int) -> list[HouseOfferPreview]:
         offersJson = await self._request("GET", f"user/{user_id}/offers")
         offers = list(offersJson)
@@ -47,7 +50,7 @@ class HouseOffersApi(APIClient):
         ]
         return result
     
-_offersApi = HouseOffersApi()
+_offers_api = HouseOffersApi()
 
 async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:
-    return await _offersApi.get_user_offers(user_id)
+    return await _offers_api.get_user_offers(user_id)

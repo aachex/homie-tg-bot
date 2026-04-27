@@ -42,8 +42,7 @@ class UsersApi(APIClient):
     
     async def create_user(self, user: User) -> bool:
         """Создаёт пользователя"""
-        result = await self._request("POST", "user", data=user.__dict__, expected_status=201)
-        return result is not None
+        await self._request("POST", "user", data=user.__dict__, expected_status=201)
     
     async def edit_user(self, user_id: int, user: UserEdit) -> bool:
         """Обновляет пользователя (только указанные поля)"""
@@ -54,20 +53,19 @@ class UsersApi(APIClient):
             print("No fields to update")
             return True
         
-        result = await self._request("PATCH", f"user/{user_id}", data=data, expected_status=200)
-        return result is not None
+        await self._request("PATCH", f"user/{user_id}", data=data, expected_status=200)
 
-_client = UsersApi()
+_users_api = UsersApi()
 
 async def get_user_by_id(user_id: int) -> Optional[User]:
-    return await _client.get_user_by_id(user_id)
+    return await _users_api.get_user_by_id(user_id)
 
-async def create_user(u: User) -> bool:
-    return await _client.create_user(u)
+async def create_user(u: User):
+    await _users_api.create_user(u)
 
-async def edit_user(id: int, u: UserEdit) -> bool:
-    return await _client.edit_user(id, u)
+async def edit_user(id: int, u: UserEdit):
+    await _users_api.edit_user(id, u)
 
 async def user_exists(user_id: int) -> bool:
-    user = await _client.get_user_by_id(user_id)
+    user = await _users_api.get_user_by_id(user_id)
     return user != None
