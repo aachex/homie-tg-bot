@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from .base import APIClient, User, UserEdit
+from .base import APIClient
 
 @dataclass
 class User:
