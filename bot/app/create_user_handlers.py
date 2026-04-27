@@ -19,7 +19,7 @@ class Auth(StatesGroup):
 
 router = Router()
 
-@flags.rate_limit(rate=2, key="user")
+@flags.rate_limit(rate=1, key="user")
 @router.message(F.text == "Мой профиль")
 async def my_profile(msg: Message, state: FSMContext):
     user = await api_client.get_user_by_id(msg.from_user.id)
@@ -41,20 +41,20 @@ async def my_profile(msg: Message, state: FSMContext):
         media_files=user.media_files
     )
 
-@flags.rate_limit(rate=2, key="user")
+@flags.rate_limit(rate=1, key="user")
 @router.message(F.text == "Заполнить профиль заново")
 async def auth_start(msg: Message, state: FSMContext):
     await msg.answer("Пожалуйста, введите Ваше имя", reply_markup=ReplyKeyboardRemove())
     await state.set_state(Auth.name)
 
-@flags.rate_limit(rate=2, key="user")
+@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.name)
 async def auth_name(msg: Message, state: FSMContext):
     await state.update_data(name=msg.text)
     await msg.answer("Сколько Вам лет?")
     await state.set_state(Auth.age)
 
-@flags.rate_limit(rate=2, key="user")
+@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.age)
 async def auth_age(msg: Message, state: FSMContext):
     if not is_int(msg.text):
@@ -64,7 +64,7 @@ async def auth_age(msg: Message, state: FSMContext):
     await msg.answer("Из какого вы города?")
     await state.set_state(Auth.city)
 
-@flags.rate_limit(rate=2, key="user")
+@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.city)
 async def auth_city(msg: Message, state: FSMContext):
     await state.update_data(city=msg.text)
@@ -78,7 +78,7 @@ async def auth_city(msg: Message, state: FSMContext):
     await msg.answer("Расскажите немного о себе. Данный пункт необязателен, но желателен", reply_markup=keyboard)
     await state.set_state(Auth.descr)
 
-@flags.rate_limit(rate=2, key="user")
+@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.descr)
 async def auth_descr(msg: Message, state: FSMContext):
     if not msg.text:
@@ -90,7 +90,7 @@ async def auth_descr(msg: Message, state: FSMContext):
     await msg.answer("Пожалуйста, отправьте фотографию с вашим лицом. Профилям без лица меньше доверяют", reply_markup=ReplyKeyboardRemove())
     await state.set_state(Auth.media_files)
 
-@flags.rate_limit(rate=2, key="user")
+@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.media_files, F.text == "Завершить")
 async def finalize_auth(msg: Message, state: FSMContext):
     data = await state.get_data()
@@ -122,7 +122,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
 
 sent_media_group_warn: dict[tuple[int, int], bool] = {}
 
-@flags.rate_limit(rate=2, key="user")
+@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.media_files)
 async def auth_media(msg: Message, state: FSMContext):
     if not msg.photo:
