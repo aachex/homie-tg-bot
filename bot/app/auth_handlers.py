@@ -25,6 +25,9 @@ async def my_profile(msg: Message, state: FSMContext):
     await state.clear()
 
     user = await get_user_by_id(msg.from_user.id)
+    if user == None:
+        return
+
     await state.update_data(user=user.__dict__)
 
     profile_data = UserVisibleData(

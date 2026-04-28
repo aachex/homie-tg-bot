@@ -178,7 +178,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
     await msg.answer(msg_text, parse_mode="HTML", reply_markup=keyboard)
 
 @router.message(CreateOffer.media)
-async def enter_descr(msg: Message, state: FSMContext):
+async def upload_media(msg: Message, state: FSMContext):
     done = await handle_media_upload(msg, state, 10)
     if done:
         await finalize_create_offer()
