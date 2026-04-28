@@ -21,27 +21,6 @@ class CreateOffer(StatesGroup):
     description = State()
     media = State()
 
-@router.message(F.text == "Мои объявления")
-async def my_offers(msg: Message, state: FSMContext):
-    await state.clear()
-
-    offers = await get_user_offers(msg.from_user.id)
-
-    keyboard = InlineKeyboardBuilder()
-    keyboard.add(InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary"))
-
-    for offer in offers:
-        btn = InlineKeyboardButton(text=offer.title, callback_data=f"show_offer:{offer.id}")
-        if offer.is_active:
-            btn.style = "success"
-        keyboard.add(btn)
-
-    markup = keyboard.adjust(1).as_markup()
-    markup.resize_keyboard = True
-    await msg.answer(
-        "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом и находятся в начале списка",
-        reply_markup=markup)
-
 @router.callback_query(F.data.startswith("show_offer:"))
 async def show_house_offer(callback: CallbackQuery):
     await callback.answer()
@@ -182,3 +161,24 @@ async def upload_media(msg: Message, state: FSMContext):
     done = await handle_media_upload(msg, state, 10)
     if done:
         await finalize_create_offer()
+
+@router.message(F.text == "Мои объявления")
+async def my_offers(msg: Message, state: FSMContext):
+    await state.clear()
+
+    offers = await get_user_offers(msg.from_user.id)
+
+    keyboard = InlineKeyboardBuilder()
+    keyboard.add(InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary"))
+
+    for offer in offers:
+        btn = InlineKeyboardButton(text=offer.title, callback_data=f"show_offer:{offer.id}")
+        if offer.is_active:
+            btn.style = "success"
+        keyboard.add(btn)
+
+    markup = keyboard.adjust(1).as_markup()
+    markup.resize_keyboard = True
+    await msg.answer(
+        "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом и находятся в начале списка",
+        reply_markup=markup)

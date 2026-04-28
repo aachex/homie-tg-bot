@@ -20,26 +20,6 @@ class Auth(StatesGroup):
 router = Router()
 
 @flags.rate_limit(rate=1, key="user")
-@router.message(F.text == "Мой профиль")
-async def my_profile(msg: Message, state: FSMContext):
-    await state.clear()
-
-    user = await get_user_by_id(msg.from_user.id)
-    if user == None:
-        return
-
-    await state.update_data(user=user.__dict__)
-
-    profile_data = UserVisibleData(
-        name=user.name,
-        age=user.age,
-        city=user.city,
-        description=user.description,
-        media_files=user.media_files
-    )
-    await show_profile(msg, profile_data)
-
-@flags.rate_limit(rate=1, key="user")
 @router.message(F.text == "Заполнить профиль заново")
 async def auth_start(msg: Message, state: FSMContext):
     await msg.answer("Пожалуйста, введите Ваше имя", reply_markup=ReplyKeyboardRemove())
@@ -119,3 +99,19 @@ async def auth_media(msg: Message, state: FSMContext):
     if done:
         await finalize_auth(msg, state)
 
+@flags.rate_limit(rate=1, key="user")
+@router.message(F.text == "Мой профиль")
+async def my_profile(msg: Message, state: FSMContext):
+    await state.clear()
+
+    user = await get_user_by_id(msg.from_user.id)
+    await state.update_data(user=user.__dict__)
+
+    profile_data = UserVisibleData(
+        name=user.name,
+        age=user.age,
+        city=user.city,
+        description=user.description,
+        media_files=user.media_files
+    )
+    await show_profile(msg, profile_data)
