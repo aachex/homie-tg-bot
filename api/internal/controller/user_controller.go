@@ -70,8 +70,8 @@ func (c Users) CreateUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, defaultResp{
-		StatusCode: http.StatusOK,
+	ctx.JSON(http.StatusCreated, defaultResp{
+		StatusCode: http.StatusCreated,
 		Message:    "user created",
 	})
 }

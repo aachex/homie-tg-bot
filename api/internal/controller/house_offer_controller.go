@@ -99,7 +99,7 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 		MediaFiles:  data.MediaFiles,
 	}
 
-	ctx.JSON(http.StatusOK, resp)
+	ctx.JSON(http.StatusCreated, resp)
 }
 
 func (c HouseOffers) DeleteOffer(ctx *gin.Context) {
