@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 
 from .base import APIClient
 
@@ -11,16 +11,16 @@ class User:
     age: int = 0
     city: str = ""
     description: str = ""
-    media_files: List[str] = field(default_factory=list)
+    media_files: list[str] = field(default_factory=list)
 
 @dataclass
-class UserEdit:
-    """Изменяемые данные пользователя."""
+class UserVisibleData:
+    """Видимые данные пользователя."""
     name: Optional[str] = None
     age: Optional[int] = None
     city: Optional[str] = None
     description: Optional[str] = None
-    media_files: Optional[List[str]] = None
+    media_files: Optional[list[str]] = None
 
 class UsersApi(APIClient):
     """API для взаимодействия с пользователями."""
@@ -44,7 +44,7 @@ class UsersApi(APIClient):
         """Создаёт пользователя"""
         await self._request("POST", "user", data=user.__dict__, expected_status=201)
     
-    async def edit_user(self, user_id: int, user: UserEdit) -> bool:
+    async def edit_user(self, user_id: int, user: UserVisibleData) -> bool:
         """Обновляет пользователя (только указанные поля)"""
         # Убираем поля со значением None
         data = {k: v for k, v in user.__dict__.items() if v is not None}
@@ -63,7 +63,7 @@ async def get_user_by_id(user_id: int) -> Optional[User]:
 async def create_user(u: User):
     await _users_api.create_user(u)
 
-async def edit_user(id: int, u: UserEdit):
+async def edit_user(id: int, u: UserVisibleData):
     await _users_api.edit_user(id, u)
 
 async def user_exists(user_id: int) -> bool:

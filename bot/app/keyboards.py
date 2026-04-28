@@ -1,6 +1,6 @@
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
-skipKeyboard = ReplyKeyboardMarkup(
+skip_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="Пропустить")]
     ],

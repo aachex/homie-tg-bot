@@ -32,7 +32,5 @@ async def start(msg: Message, state: FSMContext):
 
 @router.message(F.text == "Вернуться в главное меню")
 async def main_menu(msg: Message, state: FSMContext):
-    user = await get_user_by_id(msg.from_user.id)
-    await state.update_data(user=user.__dict__)
-
+    await state.clear()
     await show_main_menu(msg)

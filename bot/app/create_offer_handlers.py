@@ -1,17 +1,15 @@
-from decimal import Decimal
-
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.utils.media_group import MediaGroupBuilder
 
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-from .util import is_decimal, handle_media_upload, normalize_decimal
-from .keyboards import skipKeyboard
+from .util import is_int, handle_media_upload, show_offer
+from .keyboards import skip_keyboard
 
-from .api.offers import get_user_offers, HouseOfferCreate
+from .api.users import get_user_by_id
+from .api.offers import get_user_offers, create_offer, get_offer_by_id, HouseOfferCreate
 
 router = Router()
 
@@ -21,10 +19,12 @@ class CreateOffer(StatesGroup):
     title = State()
     price = State()
     description = State()
-    media = State()  
+    media = State()
 
 @router.message(F.text == "Мои объявления")
-async def my_offers(msg: Message):
+async def my_offers(msg: Message, state: FSMContext):
+    await state.clear()
+
     offers = await get_user_offers(msg.from_user.id)
 
     keyboard = InlineKeyboardBuilder()
@@ -41,64 +41,31 @@ async def my_offers(msg: Message):
     await msg.answer(
         "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом и находятся в начале списка",
         reply_markup=markup)
-    
+
 @router.callback_query(F.data.startswith("show_offer:"))
-async def show_house_offer(msg: Message, data: HouseOfferCreate):
-    """Отображает созданное объявление для подтверждения"""
-    
-    # ========== Форматирование цены ==========
-    if data.price == 0:
-        price_line = "💰 Цена: Не указана"
-    else:
-        # Форматируем число
-        if data.price == data.price.to_integral():
-            price_str = f"{int(data.price):,}".replace(',', ' ')
-        else:
-            price_str = f"{data.price:,.2f}".replace(',', ' ')
-        
-        # Добавляем суффикс
-        suffix = "₽/месяц" if data.type == "RENT" else "₽"
-        price_line = f"💰 Цена: {price_str} {suffix}"
-    
-    # ========== Тип объявления ==========
-    if data.type == "RENT":
-        type_text = "🏠 Сдаётся"
-    elif data.type == "SELL":
-        type_text = "💰 Продаётся"
-    else:
-        type_text = "📋 Объявление"
-    
-    # ========== Текстовое сообщение ==========
-    message_text = f"""
-<b>📋 {type_text}</b>
+async def show_house_offer(callback: CallbackQuery):
+    await callback.answer()
 
-<b>🏷️ Название:</b> {data.title}
-<b>📍 Город:</b> {data.city}
-{price_line}
+    offer_id = int(callback.data.split(':')[1])
+    offer = await get_offer_by_id(offer_id)
 
-<b>📝 Описание:</b>
-{data.description if data.description else '<i>—</i>'}
+    visible_data = HouseOfferCreate(
+        title=offer.title,
+        description=offer.description,
+        city=offer.city,
+        price=offer.price,
+        type=offer.type,
+        media_files=offer.media_files
+    )
 
-<b>📸 Фотографий:</b> {len(data.media_files)}
-"""
-    
-    # ========== Отправка фотографий ==========
-    if data.media_files:
-        # Telegram ограничивает медиагруппу 10 элементами
-        photos_to_send = data.media_files[:10]
-        
-        media_group = MediaGroupBuilder(caption=f"{message_text}")
-        for photo_id in photos_to_send:
-            media_group.add_photo(media=photo_id, parse_mode="HTML")
-        
-        await msg.answer_media_group(media=media_group.build())
-        
-        if len(data.media_files) > 10:
-            await msg.answer(f"⚠️ Показаны первые 10 из {len(data.media_files)} фотографий")
+    await show_offer(callback.message, visible_data)
 
 @router.callback_query(F.data == "create_offer")
 async def create_start(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
+
+    user = await get_user_by_id(callback.from_user.id)
+    await state.update_data(user=user.__dict__)
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Сдавать"), KeyboardButton(text="Продавать")]
@@ -148,9 +115,10 @@ async def enter_title(msg: Message, state: FSMContext):
 
     msg_text = "Укажите, сколько рублей в месяц стоит аренда вашей недвижимости"
     if offer_type == "SELL":
-        msg_text = "Укажите, сколько рублей стоит ваша недвижимость. Этот этап можно пропустить"
+        msg_text = "Укажите, сколько рублей стоит ваша недвижимость"
+    msg_text += ". Этот этап можно пропустить"
 
-    await msg.answer(msg_text, reply_markup=skipKeyboard)
+    await msg.answer(msg_text, reply_markup=skip_keyboard)
     await state.set_state(CreateOffer.price)
 
 @router.message(CreateOffer.price)
@@ -158,9 +126,9 @@ async def enter_price(msg: Message, state: FSMContext):
     if msg.text == "Пропустить":
         await state.update_data(price=0)
     else:
-        price_str = normalize_decimal(msg.text)
-        if not is_decimal(price_str):
-            await msg.answer("Укажите число, можно как целое, так и дробное (с разделением через точку или запятую)")
+        price_str = msg.text.replace(' ', '') # Удаление пробелов
+        if not is_int(price_str):
+            await msg.answer("Укажите целое число")
             return
         await state.update_data(price=price_str)
     
@@ -171,7 +139,7 @@ async def enter_price(msg: Message, state: FSMContext):
     if offer_type == "SELL":
         msg_text = "Напишите подробное описание вашего объявления. Так Вы повысите вероятность найти покупателя"
 
-    await msg.answer(msg_text, reply_markup=skipKeyboard)
+    await msg.answer(msg_text, reply_markup=skip_keyboard)
     await state.set_state(CreateOffer.description)
 
 @router.message(CreateOffer.description)
@@ -191,15 +159,23 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
     await state.clear()
 
     offer = HouseOfferCreate(
+        owner_id=msg.from_user.id,
         title=data["title"],
         description=data.get("descr", ""),
         city=data["city"],
-        price=Decimal(data["price"]),
+        price=int(data["price"]),
         type=data["type"],
         media_files=data["media_files"]
     )
 
-    await show_house_offer(msg, offer)
+    await create_offer(offer)
+
+    await show_offer(msg, offer)
+
+    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Вернуться в главное меню")]], resize_keyboard=True)
+    t = "сдаче" if offer.type == "RENT" else "продаже"
+    msg_text = f"<b>Готово!</b> Вы успешно создали объявление о {t} вашей недвижимости. Для более детального взаимодействия с вашими объявлениями ищите вкладку <b>Мои объявления</b> в главном меню."
+    await msg.answer(msg_text, parse_mode="HTML", reply_markup=keyboard)
 
 @router.message(CreateOffer.media)
 async def enter_descr(msg: Message, state: FSMContext):

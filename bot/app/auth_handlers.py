@@ -1,13 +1,14 @@
 from aiogram import F, Router
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import Message, ReplyKeyboardRemove
 
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram import flags
 
 from .util import show_profile, is_int, handle_media_upload
+from .keyboards import skip_keyboard
 
-from .api.users import create_user, edit_user, User, UserEdit
+from .api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
 
 class Auth(StatesGroup):
     name = State()
@@ -21,17 +22,19 @@ router = Router()
 @flags.rate_limit(rate=1, key="user")
 @router.message(F.text == "Мой профиль")
 async def my_profile(msg: Message, state: FSMContext):
-    data = await state.get_data()
-    user = data["user"]
+    await state.clear()
 
-    await show_profile(
-        msg,
-        name=user["name"],
-        age=int(user["age"]),
-        city=user["city"],
-        descr=user["description"],
-        media_files=user["media_files"]
+    user = await get_user_by_id(msg.from_user.id)
+    await state.update_data(user=user.__dict__)
+
+    profile_data = UserVisibleData(
+        name=user.name,
+        age=user.age,
+        city=user.city,
+        description=user.description,
+        media_files=user.media_files
     )
+    await show_profile(msg, profile_data)
 
 @flags.rate_limit(rate=1, key="user")
 @router.message(F.text == "Заполнить профиль заново")
@@ -61,13 +64,7 @@ async def auth_age(msg: Message, state: FSMContext):
 async def auth_city(msg: Message, state: FSMContext):
     await state.update_data(city=msg.text)
 
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Пропустить")]
-        ],
-        resize_keyboard=True
-    )
-    await msg.answer("Расскажите немного о себе. Данный пункт необязателен, но желателен", reply_markup=keyboard)
+    await msg.answer("Расскажите немного о себе. Данный пункт необязателен, но желателен", reply_markup=skip_keyboard)
     await state.set_state(Auth.descr)
 
 @flags.rate_limit(rate=1, key="user")
@@ -88,8 +85,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
 
-    user = User(
-        id=msg.from_user.id,
+    user = UserVisibleData(
         name=data["name"],
         age=int(data["age"]),
         city=data["city"],
@@ -97,20 +93,21 @@ async def finalize_auth(msg: Message, state: FSMContext):
         media_files=data["media_files"]
     )
 
-    new_user = bool(data.get("new_user", False))
-    if new_user:
-        await create_user(user)
+    is_new_user = bool(data.get("new_user", False))
+    if not is_new_user:
+        await edit_user(msg.from_user.id, user)
     else:
-        patch = UserEdit(
+        new_user = User(
+            id=msg.from_user.id,
             name=user.name,
             age=user.age,
             city=user.city,
             description=user.description,
             media_files=user.media_files,
         )
-        await edit_user(msg.from_user.id, patch)
-
-    await show_profile(msg, user.name, user.age, user.city, user.description, user.media_files)
+        await create_user(new_user)
+        
+    await show_profile(msg, user)
 
 @flags.rate_limit(rate=1, key="user")
 @router.message(Auth.media_files)

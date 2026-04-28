@@ -1,6 +1,4 @@
 from dataclasses import dataclass, field
-from decimal import Decimal
-
 from .base import APIClient
 
 @dataclass
@@ -12,17 +10,18 @@ class HouseOffer:
     title: str = ""
     description: str = ""
     city: str = ""
-    price: Decimal = 0
+    price: int = 0
     type: str = ""
     media_files: list[str] = field(default_factory=list)
 
 @dataclass
 class HouseOfferCreate:
-    """Данные, которые нужно ввести для создания объявления."""
+    """Данные, необходимые для создания объявления."""
+    owner_id: int = 0
     title: str = ""
     description: str = ""
     city: str = ""
-    price: Decimal = 0
+    price: int = 0
     type: str = ""
     media_files: list[str] = field(default_factory=list)
 
@@ -44,7 +43,7 @@ class HouseOffersApi(APIClient):
             title=offer_json["title"],
             description=offer_json["description"],
             city=offer_json["city"],
-            price=Decimal(offer_json["price"]),
+            price=int(offer_json["price"]),
             type=offer_json["type"],
             media_files=offer_json["media_files"],
         )
@@ -63,6 +62,9 @@ class HouseOffersApi(APIClient):
         ]
         return result
     
+    async def create_offer(self, offer: HouseOfferCreate):
+        await self._request("POST", f"offer", data=offer.__dict__, expected_status=201)
+    
 _offers_api = HouseOffersApi()
 
 async def get_offer_by_id(offer_id: int) -> HouseOffer:
@@ -70,3 +72,7 @@ async def get_offer_by_id(offer_id: int) -> HouseOffer:
 
 async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:
     return await _offers_api.get_user_offers(user_id)
+
+async def create_offer(offer: HouseOfferCreate):
+    r = await _offers_api.create_offer(offer)
+    print(r)
