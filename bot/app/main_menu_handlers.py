@@ -20,7 +20,6 @@ async def start(msg: Message, state: FSMContext):
             "Добро пожаловать в <b>Homie!</b> Здесь вы сможете найти или продать жильё в своём городе.\n\nНо прежде чем начать, вам нужно создать профиль",
             parse_mode="HTML"
         )
-        await state.update_data(new_user=True)
         await auth_start(msg, state)
         return
 
@@ -30,7 +29,7 @@ async def start(msg: Message, state: FSMContext):
     )
     await main_menu(msg, state)
 
-@router.message(F.text == "Вернуться в главное меню")
+@router.message(F.text == "В главное меню")
 async def main_menu(msg: Message, state: FSMContext):
     await state.clear()
     await show_main_menu(msg)

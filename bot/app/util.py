@@ -34,7 +34,7 @@ async def show_profile(msg: Message, user: UserVisibleData):
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Заполнить профиль заново")],
-        [KeyboardButton(text="Вернуться в главное меню")],
+        [KeyboardButton(text="В главное меню")],
     ], resize_keyboard=True)
     await msg.answer("Так выглядит ваш профиль:", reply_markup=keyboard)
     await msg.answer_media_group(media=media_group.build())
