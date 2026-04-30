@@ -5,7 +5,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-from .util import is_int, handle_media_upload, show_offer
+from .util.offer import show_offer
+from .util.shared import is_int, handle_media_upload
 from .keyboards import skip_keyboard
 
 from .api.users import get_user_by_id
@@ -151,7 +152,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
 
     await show_offer(msg, offer)
 
-    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Вернуться в главное меню")]], resize_keyboard=True)
+    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="В главное меню")]], resize_keyboard=True)
     t = "сдаче" if offer.type == "RENT" else "продаже"
     msg_text = f"<b>Готово!</b> Вы успешно создали объявление о {t} вашей недвижимости. Для более детального взаимодействия с вашими объявлениями ищите вкладку <b>Мои объявления</b> в главном меню."
     await msg.answer(msg_text, parse_mode="HTML", reply_markup=keyboard)
@@ -160,7 +161,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
 async def upload_media(msg: Message, state: FSMContext):
     done = await handle_media_upload(msg, state, 10)
     if done:
-        await finalize_create_offer()
+        await finalize_create_offer(msg, state)
 
 @router.message(F.text == "Мои объявления")
 async def my_offers(msg: Message, state: FSMContext):

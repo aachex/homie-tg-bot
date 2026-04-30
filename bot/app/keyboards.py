@@ -1,4 +1,4 @@
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 skip_keyboard = ReplyKeyboardMarkup(
     keyboard=[

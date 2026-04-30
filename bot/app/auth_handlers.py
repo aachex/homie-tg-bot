@@ -5,9 +5,10 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram import flags
 
-from .util import show_profile, is_int, handle_media_upload
 from .keyboards import skip_keyboard
 
+from .util.auth import show_profile
+from .util.shared import is_int, handle_media_upload
 from .api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
 
 class Auth(StatesGroup):
