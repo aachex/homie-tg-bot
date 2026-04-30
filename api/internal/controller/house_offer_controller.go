@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"homie-api/internal/model"
 	"net/http"
@@ -11,7 +13,9 @@ import (
 )
 
 type houseOffersRepo interface {
+	OfferById(ctx context.Context, id int64) (model.HouseOffer, error)
 	RandOffer(ctx context.Context) (model.HouseOffer, error)
+	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
 	SetActive(ctx context.Context, id int64, active bool) error
@@ -27,6 +31,22 @@ func NewHouseOffers(houseOffersRepo houseOffersRepo) *HouseOffers {
 	}
 }
 
+func (c HouseOffers) OfferById(ctx *gin.Context) {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		controllerError(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	offer, err := c.houseOffersRepo.OfferById(ctx, id)
+	if err != nil {
+		controllerError(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, offer)
+}
+
 func (c HouseOffers) RandOffer(ctx *gin.Context) {
 	offer, err := c.houseOffersRepo.RandOffer(ctx)
 	if err != nil {
@@ -35,6 +55,22 @@ func (c HouseOffers) RandOffer(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, offer)
+}
+
+func (c HouseOffers) UserOffers(ctx *gin.Context) {
+	userId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		controllerError(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	offers, err := c.houseOffersRepo.UserOffers(ctx, userId)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		controllerError(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, offers)
 }
 
 func (c HouseOffers) CreateOffer(ctx *gin.Context) {
@@ -57,13 +93,14 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 		Title:       data.Title,
 		Description: data.Description,
 		City:        data.City,
+		District:    data.District,
 		Price:       data.Price,
 		Type:        data.Type,
 		OwnerId:     data.OwnerId,
 		MediaFiles:  data.MediaFiles,
 	}
 
-	ctx.JSON(http.StatusOK, resp)
+	ctx.JSON(http.StatusCreated, resp)
 }
 
 func (c HouseOffers) DeleteOffer(ctx *gin.Context) {

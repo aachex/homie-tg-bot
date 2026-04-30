@@ -10,6 +10,7 @@ type HouseOffer struct {
 	Title       string          `json:"title"`
 	Description string          `json:"description"`
 	City        string          `json:"city"`
+	District    string          `json:"district"`
 	Price       decimal.Decimal `json:"price"`
 	Type        string          `json:"type"`
 	MediaFiles  []string        `json:"media_files"`
@@ -21,7 +22,15 @@ type HouseOfferCreate struct {
 	Title       string          `json:"title"`
 	Description string          `json:"description"`
 	City        string          `json:"city"`
+	District    string          `json:"district"`
 	Price       decimal.Decimal `json:"price"`
 	Type        string          `json:"type"`
 	MediaFiles  []string        `json:"media_files"`
+}
+
+// HouseOfferPreview представляет поверхностные данные, которые видит владелец своих объявлений.
+type HouseOfferPreview struct {
+	Id       int64  `json:"id"`
+	IsActive bool   `json:"is_active"`
+	Title    string `json:"title"`
 }

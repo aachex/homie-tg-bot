@@ -14,7 +14,7 @@ import (
 
 type usersRepo interface {
 	GetById(ctx context.Context, id int64) (model.User, error)
-	NewUser(ctx context.Context, userData model.User) error
+	CreateUser(ctx context.Context, userData model.User) error
 	EditUser(ctx context.Context, userId int64, patch model.UserEdit) error
 }
 
@@ -59,7 +59,7 @@ func (c Users) CreateUser(ctx *gin.Context) {
 	}
 
 	// Добавляем пользователя в БД
-	err = c.usersRepo.NewUser(ctx, user)
+	err = c.usersRepo.CreateUser(ctx, user)
 	if err != nil {
 		code := http.StatusInternalServerError
 		// Пользователь уже существует - конфликт
@@ -70,8 +70,8 @@ func (c Users) CreateUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, defaultResp{
-		StatusCode: http.StatusOK,
+	ctx.JSON(http.StatusCreated, defaultResp{
+		StatusCode: http.StatusCreated,
 		Message:    "user created",
 	})
 }
