@@ -10,6 +10,7 @@ type HouseOffer struct {
 	Title       string          `json:"title"`
 	Description string          `json:"description"`
 	City        string          `json:"city"`
+	District    string          `json:"district"`
 	Price       decimal.Decimal `json:"price"`
 	Type        string          `json:"type"`
 	MediaFiles  []string        `json:"media_files"`
@@ -21,6 +22,7 @@ type HouseOfferCreate struct {
 	Title       string          `json:"title"`
 	Description string          `json:"description"`
 	City        string          `json:"city"`
+	District    string          `json:"district"`
 	Price       decimal.Decimal `json:"price"`
 	Type        string          `json:"type"`
 	MediaFiles  []string        `json:"media_files"`
