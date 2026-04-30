@@ -17,6 +17,7 @@ router = Router()
 class CreateOffer(StatesGroup):
     type = State()
     city = State()
+    district = State()
     title = State()
     price = State()
     description = State()
@@ -33,6 +34,7 @@ async def show_house_offer(callback: CallbackQuery):
         title=offer.title,
         description=offer.description,
         city=offer.city,
+        district=offer.district,
         price=offer.price,
         type=offer.type,
         media_files=offer.media_files
@@ -79,7 +81,15 @@ async def select_city(msg: Message, state: FSMContext):
         return
     
     await state.update_data(city=msg.text)
-    await msg.answer("Дайте краткое название вашему объявлению", reply_markup=ReplyKeyboardRemove())
+    await msg.answer("Где находится объект? Укажите район, улицу или название СНТ/деревни", reply_markup=skip_keyboard)
+    await state.set_state(CreateOffer.district)
+
+@router.message(CreateOffer.district)
+async def enter_district(msg: Message, state: FSMContext):
+    if msg.text != "Пропустить":
+        await state.update_data(district=msg.text)
+        
+    await msg.answer("Пожалуйста, дайте короткое название вашему объявлению\n\n<i>Пример:</i> Уютная комната в общежитии в центре", parse_mode="HTML")
     await state.set_state(CreateOffer.title)
 
 @router.message(CreateOffer.title)
@@ -143,6 +153,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
         title=data["title"],
         description=data.get("descr", ""),
         city=data["city"],
+        district=data.get("district", ""),
         price=int(data["price"]),
         type=data["type"],
         media_files=data["media_files"]

@@ -25,11 +25,12 @@ async def show_offer(msg: Message, offer: HouseOfferCreate):
         type_text = "📋 Объявление"
     
     # ========== Текстовое сообщение ==========
+    district = f", {offer.district}" if offer.district != "" else ""
     message_text = f"""
 <b>📋 {type_text}</b>
 
 <b>🏷️ Название:</b> {offer.title}
-<b>📍 Город:</b> {offer.city}
+<b>📍 Город:</b> {offer.city}{district}
 {price_line}
 
 <b>📝 Описание:</b>

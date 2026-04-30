@@ -10,6 +10,7 @@ class HouseOffer:
     title: str = ""
     description: str = ""
     city: str = ""
+    district: str = ""
     price: int = 0
     type: str = ""
     media_files: list[str] = field(default_factory=list)
@@ -21,6 +22,7 @@ class HouseOfferCreate:
     title: str = ""
     description: str = ""
     city: str = ""
+    district: str = ""
     price: int = 0
     type: str = ""
     media_files: list[str] = field(default_factory=list)
@@ -43,6 +45,7 @@ class HouseOffersApi(APIClient):
             title=offer_json["title"],
             description=offer_json["description"],
             city=offer_json["city"],
+            district=offer_json["district"],
             price=int(offer_json["price"]),
             type=offer_json["type"],
             media_files=offer_json["media_files"],
