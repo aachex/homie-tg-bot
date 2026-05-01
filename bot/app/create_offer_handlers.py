@@ -36,7 +36,6 @@ async def show_house_offer(callback: CallbackQuery):
         city=offer.city,
         district=offer.district,
         price=offer.price,
-        type=offer.type,
         media_files=offer.media_files
     )
 
@@ -49,28 +48,9 @@ async def create_start(callback: CallbackQuery, state: FSMContext):
     user = await get_user_by_id(callback.from_user.id)
     await state.update_data(user=user.__dict__)
 
-    keyboard = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="Сдавать"), KeyboardButton(text="Продавать")]
-    ], resize_keyboard=True)
-    await callback.message.answer("Итак, вы решили создать объявление. Вы будете сдавать или продавать вашу недвижимость?", reply_markup=keyboard)
-    await state.set_state(CreateOffer.type)
-
-@router.message(CreateOffer.type)
-async def select_type(msg: Message, state: FSMContext):
-    if msg.text == "Сдавать":
-        await state.update_data(type="RENT")
-    elif msg.text == "Продавать":
-        await state.update_data(type="SELL")
-    else:
-        await msg.answer("Неизвестный вариант")
-        return
-    
-    # Достаём город пользователя для создания клавиатуры с подсказкой
-    data = await state.get_data()
-    city = data["user"]["city"]
-    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=city)]], resize_keyboard=True)
-
-    await msg.answer("В каком городе находится ваша недвижимость?", reply_markup=keyboard)
+    # Клавиатура с подсказкой
+    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
+    await callback.message.answer("В каком городе находится ваша недвижимость?", reply_markup=keyboard)
 
     await state.set_state(CreateOffer.city)
 
@@ -89,7 +69,8 @@ async def enter_district(msg: Message, state: FSMContext):
     if msg.text != "Пропустить":
         await state.update_data(district=msg.text)
         
-    await msg.answer("Пожалуйста, дайте короткое название вашему объявлению\n\n<i>Пример:</i> Уютная комната в общежитии в центре", parse_mode="HTML")
+    txt = "Пожалуйста, дайте короткое название вашему объявлению\n\n<i>Пример:</i> Уютная комната в общежитии в центре"
+    await msg.answer(txt, parse_mode="HTML")
     await state.set_state(CreateOffer.title)
 
 @router.message(CreateOffer.title)
@@ -99,37 +80,22 @@ async def enter_title(msg: Message, state: FSMContext):
         return
     
     await state.update_data(title=msg.text)
-    
-    data = await state.get_data()
-    offer_type = data["type"]
 
-    msg_text = "Укажите, сколько рублей в месяц стоит аренда вашей недвижимости"
-    if offer_type == "SELL":
-        msg_text = "Укажите, сколько рублей стоит ваша недвижимость"
-    msg_text += ". Этот этап можно пропустить"
-
-    await msg.answer(msg_text, reply_markup=skip_keyboard)
+    txt = "Укажите, сколько рублей в месяц стоит аренда вашей недвижимости. Этот этап можно пропустить"
+    await msg.answer(txt, reply_markup=skip_keyboard)
     await state.set_state(CreateOffer.price)
 
 @router.message(CreateOffer.price)
 async def enter_price(msg: Message, state: FSMContext):
-    if msg.text == "Пропустить":
-        await state.update_data(price=0)
-    else:
+    if msg.text != "Пропустить":
         price_str = msg.text.replace(' ', '') # Удаление пробелов
         if not is_int(price_str):
             await msg.answer("Укажите целое число")
             return
         await state.update_data(price=price_str)
-    
-    data = await state.get_data()
-    offer_type = data["type"]
 
-    msg_text = "Напишите подробное описание вашего объявления. Так Вы повысите вероятность найти арендатора"
-    if offer_type == "SELL":
-        msg_text = "Напишите подробное описание вашего объявления. Так Вы повысите вероятность найти покупателя"
-
-    await msg.answer(msg_text, reply_markup=skip_keyboard)
+    txt = "Напишите подробное описание вашего объявления. Так Вы повысите вероятность найти арендатора"
+    await msg.answer(txt, reply_markup=skip_keyboard)
     await state.set_state(CreateOffer.description)
 
 @router.message(CreateOffer.description)
@@ -154,8 +120,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
         description=data.get("descr", ""),
         city=data["city"],
         district=data.get("district", ""),
-        price=int(data["price"]),
-        type=data["type"],
+        price=int(data.get("price", 0)),
         media_files=data["media_files"]
     )
 
@@ -164,8 +129,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
     await show_offer(msg, offer)
 
     keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="В главное меню")]], resize_keyboard=True)
-    t = "сдаче" if offer.type == "RENT" else "продаже"
-    msg_text = f"<b>Готово!</b> Вы успешно создали объявление о {t} вашей недвижимости. Для более детального взаимодействия с вашими объявлениями ищите вкладку <b>Мои объявления</b> в главном меню."
+    msg_text = f"<b>Готово!</b> Вы успешно создали объявление о сдаче вашей недвижимости. Для более детального взаимодействия с вашими объявлениями ищите вкладку <b>Мои объявления</b> в главном меню."
     await msg.answer(msg_text, parse_mode="HTML", reply_markup=keyboard)
 
 @router.message(CreateOffer.media)
