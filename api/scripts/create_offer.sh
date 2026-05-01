@@ -8,6 +8,5 @@ curl http://127.0.0.1:8080/api/v1/offer \
         "city":"Петрозаводск",
         "district":"Центр",
         "price":25000,
-        "type":"RENT",
         "media_files":["skaj21ASxn092as","skk3szx_76sHGa"]
     }'

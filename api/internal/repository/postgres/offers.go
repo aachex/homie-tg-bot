@@ -28,12 +28,11 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 			city,
 			district,
 			price,
-			type,
 			media_files
 		FROM tg_house_offer 
 		WHERE id = $1`
 	row := r.connPool.QueryRow(ctx, query, id)
-	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.Type, &offer.MediaFiles)
+	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.MediaFiles)
 	return offer, err
 }
 
@@ -48,14 +47,13 @@ func (r OffersRepo) RandOffer(ctx context.Context) (offer model.HouseOffer, err 
 			city,
 			district,
 			price,
-			type,
 			media_files
 		FROM tg_house_offer 
 		WHERE is_active = TRUE 
 		ORDER BY RANDOM()`
 
 	row := r.connPool.QueryRow(ctx, query)
-	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.Type, &offer.MediaFiles)
+	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.MediaFiles)
 	return offer, err
 }
 
@@ -89,13 +87,12 @@ func (r OffersRepo) CreateOffer(ctx context.Context, data model.HouseOfferCreate
 			city,
 			district,
 			price,
-			type,
 			media_files
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id`
 
-	row := r.connPool.QueryRow(ctx, query, data.OwnerId, data.Title, data.Description, data.City, data.District, data.Price, data.Type, data.MediaFiles)
+	row := r.connPool.QueryRow(ctx, query, data.OwnerId, data.Title, data.Description, data.City, data.District, data.Price, data.MediaFiles)
 	err = row.Scan(&id)
 	return id, err
 }

@@ -11,25 +11,13 @@ async def show_offer(msg: Message, offer: HouseOfferCreate):
         price_line = "💰 Цена: Не указана"
     else:
         price_str = f"{int(offer.price):,}".replace(',', ' ')
-        
-        # Добавляем суффикс
-        suffix = "₽/месяц" if offer.type == "RENT" else "₽"
-        price_line = f"💰 Цена: {price_str} {suffix}"
-    
-    # ========== Тип объявления ==========
-    if offer.type == "RENT":
-        type_text = "🏠 Сдаётся"
-    elif offer.type == "SELL":
-        type_text = "💰 Продаётся"
-    else:
-        type_text = "📋 Объявление"
+        price_line = f"💰 Цена: {price_str} ₽/месяц"
     
     # ========== Текстовое сообщение ==========
     district = f", {offer.district}" if offer.district != "" else ""
     message_text = f"""
-<b>📋 {type_text}</b>
+<b>📋 {offer.title}</b>
 
-<b>🏷️ Название:</b> {offer.title}
 <b>📍 Город:</b> {offer.city}{district}
 {price_line}
 
