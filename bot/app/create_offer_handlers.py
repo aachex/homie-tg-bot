@@ -7,10 +7,10 @@ from aiogram.fsm.context import FSMContext
 from .util.offer import show_offer
 from .util.auth import show_unauthorized
 from .util.shared import is_int, handle_media_upload
-from .keyboards import skip_keyboard, main_menu_keyboard
+from .keyboards import skip_keyboard
 
 from .api.users import get_user_by_id
-from .api.offers import get_user_offers, create_offer, get_offer_by_id, HouseOfferCreate
+from .api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, HouseOfferCreate
 
 from .states import OfferCreate, Offer
 
@@ -169,6 +169,7 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
 
     await show_offer(callback.message, visible_data)
 
+    await state.update_data(offer_id=offer_id)
     await state.set_state(Offer.offer_interact)
 
 @router.message(Offer.offer_interact, F.text == "Отключить объявление")
@@ -186,7 +187,12 @@ async def back_to_my_offers(msg: Message, state: FSMContext):
     await my_offers(msg, state)
 
 @router.message(Offer.offer_deact, F.text == "Да, отключить объявление")
-async def deactivate_offer(msg: Message):
+async def deactivate_offer(msg: Message, state: FSMContext):
+    # Отключение объявления на стороне API
+    data = await state.get_data()
+    offer_id = int(data["offer_id"])    
+    await set_active_offer(offer_id, False)
+
     kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Мои объявления")]], resize_keyboard=True)
     await msg.answer("Объявление отключено", reply_markup=kb)
 
