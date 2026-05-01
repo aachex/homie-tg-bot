@@ -10,9 +10,9 @@ from app.create_offer_handlers import router as createOfferRouter
 
 async def main():
     dp = Dispatcher()
+    dp.include_router(base_router)
     dp.include_router(authRouter)
     dp.include_router(createOfferRouter)
-    dp.include_router(base_router)
 
     proxy_url = os.getenv("PROXY_URL")
     session = AiohttpSession(proxy=proxy_url)

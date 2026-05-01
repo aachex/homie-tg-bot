@@ -64,6 +64,12 @@ class HouseOffersApi(APIClient):
     
     async def create_offer(self, offer: HouseOfferCreate):
         await self._request("POST", f"offer", data=offer.__dict__, expected_status=201)
+
+    async def set_active_offer(self, offer_id: int, active: bool):
+        await self._request("PATCH", f"offer/{offer_id}?active={active}")
+
+    async def delete_offer(self, offer_id: int):
+        await self._request("DELETE", f"offer/{offer_id}")
     
 _offers_api = HouseOffersApi()
 
@@ -74,5 +80,10 @@ async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:
     return await _offers_api.get_user_offers(user_id)
 
 async def create_offer(offer: HouseOfferCreate):
-    r = await _offers_api.create_offer(offer)
-    print(r)
+    await _offers_api.create_offer(offer)
+
+async def set_active_offer(offer_id: int, active: bool):
+    await _offers_api.set_active_offer(offer_id, active)
+
+async def delete_offer(offer_id: int):
+    await _offers_api.delete_offer(offer_id)

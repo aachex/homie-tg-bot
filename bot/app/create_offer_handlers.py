@@ -1,8 +1,8 @@
 from aiogram import F, Router
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.filters import StateFilter
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 from .util.offer import show_offer
@@ -11,30 +11,13 @@ from .util.shared import is_int, handle_media_upload
 from .keyboards import skip_keyboard
 
 from .api.users import get_user_by_id
-from .api.offers import get_user_offers, create_offer, get_offer_by_id, HouseOfferCreate
+from .api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, HouseOfferCreate
 
-from .states import OfferCreate, Auth
+from .states import OfferCreate, Offer
 
 router = Router()
 
-@router.callback_query(F.data.startswith("show_offer:"))
-async def show_house_offer(callback: CallbackQuery):
-    await callback.answer()
-
-    offer_id = int(callback.data.split(':')[1])
-    offer = await get_offer_by_id(offer_id)
-
-    visible_data = HouseOfferCreate(
-        title=offer.title,
-        description=offer.description,
-        city=offer.city,
-        district=offer.district,
-        price=offer.price,
-        media_files=offer.media_files
-    )
-
-    await show_offer(callback.message, visible_data)
-
+# ========== Создание объявления ==========
 @router.callback_query(F.data == "create_offer")
 async def create_start(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -42,7 +25,6 @@ async def create_start(callback: CallbackQuery, state: FSMContext):
     user = await get_user_by_id(callback.from_user.id)
     if user is None:
         await show_unauthorized(callback.message, state)
-        await state.set_state(Auth.ask_to_auth)
         return
     
     await state.update_data(user=user.__dict__)
@@ -127,7 +109,10 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
 
     await show_offer(msg, offer)
 
-    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="В главное меню")]], resize_keyboard=True)
+    keyboard = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Мои объявления")],
+        [KeyboardButton(text="В главное меню")]
+    ], resize_keyboard=True)
     msg_text = f"<b>Готово!</b> Вы успешно создали объявление о сдаче вашей недвижимости. Для более детального взаимодействия с вашими объявлениями ищите вкладку <b>Мои объявления</b> в главном меню."
     await msg.answer(msg_text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -137,14 +122,20 @@ async def upload_media(msg: Message, state: FSMContext):
     if done:
         await finalize_create_offer(msg, state)
 
+# ========== Просмотр своих объявлений ==========
 @router.message(F.text == "Мои объявления")
 async def my_offers(msg: Message, state: FSMContext):
     await state.clear()
 
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="В главное меню")]], resize_keyboard=True)
+    await msg.answer(
+        "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом",
+        reply_markup=kb)
+
     offers = await get_user_offers(msg.from_user.id)
 
     keyboard = InlineKeyboardBuilder()
-    keyboard.add(InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary"))
+    keyboard.row(InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary"))
 
     for offer in offers:
         btn = InlineKeyboardButton(text=offer.title, callback_data=f"show_offer:{offer.id}")
@@ -155,5 +146,108 @@ async def my_offers(msg: Message, state: FSMContext):
     markup = keyboard.adjust(1).as_markup()
     markup.resize_keyboard = True
     await msg.answer(
-        "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом и находятся в начале списка",
+        "👇 Нажмите на объявление, чтобы посмотреть детали:",
         reply_markup=markup)
+    
+@router.callback_query(F.data.startswith("show_offer:"))
+async def show_house_offer(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+
+    offer_id = int(callback.data.split(':')[1])
+    offer = await get_offer_by_id(offer_id)
+
+    await state.update_data(offer_id=offer_id)
+
+    kb = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Отключить объявление")],
+        [KeyboardButton(text="Назад")],
+    ])
+    txt = f"🟢 Объявление #{offer_id}"
+    await state.set_state(Offer.active_offer_interact)
+    
+    if not offer.is_active:
+        kb = ReplyKeyboardMarkup(keyboard=[
+            [KeyboardButton(text="Включить объявление")],
+            [KeyboardButton(text="Назад")],
+            [KeyboardButton(text="Удалить объявление", style="danger")]
+        ])
+        txt = f"<b>🔴 Объявление #{offer_id} (отключено)</b>"
+        await state.set_state(Offer.inactive_offer_interact)
+
+    kb.resize_keyboard = True
+    await callback.message.answer(txt, reply_markup=kb, parse_mode="HTML")
+
+    visible_data = HouseOfferCreate(
+        title=offer.title,
+        description=offer.description,
+        city=offer.city,
+        district=offer.district,
+        price=offer.price,
+        media_files=offer.media_files
+    )
+
+    await show_offer(callback.message, visible_data)
+
+@router.message(
+    StateFilter(
+        Offer.active_offer_interact,
+        Offer.inactive_offer_interact,
+        Offer.offer_deact,
+        Offer.offer_del),
+    F.text.in_({"Назад", "Отмена"})
+)
+async def back_to_my_offers(msg: Message, state: FSMContext):
+    await my_offers(msg, state)
+
+# ========== Взаимодействие с активным объявлением ==========
+@router.message(Offer.active_offer_interact, F.text == "Отключить объявление")
+async def deactivate_offer_warn(msg: Message, state: FSMContext):
+    kb = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Да, отключить объявление")],
+        [KeyboardButton(text="Отмена")],
+    ], resize_keyboard=True)
+    txt = "🔇 Отключение скроет объявление из поиска.\nИспользуйте эту возможность, когда арендатор уже найден или предложение временно неактуально."
+    await msg.answer(txt, reply_markup=kb)
+    await state.set_state(Offer.offer_deact)
+
+@router.message(Offer.offer_deact, F.text == "Да, отключить объявление")
+async def deactivate_offer(msg: Message, state: FSMContext):
+    # Деактивация объявления на стороне API
+    data = await state.get_data()
+    offer_id = int(data["offer_id"])    
+    await set_active_offer(offer_id, False)
+
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Мои объявления")]], resize_keyboard=True)
+    txt = f"Объявление #{offer_id} отключено. Его можно удалить или снова активировать во вкладке <b>Мои объявления</b>"
+    await msg.answer(txt, reply_markup=kb, parse_mode="HTML")
+
+# ========== Взаимодействие с неактивным объявлением ==========
+@router.message(Offer.inactive_offer_interact, F.text == "Включить объявление")
+async def activate_offer(msg: Message, state: FSMContext):
+    # Активация объявления на стороне API
+    data = await state.get_data()
+    offer_id = int(data["offer_id"])    
+    await set_active_offer(offer_id, True)
+
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Мои объявления")]], resize_keyboard=True)
+    txt = f"Объявление #{offer_id} снова активно!"
+    await msg.answer(txt, reply_markup=kb)
+
+@router.message(Offer.inactive_offer_interact, F.text == "Удалить объявление")
+async def del_offer_warn(msg: Message, state: FSMContext):
+    kb = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Я понимаю, удалить объявление", style="danger")],
+        [KeyboardButton(text="Отмена")]
+    ], resize_keyboard=True)
+    await msg.answer("❗Удалённые объявления не восстановить", reply_markup=kb)
+    await state.set_state(Offer.offer_del)
+
+@router.message(Offer.offer_del, F.text == "Я понимаю, удалить объявление")
+async def del_offer(msg: Message, state: FSMContext):
+    data = await state.get_data()
+    offer_id = int(data["offer_id"])    
+    await delete_offer(offer_id)
+
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Мои объявления")]], resize_keyboard=True)
+    txt = f"Объявление #{offer_id} удалено"
+    await msg.answer(txt, reply_markup=kb)

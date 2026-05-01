@@ -150,7 +150,6 @@ async def my_profile(msg: Message, state: FSMContext):
     user = await get_user_by_id(msg.from_user.id)
     if user is None:
         await show_unauthorized(msg, state)
-        await state.set_state(Auth.ask_to_auth)
         return
 
     await state.update_data(user=user.__dict__)
