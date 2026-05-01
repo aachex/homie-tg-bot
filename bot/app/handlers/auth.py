@@ -131,6 +131,9 @@ async def auth_descr(msg: Message, state: FSMContext):
 @router.message(Auth.media_files, F.text == "Завершить")
 async def finalize_auth(msg: Message, state: FSMContext):
     data = await state.get_data()
+    if "media_files" not in data:
+        return
+    
     await state.clear()
 
     user = UserVisibleData(
