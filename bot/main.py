@@ -6,7 +6,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 
 from app.handlers.main_menu import router as base_router
 from app.handlers.auth import router as authRouter
-from app.handlers.create_offer import router as createOfferRouter
+from app.handlers.offer import router as createOfferRouter
 
 async def main():
     dp = Dispatcher()
