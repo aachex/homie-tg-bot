@@ -4,7 +4,7 @@ from aiogram.filters import CommandStart
 
 from aiogram.fsm.context import FSMContext
 
-from .keyboards import main_menu_keyboard
+from ..keyboards import main_menu_keyboard
 
 router = Router()
 

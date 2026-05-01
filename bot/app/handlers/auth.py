@@ -4,13 +4,13 @@ from aiogram.types import Message, ReplyKeyboardRemove, ReplyKeyboardMarkup, Key
 from aiogram.fsm.context import FSMContext
 from aiogram import flags
 
-from .keyboards import skip_keyboard
+from ..keyboards import skip_keyboard
 
-from .util.auth import show_profile, show_unauthorized
-from .util.shared import is_int, handle_media_upload
-from .api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
+from ..util.auth import show_profile, show_unauthorized
+from ..util.shared import is_int, handle_media_upload
+from ..api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
 
-from .states import Auth
+from ..states import Auth
 
 router = Router()
 
@@ -169,5 +169,5 @@ async def auth_choice(msg: Message, state: FSMContext):
     if msg.text == "Заполнить профиль":
         await auth_start(msg, state)
     else:
-        from .main_menu_handlers import main_menu as show_main_menu
+        from .main_menu import main_menu as show_main_menu
         await show_main_menu(msg, state)

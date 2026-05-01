@@ -5,15 +5,15 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from aiogram.fsm.context import FSMContext
 
-from .util.offer import show_offer
-from .util.auth import show_unauthorized
-from .util.shared import is_int, handle_media_upload
-from .keyboards import skip_keyboard
+from ..util.offer import show_offer
+from ..util.auth import show_unauthorized
+from ..util.shared import is_int, handle_media_upload
+from ..keyboards import skip_keyboard
 
-from .api.users import get_user_by_id
-from .api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, HouseOfferCreate
+from ..api.users import get_user_by_id
+from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, HouseOfferCreate
 
-from .states import OfferCreate, Offer
+from ..states import OfferCreate, Offer
 
 router = Router()
 
@@ -21,6 +21,7 @@ router = Router()
 @router.callback_query(F.data == "create_offer")
 async def create_start(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
+    await state.clear()
 
     user = await get_user_by_id(callback.from_user.id)
     if user is None:
@@ -152,6 +153,7 @@ async def my_offers(msg: Message, state: FSMContext):
 @router.callback_query(F.data.startswith("show_offer:"))
 async def show_house_offer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
+    await state.clear()
 
     offer_id = int(callback.data.split(':')[1])
     offer = await get_offer_by_id(offer_id)

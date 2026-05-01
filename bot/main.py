@@ -4,9 +4,9 @@ import os
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
 
-from app.main_menu_handlers import router as base_router
-from app.auth_handlers import router as authRouter
-from app.create_offer_handlers import router as createOfferRouter
+from app.handlers.main_menu import router as base_router
+from app.handlers.auth import router as authRouter
+from app.handlers.create_offer import router as createOfferRouter
 
 async def main():
     dp = Dispatcher()
