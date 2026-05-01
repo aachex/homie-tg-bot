@@ -3,6 +3,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 
 from ..api.users import UserVisibleData
+from ..states import Auth
 
 async def show_profile(msg: Message, user: UserVisibleData):
     caption = f"{user.name}, {user.age}, {user.city}"
@@ -27,3 +28,4 @@ async def show_unauthorized(msg: Message, state: FSMContext):
         ], resize_keyboard=True)
     txt = "Кажется, у вас ещё нет профиля. Чтобы лайкать объявления и создавать свои, нужно заполнить профиль. Это займёт не больше минуты"
     await msg.answer(txt, reply_markup=kb)
+    await state.set_state(Auth.ask_to_auth)

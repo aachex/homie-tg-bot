@@ -17,3 +17,7 @@ class OfferCreate(StatesGroup):
     price = State()
     description = State()
     media = State()
+
+class Offer(StatesGroup):
+    offer_interact = State()
+    offer_deact = State()
