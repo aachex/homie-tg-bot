@@ -1,5 +1,11 @@
 from aiogram.fsm.state import State, StatesGroup
 
+class MainMenu(StatesGroup):
+    main_menu = State()
+    profile = State()
+    my_offers = State()
+    offers_search = State()
+
 class Auth(StatesGroup):
     ask_to_auth = State()
 
@@ -17,6 +23,7 @@ class OfferCreate(StatesGroup):
     price = State()
     description = State()
     media = State()
+    finalize = State()
 
 class Offer(StatesGroup):
     active_offer_interact = State()

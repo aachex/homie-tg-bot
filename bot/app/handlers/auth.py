@@ -10,12 +10,43 @@ from ..util.auth import show_profile, show_unauthorized
 from ..util.shared import is_int, handle_media_upload
 from ..api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
 
-from ..states import Auth
+from ..states import Auth, MainMenu
 
 router = Router()
 
 @flags.rate_limit(rate=1, key="user")
-@router.message(F.text == "Заполнить профиль заново")
+@router.message(MainMenu.main_menu, F.text == "Мой профиль")
+async def my_profile(msg: Message, state: FSMContext):
+    await state.clear()
+    await state.set_state(MainMenu.profile)
+
+    user = await get_user_by_id(msg.from_user.id)
+    if user is None:
+        await show_unauthorized(msg, state)
+        return
+
+    await state.update_data(user=user.__dict__)
+
+    profile_data = UserVisibleData(
+        name=user.name,
+        age=user.age,
+        city=user.city,
+        description=user.description,
+        media_files=user.media_files
+    )
+    await show_profile(msg, profile_data)
+
+@flags.rate_limit(rate=1, key="user")
+@router.message(Auth.ask_to_auth)
+async def auth_choice(msg: Message, state: FSMContext):
+    if msg.text == "Заполнить профиль":
+        await auth_start(msg, state)
+    else:
+        from .main_menu import main_menu as show_main_menu
+        await show_main_menu(msg, state)
+
+@flags.rate_limit(rate=1, key="user")
+@router.message(MainMenu.profile, F.text == "Заполнить профиль заново")
 async def auth_start(msg: Message, state: FSMContext):
     kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=msg.from_user.first_name)]], resize_keyboard=True)
 
@@ -141,33 +172,3 @@ async def auth_media(msg: Message, state: FSMContext):
     done = await handle_media_upload(msg, state, 3)
     if done:
         await finalize_auth(msg, state)
-
-@flags.rate_limit(rate=1, key="user")
-@router.message(F.text == "Мой профиль")
-async def my_profile(msg: Message, state: FSMContext):
-    await state.clear()
-
-    user = await get_user_by_id(msg.from_user.id)
-    if user is None:
-        await show_unauthorized(msg, state)
-        return
-
-    await state.update_data(user=user.__dict__)
-
-    profile_data = UserVisibleData(
-        name=user.name,
-        age=user.age,
-        city=user.city,
-        description=user.description,
-        media_files=user.media_files
-    )
-    await show_profile(msg, profile_data)
-
-@flags.rate_limit(rate=1, key="user")
-@router.message(Auth.ask_to_auth)
-async def auth_choice(msg: Message, state: FSMContext):
-    if msg.text == "Заполнить профиль":
-        await auth_start(msg, state)
-    else:
-        from .main_menu import main_menu as show_main_menu
-        await show_main_menu(msg, state)

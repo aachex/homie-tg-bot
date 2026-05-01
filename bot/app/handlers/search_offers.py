@@ -8,13 +8,13 @@ from ..util.offer import show_offer
 
 from .main_menu import main_menu as show_main_menu
 
-from ..states import SearchOffers
+from ..states import SearchOffers, MainMenu
 
 router = Router()
 
 sent_magnifier: dict[int, bool] = {}
 
-@router.message(F.text == "🏡 Найти квартиру/дом")
+@router.message(MainMenu.main_menu, F.text == "🏡 Найти квартиру/дом")
 async def search_offers(msg: Message, state: FSMContext):
     await state.clear()
 
