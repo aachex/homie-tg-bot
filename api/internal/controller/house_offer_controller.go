@@ -95,7 +95,6 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 		City:        data.City,
 		District:    data.District,
 		Price:       data.Price,
-		Type:        data.Type,
 		OwnerId:     data.OwnerId,
 		MediaFiles:  data.MediaFiles,
 	}

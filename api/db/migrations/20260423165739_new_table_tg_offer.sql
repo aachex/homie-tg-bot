@@ -5,7 +5,6 @@ CREATE TABLE IF NOT EXISTS tg_house_offer (
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     price INTEGER NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('RENT', 'SELL')),
     owner_id BIGINT NOT NULL REFERENCES tg_user (id)
 );
 -- +goose StatementEnd
