@@ -1,9 +1,9 @@
 from aiogram.types import Message
 from aiogram.utils.media_group import MediaGroupBuilder
 
-from ..api.offers import HouseOfferCreate
+from ..api.offers import HouseOffer, HouseOfferCreate
 
-async def show_offer(msg: Message, offer: HouseOfferCreate):
+async def show_offer(msg: Message, offer: HouseOffer | HouseOfferCreate):
     """Отображает созданное объявление для подтверждения"""
     
     # ========== Форматирование цены ==========

@@ -23,3 +23,6 @@ class Offer(StatesGroup):
     inactive_offer_interact = State()
     offer_deact = State()
     offer_del = State()
+
+class SearchOffers(StatesGroup):
+    choice = State()

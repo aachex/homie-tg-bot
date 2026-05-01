@@ -179,16 +179,7 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
     kb.resize_keyboard = True
     await callback.message.answer(txt, reply_markup=kb, parse_mode="HTML")
 
-    visible_data = HouseOfferCreate(
-        title=offer.title,
-        description=offer.description,
-        city=offer.city,
-        district=offer.district,
-        price=offer.price,
-        media_files=offer.media_files
-    )
-
-    await show_offer(callback.message, visible_data)
+    await show_offer(callback.message, offer)
 
 @router.message(
     StateFilter(
