@@ -14,7 +14,7 @@ import (
 
 type houseOffersRepo interface {
 	OfferById(ctx context.Context, id int64) (model.HouseOffer, error)
-	RandOffer(ctx context.Context) (model.HouseOffer, error)
+	RandOffer(ctx context.Context, userId int64) (model.HouseOffer, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
@@ -48,7 +48,13 @@ func (c HouseOffers) OfferById(ctx *gin.Context) {
 }
 
 func (c HouseOffers) RandOffer(ctx *gin.Context) {
-	offer, err := c.houseOffersRepo.RandOffer(ctx)
+	userId, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
+	if err != nil {
+		controllerError(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	offer, err := c.houseOffersRepo.RandOffer(ctx, userId)
 	if err != nil {
 		controllerError(ctx, err, http.StatusInternalServerError)
 		return
