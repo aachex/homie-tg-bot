@@ -1,5 +1,6 @@
 from aiogram.utils.media_group import MediaGroupBuilder
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.fsm.context import FSMContext
 
 from ..api.users import UserVisibleData
 
@@ -19,3 +20,10 @@ async def show_profile(msg: Message, user: UserVisibleData):
     ], resize_keyboard=True)
     await msg.answer("Так выглядит ваш профиль:", reply_markup=keyboard)
     await msg.answer_media_group(media=media_group.build())
+
+async def show_unauthorized(msg: Message, state: FSMContext):
+    kb = ReplyKeyboardMarkup(keyboard=[
+            [KeyboardButton(text="Заполнить профиль"), KeyboardButton(text="Позже")]
+        ], resize_keyboard=True)
+    txt = "Кажется, у вас ещё нет профиля. Чтобы лайкать объявления и создавать свои, нужно заполнить профиль. Это займёт не больше минуты"
+    await msg.answer(txt, reply_markup=kb)

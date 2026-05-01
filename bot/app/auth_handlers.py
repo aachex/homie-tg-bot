@@ -1,30 +1,25 @@
 from aiogram import F, Router
 from aiogram.types import Message, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
 
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram import flags
 
 from .keyboards import skip_keyboard
 
-from .util.auth import show_profile
+from .util.auth import show_profile, show_unauthorized
 from .util.shared import is_int, handle_media_upload
 from .api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
 
-class Auth(StatesGroup):
-    name = State()
-    age = State()
-    city = State()
-    descr = State()
-    media_files = State()
+from .states import Auth
 
 router = Router()
 
 @flags.rate_limit(rate=1, key="user")
 @router.message(F.text == "Заполнить профиль заново")
 async def auth_start(msg: Message, state: FSMContext):
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=msg.from_user.first_name)]], resize_keyboard=True)
+
     data = await state.get_data()
-    kb = ReplyKeyboardRemove()
     if "user" in data:
         kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=data["user"]["name"])]], resize_keyboard=True)
 
@@ -34,8 +29,9 @@ async def auth_start(msg: Message, state: FSMContext):
 @flags.rate_limit(rate=1, key="user")
 @router.message(Auth.name)
 async def auth_name(msg: Message, state: FSMContext):
-    if len(msg.text) > 20:
-        await msg.answer("Име не может быть длиннее 20 символов")
+    maxNameLen = 100
+    if len(msg.text) > maxNameLen:
+        await msg.answer(f"Име не может быть длиннее {maxNameLen} символов")
         return
     
     data = await state.get_data()
@@ -73,8 +69,8 @@ async def auth_city(msg: Message, state: FSMContext):
     kb = skip_keyboard
     if "user" in data:
         kb = ReplyKeyboardMarkup(keyboard=[
+            [KeyboardButton(text="Пропустить")],
             [KeyboardButton(text="Оставить текущее описание")],
-            [KeyboardButton(text="Пропустить")]
         ], resize_keyboard=True)
 
     await state.update_data(city=msg.text)
@@ -152,6 +148,11 @@ async def my_profile(msg: Message, state: FSMContext):
     await state.clear()
 
     user = await get_user_by_id(msg.from_user.id)
+    if user is None:
+        await show_unauthorized(msg, state)
+        await state.set_state(Auth.ask_to_auth)
+        return
+
     await state.update_data(user=user.__dict__)
 
     profile_data = UserVisibleData(
@@ -162,3 +163,12 @@ async def my_profile(msg: Message, state: FSMContext):
         media_files=user.media_files
     )
     await show_profile(msg, profile_data)
+
+@flags.rate_limit(rate=1, key="user")
+@router.message(Auth.ask_to_auth)
+async def auth_choice(msg: Message, state: FSMContext):
+    if msg.text == "Заполнить профиль":
+        await auth_start(msg, state)
+    else:
+        from .main_menu_handlers import main_menu as show_main_menu
+        await show_main_menu(msg, state)
