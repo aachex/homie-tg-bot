@@ -30,33 +30,30 @@ async def select_city(msg: Message, state: FSMContext):
         await msg.answer("Укажите город")
         return
     await state.update_data(city=msg.text)
-    await state.set_state(SearchOffers.show_first_offer)
-    await search_offers(msg, state)
 
-@router.message(SearchOffers.show_first_offer)
-async def search_offers(msg: Message, state: FSMContext):
-    current_state = await state.get_state()
-    if current_state == "SearchOffers:show_first_offer":
-        kb = ReplyKeyboardMarkup(keyboard=[
-            [KeyboardButton(text="❤️"), KeyboardButton(text="👎")],
-            [KeyboardButton(text="Вернуться в главное меню")]
-        ], resize_keyboard=True)
-        await msg.answer("🔎", reply_markup=kb)
+    kb = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="❤️"), KeyboardButton(text="👎")],
+        [KeyboardButton(text="Вернуться в главное меню")]
+    ], resize_keyboard=True)
+    
+    await msg.answer("🔎", reply_markup=kb)
+    await show_next_offer(msg, state)
 
+async def show_next_offer(msg: Message, state: FSMContext):
     data = await state.get_data()
     city = data["city"]
     offer = await get_rand_offer(msg.from_user.id, city)
-    await show_offer(msg, offer)
 
+    await show_offer(msg, offer)
     await state.set_state(SearchOffers.choice)
 
 @router.message(SearchOffers.choice)
 async def evaluate_offer(msg: Message, state: FSMContext):
     if msg.text == "👎":
-        await search_offers(msg, state)
+        await show_next_offer(msg, state)
     elif msg.text == "❤️":
         # TODO: send like to db
-        await search_offers(msg, state)
+        await show_next_offer(msg, state)
     elif msg.text == "Вернуться в главное меню":
         await show_main_menu(msg, state)
     else:
