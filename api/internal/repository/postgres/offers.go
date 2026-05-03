@@ -36,7 +36,7 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 	return offer, err
 }
 
-func (r OffersRepo) RandOffer(ctx context.Context, userId int64) (offer model.HouseOffer, err error) {
+func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (offer model.HouseOffer, err error) {
 	query := `
 		SELECT 
 			id,
@@ -49,10 +49,10 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64) (offer model.Ho
 			price,
 			media_files
 		FROM tg_house_offer 
-		WHERE is_active = TRUE AND owner_id <> $1
+		WHERE is_active = TRUE AND owner_id <> $1 and city = $2
 		ORDER BY RANDOM()`
 
-	row := r.connPool.QueryRow(ctx, query, userId)
+	row := r.connPool.QueryRow(ctx, query, userId, city)
 	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.MediaFiles)
 	return offer, err
 }
