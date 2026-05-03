@@ -39,6 +39,10 @@ func (c HouseOffers) OfferById(ctx *gin.Context) {
 	}
 
 	offer, err := c.houseOffersRepo.OfferById(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		controllerError(ctx, err, http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		controllerError(ctx, err, http.StatusInternalServerError)
 		return
@@ -56,6 +60,10 @@ func (c HouseOffers) RandOffer(ctx *gin.Context) {
 	city := ctx.Query("city")
 
 	offer, err := c.houseOffersRepo.RandOffer(ctx, userId, city)
+	if errors.Is(err, sql.ErrNoRows) {
+		controllerError(ctx, err, http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		controllerError(ctx, err, http.StatusInternalServerError)
 		return

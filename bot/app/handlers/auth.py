@@ -7,7 +7,7 @@ from aiogram import flags
 from ..keyboards import skip_keyboard
 
 from ..util.auth import show_profile, show_unauthorized
-from ..util.shared import is_int, handle_media_upload
+from ..util.shared import is_int, handle_media_upload, normalize_city
 from ..api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
 
 from ..states import Auth, MainMenu
@@ -104,7 +104,7 @@ async def auth_city(msg: Message, state: FSMContext):
             [KeyboardButton(text="Оставить текущее описание")],
         ], resize_keyboard=True)
 
-    await state.update_data(city=msg.text)
+    await state.update_data(city=normalize_city(msg.text))
     await msg.answer("Расскажите немного о себе. Данный пункт необязателен, но желателен", reply_markup=kb)
     await state.set_state(Auth.descr)
 
@@ -160,6 +160,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
         await create_user(new_user)
         
     await state.update_data(user=user.__dict__)
+    await state.set_state(MainMenu.profile)
     await show_profile(msg, user)
 
 @flags.rate_limit(rate=1, key="user")

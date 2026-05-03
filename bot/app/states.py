@@ -33,5 +33,5 @@ class Offer(StatesGroup):
 
 class SearchOffers(StatesGroup):
     city = State()
-    show_first_offer = State()
     choice = State()
+    offer_not_found = State()

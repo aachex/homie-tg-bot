@@ -34,14 +34,17 @@ class HouseOfferPreview:
 
 
 class HouseOffersApi(APIClient):
-    async def get_by_id(self, offer_id: int) -> HouseOffer:
+    async def get_by_id(self, offer_id: int) -> HouseOffer | None:
         return await self.__get_offer(f"offer/{offer_id}")
     
-    async def get_rand(self, exclude_user_id: int, city: str) -> HouseOffer:
+    async def get_rand(self, exclude_user_id: int, city: str) -> HouseOffer | None:
         return await self.__get_offer(f"offer/rand?userId={exclude_user_id}&city={city}")
     
-    async def __get_offer(self, url: str) -> HouseOffer:
+    async def __get_offer(self, url: str) -> HouseOffer | None:
         offer_json = await self._request("GET", url)
+        if offer_json is None:
+            return None
+        
         offer = HouseOffer(
             id=int(offer_json["id"]),
             owner_id=int(offer_json["owner_id"]),
@@ -79,10 +82,10 @@ class HouseOffersApi(APIClient):
     
 _offers_api = HouseOffersApi()
 
-async def get_offer_by_id(offer_id: int) -> HouseOffer:
+async def get_offer_by_id(offer_id: int) -> HouseOffer | None:
     return await _offers_api.get_by_id(offer_id)
 
-async def get_rand_offer(exclude_user_id: int, city: str) -> HouseOffer:
+async def get_rand_offer(exclude_user_id: int, city: str) -> HouseOffer | None:
     return await _offers_api.get_rand(exclude_user_id, city)
 
 async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:

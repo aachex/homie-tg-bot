@@ -43,6 +43,41 @@ async def handle_media_upload(msg: Message, state: FSMContext, photo_count: int)
     await msg.answer(msgText, reply_markup=keyboard)
     return False
 
+def normalize_city(city: str) -> str:
+    """
+    Приводит название города к единому регистру с учётом особенностей.
+    Примеры:
+    - "РОСТОВ-НА-ДОНУ" -> "Ростов-на-Дону"
+    - "САНКТ-ПЕТЕРБУРГ" -> "Санкт-Петербург"
+    - "нижний новгород" -> "Нижний Новгород"
+    """
+    city = city.strip().lower()
+    
+    # Список слов, которые всегда должны быть с маленькой буквы
+    lowercase_exceptions = ['и', 'на', 'в', 'под', 'над', 'за', 'при', 'без', 'до', 'из']
+    
+    # Список слов, которые должны быть с большой буквы
+    uppercase_exceptions = {
+        'санкт': 'Санкт-',
+        'рост': 'Рост',
+        'великий': 'Великий',
+        'нижний': 'Нижний'
+    }
+    
+    # Разбиваем на части (по пробелам и дефисам)
+    parts = []
+    for part in city.replace('-', ' - ').split():
+        if part in lowercase_exceptions:
+            parts.append(part)
+        elif part in uppercase_exceptions:
+            parts.append(uppercase_exceptions[part])
+        else:
+            parts.append(part.capitalize())
+    
+    result = ' '.join(parts).replace(' - ', '-')
+    
+    return result
+
 def is_int(n: str):
     try:
         int(n)

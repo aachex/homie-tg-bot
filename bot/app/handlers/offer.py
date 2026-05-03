@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 
 from ..util.offer import show_offer
 from ..util.auth import show_unauthorized
-from ..util.shared import is_int, handle_media_upload
+from ..util.shared import is_int, handle_media_upload, normalize_city
 from ..keyboards import skip_keyboard
 
 from ..api.users import get_user_by_id
@@ -175,7 +175,7 @@ async def select_city(msg: Message, state: FSMContext):
         await msg.answer("Пожалуйста, введите название города")
         return
     
-    await state.update_data(city=msg.text)
+    await state.update_data(city=normalize_city(msg.text))
     await msg.answer("Где находится объект? Укажите район, улицу или название СНТ/деревни", reply_markup=skip_keyboard)
     await state.set_state(OfferCreate.district)
 
