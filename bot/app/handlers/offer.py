@@ -71,7 +71,7 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
     
     if not offer.is_active:
         kb = ReplyKeyboardMarkup(keyboard=[
-            [KeyboardButton(text="Включить объявление")],
+            [KeyboardButton(text="💡Включить объявление")],
             [KeyboardButton(text="Назад")],
             [KeyboardButton(text="Удалить объявление", style="danger")]
         ])
@@ -83,14 +83,8 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
 
     await show_offer(callback.message, offer)
 
-@router.message(
-    StateFilter(
-        Offer.active_offer_interact,
-        Offer.inactive_offer_interact,
-        Offer.offer_deact,
-        Offer.offer_del),
-    F.text.in_({"Назад", "Отмена"})
-)
+@router.message(StateFilter(Offer.active_offer_interact, Offer.inactive_offer_interact), F.text == "Назад")
+@router.message(StateFilter(Offer.offer_deact, Offer.offer_del), F.text == "Отмена")
 async def back_to_my_offers(msg: Message, state: FSMContext):
     await my_offers(msg, state)
 
@@ -119,7 +113,7 @@ async def deactivate_offer(msg: Message, state: FSMContext):
 
 # ========== Взаимодействие с неактивным объявлением ==========
 
-@router.message(Offer.inactive_offer_interact, F.text == "Включить объявление")
+@router.message(Offer.inactive_offer_interact, F.text == "💡Включить объявление")
 async def activate_offer(msg: Message, state: FSMContext):
     # Активация объявления на стороне API
     data = await state.get_data()
