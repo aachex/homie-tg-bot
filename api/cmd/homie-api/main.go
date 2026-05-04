@@ -53,6 +53,7 @@ func main() {
 	v1.POST("/offer", offersController.CreateOffer)
 	v1.DELETE("/offer/:id", offersController.DeleteOffer)
 	v1.PATCH("/offer/:id", offersController.SetActiveOffer)
+	v1.GET("/offer/:id/likes", offersController.OfferLikes)
 
 	// Запуск
 	log.Fatal(r.Run(":8080"))

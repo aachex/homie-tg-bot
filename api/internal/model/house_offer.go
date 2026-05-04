@@ -32,3 +32,10 @@ type HouseOfferPreview struct {
 	IsActive bool   `json:"is_active"`
 	Title    string `json:"title"`
 }
+
+// HouseOfferLike представляет данные о лайке объявления.
+type HouseOfferLike struct {
+	Id      int64 `json:"id"`
+	OfferId int64 `json:"offer_id"`
+	UserId  int64 `json:"user_id"`
+}

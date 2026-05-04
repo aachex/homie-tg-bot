@@ -36,6 +36,34 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 	return offer, err
 }
 
+func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error) {
+	likes = []model.HouseOfferLike{}
+
+	query := `
+		SELECT
+			id,
+			offer_id,
+			user_id
+		FROM offer_like
+		WHERE offer_id = $1`
+	rows, err := r.connPool.Query(ctx, query, offerId)
+	if err != nil {
+		return likes, err
+	}
+
+	var like model.HouseOfferLike
+	for rows.Next() {
+		err = rows.Scan(&like.Id, &like.OfferId, &like.UserId)
+		if err != nil {
+			return likes, err
+		}
+		likes = append(likes, like)
+	}
+
+	err = rows.Err()
+	return likes, err
+}
+
 func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (offer model.HouseOffer, err error) {
 	query := `
 		SELECT 
