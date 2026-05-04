@@ -17,7 +17,7 @@ class HouseOffer:
 @dataclass
 class HouseOfferCreate:
     """Данные, необходимые для создания объявления."""
-    owner_id: int = 0
+    owner_id: int = -1
     title: str = ""
     description: str = ""
     city: str = ""
@@ -28,9 +28,10 @@ class HouseOfferCreate:
 @dataclass
 class HouseOfferPreview:
     """Поверхностные данные, которые видит владелец своих объявлений."""
-    id: int
-    is_active: bool
-    title: str
+    id: int = -1
+    is_active: bool = False
+    title: str = ""
+    likes_count: int = 0
 
 
 class HouseOffersApi(APIClient):
@@ -46,15 +47,15 @@ class HouseOffersApi(APIClient):
             return None
         
         offer = HouseOffer(
-            id=int(offer_json["id"]),
-            owner_id=int(offer_json["owner_id"]),
-            is_active=offer_json["is_active"],
-            title=offer_json["title"],
-            description=offer_json["description"],
-            city=offer_json["city"],
-            district=offer_json["district"],
-            price=int(offer_json["price"]),
-            media_files=offer_json["media_files"],
+            id=int(offer_json.get("id", 0)),
+            owner_id=int(offer_json.get("owner_id", 0)),
+            is_active=bool(offer_json.get("is_active", False)),
+            title=offer_json.get("title", ""),
+            description=offer_json.get("description", ""),
+            city=offer_json.get("city", ""),
+            district=offer_json.get("district", ""),
+            price=int(offer_json.get("price", 0)),
+            media_files=list(offer_json.get("media_files", [])),
         )
         return offer
 
@@ -65,7 +66,8 @@ class HouseOffersApi(APIClient):
             HouseOfferPreview(
                 id=int(offer["id"]),
                 is_active=bool(offer["is_active"]),
-                title=offer["title"]
+                title=offer["title"],
+                likes_count=int(offer["likes_count"])
             )
             for offer in offers
         ]

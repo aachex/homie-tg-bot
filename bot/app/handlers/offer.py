@@ -41,7 +41,11 @@ async def my_offers(msg: Message, state: FSMContext):
     keyboard.row(InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary"))
 
     for offer in offers:
-        btn = InlineKeyboardButton(text=offer.title, callback_data=f"show_offer:{offer.id}")
+        btn_txt = offer.title
+        if offer.likes_count > 0:
+            btn_txt += f" (❤️ {offer.likes_count})"
+
+        btn = InlineKeyboardButton(text=btn_txt, callback_data=f"show_offer:{offer.id}")
         if offer.is_active:
             btn.style = "success"
         keyboard.add(btn)

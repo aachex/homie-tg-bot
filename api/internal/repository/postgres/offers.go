@@ -64,12 +64,9 @@ func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []mode
 	return likes, err
 }
 
-func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (offer model.HouseOffer, err error) {
+func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (offer model.HouseOfferVisibleData, err error) {
 	query := `
-		SELECT 
-			id,
-			is_active,
-			owner_id,
+		SELECT
 			title,
 			description,
 			city,
@@ -81,14 +78,23 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (o
 		ORDER BY RANDOM()`
 
 	row := r.connPool.QueryRow(ctx, query, userId, city)
-	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.MediaFiles)
+	err = row.Scan(&offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.MediaFiles)
 	return offer, err
 }
 
 func (r OffersRepo) UserOffers(ctx context.Context, userId int64) (offers []model.HouseOfferPreview, err error) {
 	offers = []model.HouseOfferPreview{}
 
-	query := `SELECT id, is_active, title FROM tg_house_offer WHERE owner_id = $1`
+	query := `
+		SELECT
+			tg_house_offer.id,
+			tg_house_offer.is_active,
+			tg_house_offer.title,
+			COUNT(offer_likes.offer_id) as likes_count
+		FROM tg_house_offer LEFT JOIN offer_likes ON tg_house_offer.id = offer_likes.offer_id
+		WHERE owner_id = $1
+		GROUP BY tg_house_offer.id, tg_house_offer.is_active, tg_house_offer.title`
+
 	rows, err := r.connPool.Query(ctx, query, userId)
 	if err != nil {
 		return offers, err
@@ -96,7 +102,7 @@ func (r OffersRepo) UserOffers(ctx context.Context, userId int64) (offers []mode
 
 	var offer model.HouseOfferPreview
 	for rows.Next() {
-		err = rows.Scan(&offer.Id, &offer.IsActive, &offer.Title)
+		err = rows.Scan(&offer.Id, &offer.IsActive, &offer.Title, &offer.LikesCount)
 		if err != nil {
 			return offers, err
 		}
