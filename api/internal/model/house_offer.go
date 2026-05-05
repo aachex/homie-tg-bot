@@ -2,16 +2,15 @@ package model
 
 // HouseOffer представляет все данные объявления.
 type HouseOffer struct {
-	Id          int64            `json:"id"`
-	IsActive    bool             `json:"is_active"`
-	OwnerId     int64            `json:"owner_id"`
-	Title       string           `json:"title"`
-	Description string           `json:"description"`
-	City        string           `json:"city"`
-	District    string           `json:"district"`
-	Price       int              `json:"price"`
-	MediaFiles  []string         `json:"media_files"`
-	Likes       []HouseOfferLike `json:"likes"`
+	Id          int64    `json:"id"`
+	IsActive    bool     `json:"is_active"`
+	OwnerId     int64    `json:"owner_id"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	City        string   `json:"city"`
+	District    string   `json:"district"`
+	Price       int      `json:"price"`
+	MediaFiles  []string `json:"media_files"`
 }
 
 // HouseOfferVisibleData представляет видимые данные объявления.
