@@ -33,7 +33,7 @@ async def my_profile(msg: Message, state: FSMContext):
         description=user.description,
         media_files=user.media_files
     )
-    await show_profile(msg, profile_data)
+    await show_profile_with_restart_keyboard(msg, profile_data)
 
 @router.callback_query(F.data == "authorize")
 async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
@@ -164,7 +164,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
         
     await state.update_data(user=user.__dict__)
     await state.set_state(MainMenu.profile)
-    await show_profile(msg, user)
+    await show_profile_with_restart_keyboard(msg, user)
 
 @flags.rate_limit(rate=1, key="user")
 @router.message(Auth.media_files)
@@ -179,3 +179,11 @@ async def auth_media(msg: Message, state: FSMContext):
     done = await handle_media_upload(msg, state, 3)
     if done:
         await finalize_auth(msg, state)
+
+async def show_profile_with_restart_keyboard(msg: Message, user: UserVisibleData):
+    keyboard = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Заполнить профиль заново")],
+        [KeyboardButton(text="Главное меню")],
+    ], resize_keyboard=True)
+    await msg.answer("Так выглядит ваш профиль:", reply_markup=keyboard)
+    await show_profile(msg, user)

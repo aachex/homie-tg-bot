@@ -30,6 +30,7 @@ class Offer(StatesGroup):
     inactive_offer_interact = State()
     offer_deact = State()
     offer_del = State()
+    view_likes = State()
 
 class SearchOffers(StatesGroup):
     city = State()

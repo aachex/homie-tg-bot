@@ -15,3 +15,10 @@ skip_keyboard = ReplyKeyboardMarkup(
     ],
     resize_keyboard=True
 )
+
+evaluate_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="❤️"), KeyboardButton(text="👎")],
+        [KeyboardButton(text="Главное меню")]
+    ], resize_keyboard=True
+)

@@ -14,6 +14,8 @@ from .main_menu import main_menu as show_main_menu
 
 from ..states import SearchOffers, MainMenu
 
+from ..keyboards import evaluate_keyboard
+
 router = Router()
 
 @router.message(MainMenu.main_menu, F.text == "🏡 Найти квартиру/дом")
@@ -35,14 +37,23 @@ async def select_city(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Укажите город")
         return
-    await state.update_data(city=normalize_city(msg.text))
+    city = normalize_city(msg.text)
+    await state.update_data(city=city)
 
-    kb = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="❤️"), KeyboardButton(text="👎")],
-        [KeyboardButton(text="Вернуться в главное меню")]
-    ], resize_keyboard=True)
+    # Проверка что в указанном городе есть объявления
+    offer = await get_rand_offer(msg.from_user.id, city)
+    if offer is None:
+        await state.set_state(SearchOffers.offer_not_found)
+        kb = ReplyKeyboardMarkup(keyboard=[
+            [KeyboardButton(text="Указать город повторно")],
+            [KeyboardButton(text="Главное меню")],
+        ], resize_keyboard=True)
+
+        await msg.answer("🔎")
+        await msg.answer("Мы не нашли ни одного объявления в указанном городе. Возможно опечатка?", reply_markup=kb)
+        return
     
-    await msg.answer("🔎", reply_markup=kb)
+    await msg.answer("🔎", reply_markup=evaluate_keyboard)
 
     await state.set_state(SearchOffers.choice)
     await show_next_offer(msg, state)
@@ -55,7 +66,7 @@ async def show_next_offer(msg: Message, state: FSMContext):
         await state.set_state(SearchOffers.offer_not_found)
         kb = ReplyKeyboardMarkup(keyboard=[
             [KeyboardButton(text="Указать город повторно")],
-            [KeyboardButton(text="В главное меню")],
+            [KeyboardButton(text="Главное меню")],
         ], resize_keyboard=True)
 
         await msg.answer("Мы не нашли ни одного объявления в указанном городе. Возможно опечатка?", reply_markup=kb)
@@ -66,7 +77,7 @@ async def show_next_offer(msg: Message, state: FSMContext):
 
 @router.message(SearchOffers.choice)
 async def evaluate_offer(msg: Message, state: FSMContext):
-    if msg.text == "Вернуться в главное меню":
+    if msg.text == "Главное меню":
         await show_main_menu(msg, state)
         return
     
@@ -85,7 +96,6 @@ async def evaluate_offer(msg: Message, state: FSMContext):
         
         offer_id = int(data["offer_id"])
         user_id = int(data["user_id"])
-        print(offer_id, user_id)
         await add_like_to_offer(offer_id, user_id)
     
     await show_next_offer(msg, state)

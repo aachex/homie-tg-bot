@@ -5,13 +5,15 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from aiogram.fsm.context import FSMContext
 
+from .main_menu import main_menu as show_main_menu
+
 from ..util.offer import show_offer
-from ..util.auth import show_unauthorized
+from ..util.auth import show_unauthorized, show_profile
 from ..util.shared import is_int, handle_media_upload, normalize_city
-from ..keyboards import skip_keyboard
+from ..keyboards import skip_keyboard, evaluate_keyboard
 
 from ..api.users import get_user_by_id
-from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, HouseOfferCreate
+from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, get_offer_likes, HouseOfferCreate
 
 from ..states import OfferCreate, Offer, MainMenu
 
@@ -30,7 +32,7 @@ async def my_offers(msg: Message, state: FSMContext):
     await state.clear()
     await state.set_state(MainMenu.my_offers)
 
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="В главное меню")]], resize_keyboard=True)
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Главное меню")]], resize_keyboard=True)
     await msg.answer(
         "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом",
         reply_markup=kb)
@@ -46,7 +48,7 @@ async def my_offers(msg: Message, state: FSMContext):
             likes_cnt = str(offer.likes_count) if offer.likes_count < 99 else "99+"
             btn_txt += f" | {likes_cnt}❤️"
 
-        btn = InlineKeyboardButton(text=btn_txt, callback_data=f"show_offer:{offer.id}")
+        btn = InlineKeyboardButton(text=btn_txt, callback_data=f"show_offer:{offer.id}:{offer.likes_count}")
         if offer.is_active:
             btn.style = "success"
         keyboard.add(btn)
@@ -67,22 +69,28 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
 
     await state.update_data(offer_id=offer_id)
 
-    kb = ReplyKeyboardMarkup(keyboard=[
+    kb_array = [
         [KeyboardButton(text="Отключить объявление")],
         [KeyboardButton(text="Назад")],
-    ])
+    ]
+    
     txt = f"🟢 Объявление #{offer_id}"
     await state.set_state(Offer.active_offer_interact)
     
     if not offer.is_active:
-        kb = ReplyKeyboardMarkup(keyboard=[
+        kb_array = [
             [KeyboardButton(text="💡Включить объявление")],
             [KeyboardButton(text="Назад")],
             [KeyboardButton(text="Удалить объявление", style="danger")]
-        ])
+        ]
         txt = f"<b>🔴 Объявление #{offer_id} (отключено)</b>"
         await state.set_state(Offer.inactive_offer_interact)
 
+    likes_count = int(callback.data.split(':')[2])
+    if likes_count > 0:
+        kb_array.insert(1, [KeyboardButton(text=f"Посмотреть интересующихся ({likes_count})")])
+    
+    kb = ReplyKeyboardMarkup(keyboard=kb_array)
     kb.resize_keyboard = True
     await callback.message.answer(txt, reply_markup=kb, parse_mode="HTML")
 
@@ -256,3 +264,46 @@ async def upload_media(msg: Message, state: FSMContext):
     done = await handle_media_upload(msg, state, 10)
     if done:
         await finalize_create_offer(msg, state)
+
+# ========== Просмотр лайков ==========
+
+@router.message(StateFilter(Offer.active_offer_interact, Offer.inactive_offer_interact), F.text.startswith("Посмотреть интересующихся"))
+async def show_next_like(msg: Message, state: FSMContext):
+    data = await state.get_data()
+
+    if "user_ids" not in data:
+        await msg.answer("👀", reply_markup=evaluate_keyboard)
+
+        offer_id = int(data["offer_id"])
+        likes = await get_offer_likes(offer_id)
+        user_ids = [like.user_id for like in likes]
+        await state.update_data(user_ids=user_ids)
+        data["user_ids"] = user_ids
+    
+    user_ids = data["user_ids"]
+    if len(user_ids) == 0:
+        kb = ReplyKeyboardMarkup(keyboard=[
+            [KeyboardButton(text="Мои объявления")],
+            [KeyboardButton(text="Главное меню")]
+        ], resize_keyboard=True)
+        await msg.answer("Просмотрены все интересующиеся", reply_markup=kb)
+        return
+
+    user_id = likes[0].user_id
+    user = await get_user_by_id(user_id)
+    await show_profile(msg, user)
+
+    await state.set_state(Offer.view_likes)
+    await state.update_data(user_ids=user_ids[1:])    
+
+@router.message(Offer.view_likes)
+async def evaluate_user(msg: Message, state: FSMContext):
+    if msg.text == "Главное меню":
+        await show_main_menu(msg, state)
+        return
+    
+    if msg.text != "❤️" and msg.text != "👎":
+        await msg.answer("Поставьте ❤️ или 👎 этому человеку")
+        return
+    
+    await show_next_like(msg, state)
