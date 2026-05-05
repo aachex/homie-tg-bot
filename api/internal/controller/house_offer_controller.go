@@ -17,7 +17,7 @@ type houseOffersRepo interface {
 	OfferById(ctx context.Context, id int64) (model.HouseOffer, error)
 	OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error)
 	AddLike(ctx context.Context, offerId int64, userId int64) error
-	RandOffer(ctx context.Context, userId int64, city string) (model.HouseOfferVisibleData, error)
+	RandOffer(ctx context.Context, userId int64, city string) (model.HouseOffer, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
@@ -94,8 +94,8 @@ func (c HouseOffers) AddLike(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, defaultResp{
-		StatusCode: http.StatusOK,
+	ctx.JSON(http.StatusCreated, defaultResp{
+		StatusCode: http.StatusCreated,
 		Message:    fmt.Sprintf("added like to offer %d", offerId),
 	})
 }

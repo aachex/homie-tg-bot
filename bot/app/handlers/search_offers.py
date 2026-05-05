@@ -4,9 +4,10 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKey
 from aiogram.fsm.context import FSMContext
 
 from ..api.users import get_user_by_id
-from ..api.offers import get_rand_offer
+from ..api.offers import get_rand_offer, add_like_to_offer
 
 from ..util.offer import show_offer
+from ..util.auth import show_unauthorized
 from ..util.shared import normalize_city
 
 from .main_menu import main_menu as show_main_menu
@@ -24,6 +25,8 @@ async def search_start(msg: Message, state: FSMContext):
     user = await get_user_by_id(msg.from_user.id)
     if user is not None:
         kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
+        await state.update_data(user_id=user.id)
+
     await msg.answer("Из какого города показывать объявления?", reply_markup=kb)
     await state.set_state(SearchOffers.city)
 
@@ -40,6 +43,7 @@ async def select_city(msg: Message, state: FSMContext):
     ], resize_keyboard=True)
     
     await msg.answer("🔎", reply_markup=kb)
+
     await state.set_state(SearchOffers.choice)
     await show_next_offer(msg, state)
 
@@ -57,16 +61,32 @@ async def show_next_offer(msg: Message, state: FSMContext):
         await msg.answer("Мы не нашли ни одного объявления в указанном городе. Возможно опечатка?", reply_markup=kb)
         return
 
+    await state.update_data(offer_id=offer.id)
     await show_offer(msg, offer)
 
 @router.message(SearchOffers.choice)
 async def evaluate_offer(msg: Message, state: FSMContext):
-    if msg.text == "👎":
-        await show_next_offer(msg, state)
-    elif msg.text == "❤️":
-        # TODO: send like to db
-        await show_next_offer(msg, state)
-    elif msg.text == "Вернуться в главное меню":
+    if msg.text == "Вернуться в главное меню":
         await show_main_menu(msg, state)
-    else:
+        return
+    
+    if msg.text != "❤️" and msg.text != "👎":
         await msg.answer("Поставьте ❤️ или 👎 этому объявлению")
+        return
+    
+    # Если поставили лайк - фиксируем в бд
+    if msg.text == "❤️":
+        data = await state.get_data()
+
+        # Проверяем что пользователь зарегистрирован
+        if "user_id" not in data:
+            await show_unauthorized(msg, state)
+            return
+        
+        offer_id = int(data["offer_id"])
+        user_id = int(data["user_id"])
+        print(offer_id, user_id)
+        await add_like_to_offer(offer_id, user_id)
+    
+    await show_next_offer(msg, state)
+        

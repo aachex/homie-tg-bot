@@ -87,9 +87,12 @@ func (r *OffersRepo) AddLike(ctx context.Context, offerId int64, userId int64) e
 	return nil
 }
 
-func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (offer model.HouseOfferVisibleData, err error) {
+func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (offer model.HouseOffer, err error) {
 	query := `
-		SELECT
+		SELECT 
+			id,
+			is_active,
+			owner_id,
 			title,
 			description,
 			city,
@@ -101,7 +104,7 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (o
 		ORDER BY RANDOM()`
 
 	row := r.connPool.QueryRow(ctx, query, userId, city)
-	err = row.Scan(&offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.MediaFiles)
+	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.MediaFiles)
 	return offer, err
 }
 

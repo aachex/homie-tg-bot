@@ -4,8 +4,8 @@ from .base import APIClient
 @dataclass
 class HouseOffer:
     """Данные объявления о сдаче/продаже жилья."""
-    id: int = -1
-    owner_id: int = -1
+    id: int = 0
+    owner_id: int = 0
     is_active: bool = False
     title: str = ""
     description: str = ""
@@ -17,7 +17,7 @@ class HouseOffer:
 @dataclass
 class HouseOfferCreate:
     """Данные, необходимые для создания объявления."""
-    owner_id: int = -1
+    owner_id: int = 0
     title: str = ""
     description: str = ""
     city: str = ""
@@ -28,11 +28,16 @@ class HouseOfferCreate:
 @dataclass
 class HouseOfferPreview:
     """Поверхностные данные, которые видит владелец своих объявлений."""
-    id: int = -1
+    id: int = 0
     is_active: bool = False
     title: str = ""
     likes_count: int = 0
 
+@dataclass
+class HouseOfferLike:
+    id: int = 0
+    offer_id: int = 0
+    user_id: int = 0
 
 class HouseOffersApi(APIClient):
     async def get_by_id(self, offer_id: int) -> HouseOffer | None:
@@ -82,6 +87,21 @@ class HouseOffersApi(APIClient):
     async def delete_offer(self, offer_id: int):
         await self._request("DELETE", f"offer/{offer_id}")
     
+    async def get_likes(self, offer_id: int) -> list[HouseOfferLike]:
+        likes_json = await self._request("GET", f"offer/{offer_id}/likes")
+        likes = [
+            HouseOfferLike(
+                id=int(like.get("id", 0)),
+                user_id=int(like.get("user_id", 0)),
+                offer_id=int(like.get("offer_id", 0)),
+            )
+            for like in likes_json
+        ]
+        return likes
+    
+    async def add_like(self, offer_id: int, user_id: int):
+        await self._request("POST", f"offer/{offer_id}/like?userId={user_id}", expected_status=201)
+
 _offers_api = HouseOffersApi()
 
 async def get_offer_by_id(offer_id: int) -> HouseOffer | None:
@@ -101,3 +121,9 @@ async def set_active_offer(offer_id: int, active: bool):
 
 async def delete_offer(offer_id: int):
     await _offers_api.delete_offer(offer_id)
+
+async def get_offer_likes(offer_id: int) -> list[HouseOfferLike]:
+    return await _offers_api.get_likes(offer_id)
+
+async def add_like_to_offer(offer_id: int, user_id: int):
+    await _offers_api.add_like(offer_id, user_id)

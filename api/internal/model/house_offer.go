@@ -13,16 +13,6 @@ type HouseOffer struct {
 	MediaFiles  []string `json:"media_files"`
 }
 
-// HouseOfferVisibleData представляет видимые данные объявления.
-type HouseOfferVisibleData struct {
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	City        string   `json:"city"`
-	District    string   `json:"district"`
-	Price       int      `json:"price"`
-	MediaFiles  []string `json:"media_files"`
-}
-
 // HouseOfferCreate представляет данные, необходимые для создания объявления.
 type HouseOfferCreate struct {
 	OwnerId     int64    `json:"owner_id"`
