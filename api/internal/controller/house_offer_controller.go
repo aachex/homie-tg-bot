@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"homie-api/internal/model"
+	"homie-api/internal/repository/postgres"
 	"net/http"
 	"strconv"
 
@@ -15,6 +16,7 @@ import (
 type houseOffersRepo interface {
 	OfferById(ctx context.Context, id int64) (model.HouseOffer, error)
 	OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error)
+	AddLike(ctx context.Context, offerId int64, userId int64) error
 	RandOffer(ctx context.Context, userId int64, city string) (model.HouseOfferVisibleData, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
@@ -66,6 +68,36 @@ func (c HouseOffers) OfferLikes(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, likes)
+}
+
+func (c HouseOffers) AddLike(ctx *gin.Context) {
+	offerId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
+		return
+	}
+
+	userId, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
+	if err != nil {
+		controllerError(ctx, errors.New("invalid userId format"), http.StatusBadRequest)
+		return
+	}
+
+	err = c.houseOffersRepo.AddLike(ctx, offerId, userId)
+	if err != nil {
+		code := http.StatusInternalServerError
+		// Лайк уже стоит - конфликт
+		if errors.Is(err, postgres.ErrLikeAlreadyExists) {
+			code = http.StatusConflict
+		}
+		controllerError(ctx, errors.New("failed to like offer"), code)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, defaultResp{
+		StatusCode: http.StatusOK,
+		Message:    fmt.Sprintf("added like to offer %d", offerId),
+	})
 }
 
 func (c HouseOffers) RandOffer(ctx *gin.Context) {

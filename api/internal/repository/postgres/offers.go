@@ -2,9 +2,15 @@ package postgres
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"homie-api/internal/model"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+var (
+	ErrLikeAlreadyExists = errors.New("like already exists")
 )
 
 type OffersRepo struct {
@@ -62,6 +68,23 @@ func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []mode
 
 	err = rows.Err()
 	return likes, err
+}
+
+func (r *OffersRepo) AddLike(ctx context.Context, offerId int64, userId int64) error {
+	query := `
+        INSERT INTO offer_like (offer_id, user_id)
+        VALUES ($1, $2)
+        ON CONFLICT (offer_id, user_id) DO NOTHING
+    `
+	cmdTag, err := r.connPool.Exec(ctx, query, offerId, userId)
+	if err != nil {
+		return fmt.Errorf("failed to insert like: %w", err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return ErrLikeAlreadyExists
+	}
+	return nil
 }
 
 func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (offer model.HouseOfferVisibleData, err error) {
