@@ -11,6 +11,7 @@ import (
 
 var (
 	ErrLikeAlreadyExists = errors.New("like already exists")
+	ErrLikeNotFound      = errors.New("like not found")
 )
 
 type OffersRepo struct {
@@ -70,7 +71,7 @@ func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []mode
 	return likes, err
 }
 
-func (r *OffersRepo) AddLike(ctx context.Context, offerId int64, userId int64) error {
+func (r OffersRepo) AddLike(ctx context.Context, offerId int64, userId int64) error {
 	query := `
         INSERT INTO offer_like (offer_id, user_id)
         VALUES ($1, $2)
@@ -83,6 +84,22 @@ func (r *OffersRepo) AddLike(ctx context.Context, offerId int64, userId int64) e
 
 	if cmdTag.RowsAffected() == 0 {
 		return ErrLikeAlreadyExists
+	}
+	return nil
+}
+
+func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64) error {
+	query := `
+        DELETE FROM offer_like
+        WHERE offer_id = $1 AND user_id = $2
+    `
+	cmdTag, err := r.connPool.Exec(ctx, query, offerId, userId)
+	if err != nil {
+		return fmt.Errorf("failed to delete like: %w", err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return ErrLikeNotFound
 	}
 	return nil
 }
