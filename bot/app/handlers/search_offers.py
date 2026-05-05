@@ -80,7 +80,7 @@ async def evaluate_offer(msg: Message, state: FSMContext):
 
         # Проверяем что пользователь зарегистрирован
         if "user_id" not in data:
-            await show_unauthorized(msg, state)
+            await show_unauthorized(msg)
             return
         
         offer_id = int(data["offer_id"])

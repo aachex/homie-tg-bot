@@ -116,8 +116,8 @@ func (r OffersRepo) UserOffers(ctx context.Context, userId int64) (offers []mode
 			tg_house_offer.id,
 			tg_house_offer.is_active,
 			tg_house_offer.title,
-			COUNT(offer_likes.offer_id) as likes_count
-		FROM tg_house_offer LEFT JOIN offer_likes ON tg_house_offer.id = offer_likes.offer_id
+			COUNT(offer_like.offer_id) as likes_count
+		FROM tg_house_offer LEFT JOIN offer_like ON tg_house_offer.id = offer_like.offer_id
 		WHERE owner_id = $1
 		GROUP BY tg_house_offer.id, tg_house_offer.is_active, tg_house_offer.title`
 

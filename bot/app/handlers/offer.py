@@ -43,7 +43,8 @@ async def my_offers(msg: Message, state: FSMContext):
     for offer in offers:
         btn_txt = offer.title
         if offer.likes_count > 0:
-            btn_txt += f" (❤️ {offer.likes_count})"
+            likes_cnt = str(offer.likes_count) if offer.likes_count < 99 else "99+"
+            btn_txt += f" | {likes_cnt}❤️"
 
         btn = InlineKeyboardButton(text=btn_txt, callback_data=f"show_offer:{offer.id}")
         if offer.is_active:
@@ -152,12 +153,13 @@ async def del_offer(msg: Message, state: FSMContext):
 @router.callback_query(MainMenu.my_offers, F.data == "create_offer")
 async def create_start(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.clear()
 
     user = await get_user_by_id(callback.from_user.id)
     if user is None:
-        await show_unauthorized(callback.message, state)
+        await show_unauthorized(callback.message)
         return
+    
+    await state.clear()
     
     await state.update_data(user=user.__dict__)
 

@@ -1,5 +1,5 @@
 from aiogram import F, Router
-from aiogram.types import Message, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
 
 from aiogram.fsm.context import FSMContext
 from aiogram import flags
@@ -17,14 +17,13 @@ router = Router()
 @flags.rate_limit(rate=1, key="user")
 @router.message(MainMenu.main_menu, F.text == "Мой профиль")
 async def my_profile(msg: Message, state: FSMContext):
-    await state.clear()
-    await state.set_state(MainMenu.profile)
-
     user = await get_user_by_id(msg.from_user.id)
     if user is None:
-        await show_unauthorized(msg, state)
+        await show_unauthorized(msg)
         return
 
+    await state.clear()
+    await state.set_state(MainMenu.profile)
     await state.update_data(user=user.__dict__)
 
     profile_data = UserVisibleData(
@@ -36,18 +35,22 @@ async def my_profile(msg: Message, state: FSMContext):
     )
     await show_profile(msg, profile_data)
 
-@flags.rate_limit(rate=1, key="user")
-@router.message(Auth.ask_to_auth)
-async def auth_choice(msg: Message, state: FSMContext):
-    if msg.text == "Заполнить профиль":
-        await auth_start(msg, state)
-    else:
-        from .main_menu import main_menu as show_main_menu
-        await show_main_menu(msg, state)
+@router.callback_query(F.data == "authorize")
+async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.clear()
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=callback.from_user.first_name)]], resize_keyboard=True)
 
+    data = await state.get_data()
+    if "user" in data:
+        kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=data["user"]["name"])]], resize_keyboard=True)
+
+    await callback.message.answer("Пожалуйста, введите Ваше имя", reply_markup=kb)
+    await state.set_state(Auth.name)
+    
 @flags.rate_limit(rate=1, key="user")
 @router.message(MainMenu.profile, F.text == "Заполнить профиль заново")
-async def auth_start(msg: Message, state: FSMContext):
+async def auth_start_msg(msg: Message, state: FSMContext):
     kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=msg.from_user.first_name)]], resize_keyboard=True)
 
     data = await state.get_data()
