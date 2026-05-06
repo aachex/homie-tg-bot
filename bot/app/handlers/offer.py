@@ -68,6 +68,7 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
     offer = await get_offer_by_id(offer_id)
 
     await state.update_data(offer_id=offer_id)
+    await state.update_data(offer_title=offer.title)
 
     kb_array = [
         [KeyboardButton(text="Отключить объявление")],
@@ -311,6 +312,13 @@ async def evaluate_user(msg: Message, state: FSMContext):
     offer_id = int(data["offer_id"])
     user_id = int(user_ids[0])
     await delete_like(offer_id, user_id)
+
+    if msg.text == "❤️":
+        title = data["offer_title"]
+        owner_name = msg.from_user.first_name if msg.from_user.first_name != "" else "Владелец"
+        owner_link = f'<a href="https://t.me/{msg.from_user.username}">{owner_name}</a>'
+        txt = f"Владелец объявления <b>\"{title}\"</b> готов обсудить сделку! Пишите 👉 {owner_link}"
+        await msg.bot.send_message(user_id, txt, parse_mode="HTML")
 
     await state.update_data(user_ids=user_ids[1:])
     await show_next_like(msg, state)
