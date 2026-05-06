@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"homie-api/internal/controller"
 	"homie-api/internal/repository/postgres"
+	"homie-api/pkg/middleware"
 	"log"
 	"os"
 
@@ -32,19 +33,31 @@ func main() {
 	usersController := controller.NewUsers(usersRepo)
 	offersController := controller.NewHouseOffers(offersRepo)
 
-	// Запуск сервера
+	// Конфигурация сервера
 	r := gin.New()
+	r.GET("/ping", controller.Ping)
 
 	v1 := r.Group("/api/v1")
-	v1.GET("/user/rand", usersController.GetRandUser)
+
+	// Middleware
+	v1.Use(middleware.CheckKey())
+
+	// Routes
+	v1.GET("/user/:id", usersController.UserById)
 	v1.POST("/user", usersController.CreateUser)
 	v1.PATCH("/user/:id", usersController.EditUser)
+	v1.GET("/user/:id/offers", offersController.UserOffers)
 
+	v1.GET("/offer/:id", offersController.OfferById)
 	v1.GET("/offer/rand", offersController.RandOffer)
 	v1.POST("/offer", offersController.CreateOffer)
 	v1.DELETE("/offer/:id", offersController.DeleteOffer)
 	v1.PATCH("/offer/:id", offersController.SetActiveOffer)
+	v1.GET("/offer/:id/likes", offersController.OfferLikes)
+	v1.POST("/offer/:id/like", offersController.AddLike)
+	v1.DELETE("/offer/:id/like", offersController.DeleteLike)
 
+	// Запуск
 	log.Fatal(r.Run(":8080"))
 }
 

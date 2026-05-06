@@ -1,11 +1,11 @@
 services:
-  postgres-db:
+  postgres_db:
     image: postgres:17.3-alpine3.21
-    container_name: postgres-db
+    container_name: postgres_db
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
     networks:
-      - homie-net
+      - homie_net
     env_file:
       - config/dev/postgres.env
     healthcheck:
@@ -15,24 +15,43 @@ services:
       retries: 5
       start_period: 30s
 
-  homie-api:
-    container_name: homie-api
+  homie_api:
+    container_name: homie_api
     build:
       context: .
       dockerfile: ./dockerfiles/api.dockerfile
     env_file:
       - config/dev/api.env
     networks:
-      - homie-net
+      - homie_net
     ports:
       - "8080:8080"
     depends_on:
-      postgres-db:
+      postgres_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080/ping"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+
+  tg_bot:
+    container_name: tg_bot
+    build:
+      context: .
+      dockerfile: ./dockerfiles/bot.dockerfile
+    env_file:
+      - config/dev/bot.env
+    networks:
+      - homie_net
+    depends_on:
+      homie_api:
         condition: service_healthy
 
 networks:
-  homie-net:
+  homie_net:
     driver: bridge
 
 volumes:
-  db-data:
+  db_data:

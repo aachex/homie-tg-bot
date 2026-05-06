@@ -24,14 +24,14 @@ func NewUsersRepo(connPool *pgxpool.Pool) *UsersRepo {
 	}
 }
 
-func (r UsersRepo) RandUser(ctx context.Context) (user model.User, err error) {
-	query := `SELECT id, name, age, description, city, media_files FROM tg_user ORDER BY RANDOM() LIMIT 1`
-	row := r.connPool.QueryRow(ctx, query)
+func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err error) {
+	query := `SELECT id, name, age, description, city, media_files FROM tg_user WHERE id = $1`
+	row := r.connPool.QueryRow(ctx, query, id)
 	err = row.Scan(&user.Id, &user.Name, &user.Age, &user.Description, &user.City, &user.MediaFiles)
 	return user, err
 }
 
-func (r UsersRepo) NewUser(ctx context.Context, userData model.User) error {
+func (r UsersRepo) CreateUser(ctx context.Context, userData model.User) error {
 	err := r.transaction(ctx, func(tx pgx.Tx) error {
 		// Проверяем, что пользователь не существует
 		userExists, err := r.existsTx(ctx, tx, userData.Id)
@@ -56,19 +56,19 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 	query := "UPDATE tg_user SET "
 	updates := []string{}
 
-	if patch.Name != "" {
+	if patch.Name != nil {
 		updates = append(updates, "name = @name")
 		args["name"] = patch.Name
 	}
-	if patch.Age != 0 {
+	if patch.Age != nil {
 		updates = append(updates, "age = @age")
 		args["age"] = patch.Age
 	}
-	if patch.Description != "" {
+	if patch.Description != nil {
 		updates = append(updates, "description = @description")
 		args["description"] = patch.Description
 	}
-	if patch.City != "" {
+	if patch.City != nil {
 		updates = append(updates, "city = @city")
 		args["city"] = patch.City
 	}
@@ -98,7 +98,7 @@ func (r UsersRepo) existsTx(ctx context.Context, tx pgx.Tx, userId int64) (exist
 }
 
 func (r UsersRepo) createUserTx(ctx context.Context, tx pgx.Tx, userData model.User) error {
-	query := `INSERT INTO tg_user (id, name, age, description, city) VALUES ($1, $2, $3, $4, $5)`
+	query := `INSERT INTO tg_user (id, name, age, description, city, media_files) VALUES ($1, $2, $3, $4, $5, $6)`
 	_, err := tx.Exec(
 		ctx,
 		query,
@@ -107,6 +107,7 @@ func (r UsersRepo) createUserTx(ctx context.Context, tx pgx.Tx, userData model.U
 		userData.Age,
 		userData.Description,
 		userData.City,
+		userData.MediaFiles,
 	)
 
 	return err

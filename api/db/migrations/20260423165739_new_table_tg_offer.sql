@@ -3,9 +3,8 @@
 CREATE TABLE IF NOT EXISTS tg_house_offer (
     id BIGSERIAL PRIMARY KEY NOT NULL,
     title TEXT NOT NULL,
-    description TEXT NOT NULL,
-    price DECIMAL (12, 2) NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('RENT', 'BUY')),
+    description TEXT NOT NULL DEFAULT '',
+    price INTEGER NOT NULL,
     owner_id BIGINT NOT NULL REFERENCES tg_user (id)
 );
 -- +goose StatementEnd
