@@ -102,6 +102,9 @@ class HouseOffersApi(APIClient):
     async def add_like(self, offer_id: int, user_id: int):
         await self._request("POST", f"offer/{offer_id}/like?userId={user_id}", expected_status=201)
 
+    async def delete_like(self, offer_id: int, user_id: int):
+        await self._request("DELETE", f"offer/{offer_id}/like?userId={user_id}")
+
 _offers_api = HouseOffersApi()
 
 async def get_offer_by_id(offer_id: int) -> HouseOffer | None:
@@ -127,3 +130,6 @@ async def get_offer_likes(offer_id: int) -> list[HouseOfferLike]:
 
 async def add_like_to_offer(offer_id: int, user_id: int):
     await _offers_api.add_like(offer_id, user_id)
+
+async def delete_like(offer_id: int, user_id: int):
+    await _offers_api.delete_like(offer_id, user_id)

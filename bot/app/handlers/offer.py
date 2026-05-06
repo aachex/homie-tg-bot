@@ -13,7 +13,7 @@ from ..util.shared import is_int, handle_media_upload, normalize_city
 from ..keyboards import skip_keyboard, evaluate_keyboard
 
 from ..api.users import get_user_by_id
-from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, get_offer_likes, HouseOfferCreate
+from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, get_offer_likes, delete_like, HouseOfferCreate
 
 from ..states import OfferCreate, Offer, MainMenu
 
@@ -289,12 +289,11 @@ async def show_next_like(msg: Message, state: FSMContext):
         await msg.answer("Просмотрены все интересующиеся", reply_markup=kb)
         return
 
-    user_id = likes[0].user_id
+    user_id = user_ids[0]
     user = await get_user_by_id(user_id)
     await show_profile(msg, user)
 
     await state.set_state(Offer.view_likes)
-    await state.update_data(user_ids=user_ids[1:])    
 
 @router.message(Offer.view_likes)
 async def evaluate_user(msg: Message, state: FSMContext):
@@ -306,4 +305,12 @@ async def evaluate_user(msg: Message, state: FSMContext):
         await msg.answer("Поставьте ❤️ или 👎 этому человеку")
         return
     
+    data = await state.get_data()
+    user_ids = data["user_ids"]
+
+    offer_id = int(data["offer_id"])
+    user_id = int(user_ids[0])
+    await delete_like(offer_id, user_id)
+
+    await state.update_data(user_ids=user_ids[1:])
     await show_next_like(msg, state)
