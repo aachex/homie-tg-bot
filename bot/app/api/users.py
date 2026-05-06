@@ -6,7 +6,7 @@ from .base import APIClient
 @dataclass
 class User:
     """Данные пользователя."""
-    id: int = -1
+    id: int = 0
     name: str = ""
     age: int = 0
     city: str = ""

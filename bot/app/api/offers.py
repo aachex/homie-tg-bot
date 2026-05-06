@@ -4,8 +4,8 @@ from .base import APIClient
 @dataclass
 class HouseOffer:
     """Данные объявления о сдаче/продаже жилья."""
-    id: int = -1
-    owner_id: int = -1
+    id: int = 0
+    owner_id: int = 0
     is_active: bool = False
     title: str = ""
     description: str = ""
@@ -28,24 +28,39 @@ class HouseOfferCreate:
 @dataclass
 class HouseOfferPreview:
     """Поверхностные данные, которые видит владелец своих объявлений."""
-    id: int
-    is_active: bool
-    title: str
+    id: int = 0
+    is_active: bool = False
+    title: str = ""
+    likes_count: int = 0
 
+@dataclass
+class HouseOfferLike:
+    id: int = 0
+    offer_id: int = 0
+    user_id: int = 0
 
 class HouseOffersApi(APIClient):
-    async def get_by_id(self, offer_id: int) -> HouseOffer:
-        offer_json = await self._request("GET", f"offer/{offer_id}")
+    async def get_by_id(self, offer_id: int) -> HouseOffer | None:
+        return await self.__get_offer(f"offer/{offer_id}")
+    
+    async def get_rand(self, exclude_user_id: int, city: str) -> HouseOffer | None:
+        return await self.__get_offer(f"offer/rand?userId={exclude_user_id}&city={city}")
+    
+    async def __get_offer(self, url: str) -> HouseOffer | None:
+        offer_json = await self._request("GET", url)
+        if offer_json is None:
+            return None
+        
         offer = HouseOffer(
-            id=offer_id,
-            owner_id=int(offer_json["owner_id"]),
-            is_active=offer_json["is_active"],
-            title=offer_json["title"],
-            description=offer_json["description"],
-            city=offer_json["city"],
-            district=offer_json["district"],
-            price=int(offer_json["price"]),
-            media_files=offer_json["media_files"],
+            id=int(offer_json.get("id", 0)),
+            owner_id=int(offer_json.get("owner_id", 0)),
+            is_active=bool(offer_json.get("is_active", False)),
+            title=offer_json.get("title", ""),
+            description=offer_json.get("description", ""),
+            city=offer_json.get("city", ""),
+            district=offer_json.get("district", ""),
+            price=int(offer_json.get("price", 0)),
+            media_files=list(offer_json.get("media_files", [])),
         )
         return offer
 
@@ -56,7 +71,8 @@ class HouseOffersApi(APIClient):
             HouseOfferPreview(
                 id=int(offer["id"]),
                 is_active=bool(offer["is_active"]),
-                title=offer["title"]
+                title=offer["title"],
+                likes_count=int(offer["likes_count"])
             )
             for offer in offers
         ]
@@ -71,10 +87,31 @@ class HouseOffersApi(APIClient):
     async def delete_offer(self, offer_id: int):
         await self._request("DELETE", f"offer/{offer_id}")
     
+    async def get_likes(self, offer_id: int) -> list[HouseOfferLike]:
+        likes_json = await self._request("GET", f"offer/{offer_id}/likes")
+        likes = [
+            HouseOfferLike(
+                id=int(like.get("id", 0)),
+                user_id=int(like.get("user_id", 0)),
+                offer_id=int(like.get("offer_id", 0)),
+            )
+            for like in likes_json
+        ]
+        return likes
+    
+    async def add_like(self, offer_id: int, user_id: int):
+        await self._request("POST", f"offer/{offer_id}/like?userId={user_id}", expected_status=201)
+
+    async def delete_like(self, offer_id: int, user_id: int):
+        await self._request("DELETE", f"offer/{offer_id}/like?userId={user_id}")
+
 _offers_api = HouseOffersApi()
 
-async def get_offer_by_id(offer_id: int) -> HouseOffer:
+async def get_offer_by_id(offer_id: int) -> HouseOffer | None:
     return await _offers_api.get_by_id(offer_id)
+
+async def get_rand_offer(exclude_user_id: int, city: str) -> HouseOffer | None:
+    return await _offers_api.get_rand(exclude_user_id, city)
 
 async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:
     return await _offers_api.get_user_offers(user_id)
@@ -87,3 +124,12 @@ async def set_active_offer(offer_id: int, active: bool):
 
 async def delete_offer(offer_id: int):
     await _offers_api.delete_offer(offer_id)
+
+async def get_offer_likes(offer_id: int) -> list[HouseOfferLike]:
+    return await _offers_api.get_likes(offer_id)
+
+async def add_like_to_offer(offer_id: int, user_id: int):
+    await _offers_api.add_like(offer_id, user_id)
+
+async def delete_like(offer_id: int, user_id: int):
+    await _offers_api.delete_like(offer_id, user_id)

@@ -1,22 +1,56 @@
 from aiogram import F, Router
-from aiogram.types import Message, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
 
 from aiogram.fsm.context import FSMContext
 from aiogram import flags
 
-from .keyboards import skip_keyboard
+from ..keyboards import skip_keyboard
 
-from .util.auth import show_profile, show_unauthorized
-from .util.shared import is_int, handle_media_upload
-from .api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
+from ..util.auth import show_profile, show_unauthorized
+from ..util.shared import is_int, handle_media_upload, normalize_city
+from ..api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
 
-from .states import Auth
+from ..states import Auth, MainMenu
 
 router = Router()
 
 @flags.rate_limit(rate=1, key="user")
-@router.message(F.text == "Заполнить профиль заново")
-async def auth_start(msg: Message, state: FSMContext):
+@router.message(MainMenu.main_menu, F.text == "Мой профиль")
+async def my_profile(msg: Message, state: FSMContext):
+    user = await get_user_by_id(msg.from_user.id)
+    if user is None:
+        await show_unauthorized(msg)
+        return
+
+    await state.clear()
+    await state.set_state(MainMenu.profile)
+    await state.update_data(user=user.__dict__)
+
+    profile_data = UserVisibleData(
+        name=user.name,
+        age=user.age,
+        city=user.city,
+        description=user.description,
+        media_files=user.media_files
+    )
+    await show_profile_with_restart_keyboard(msg, profile_data)
+
+@router.callback_query(F.data == "authorize")
+async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.clear()
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=callback.from_user.first_name)]], resize_keyboard=True)
+
+    data = await state.get_data()
+    if "user" in data:
+        kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=data["user"]["name"])]], resize_keyboard=True)
+
+    await callback.message.answer("Пожалуйста, введите Ваше имя", reply_markup=kb)
+    await state.set_state(Auth.name)
+    
+@flags.rate_limit(rate=1, key="user")
+@router.message(MainMenu.profile, F.text == "Заполнить профиль заново")
+async def auth_start_msg(msg: Message, state: FSMContext):
     kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=msg.from_user.first_name)]], resize_keyboard=True)
 
     data = await state.get_data()
@@ -73,7 +107,7 @@ async def auth_city(msg: Message, state: FSMContext):
             [KeyboardButton(text="Оставить текущее описание")],
         ], resize_keyboard=True)
 
-    await state.update_data(city=msg.text)
+    await state.update_data(city=normalize_city(msg.text))
     await msg.answer("Расскажите немного о себе. Данный пункт необязателен, но желателен", reply_markup=kb)
     await state.set_state(Auth.descr)
 
@@ -100,6 +134,9 @@ async def auth_descr(msg: Message, state: FSMContext):
 @router.message(Auth.media_files, F.text == "Завершить")
 async def finalize_auth(msg: Message, state: FSMContext):
     data = await state.get_data()
+    if "media_files" not in data:
+        return
+    
     await state.clear()
 
     user = UserVisibleData(
@@ -126,7 +163,8 @@ async def finalize_auth(msg: Message, state: FSMContext):
         await create_user(new_user)
         
     await state.update_data(user=user.__dict__)
-    await show_profile(msg, user)
+    await state.set_state(MainMenu.profile)
+    await show_profile_with_restart_keyboard(msg, user)
 
 @flags.rate_limit(rate=1, key="user")
 @router.message(Auth.media_files)
@@ -142,32 +180,10 @@ async def auth_media(msg: Message, state: FSMContext):
     if done:
         await finalize_auth(msg, state)
 
-@flags.rate_limit(rate=1, key="user")
-@router.message(F.text == "Мой профиль")
-async def my_profile(msg: Message, state: FSMContext):
-    await state.clear()
-
-    user = await get_user_by_id(msg.from_user.id)
-    if user is None:
-        await show_unauthorized(msg, state)
-        return
-
-    await state.update_data(user=user.__dict__)
-
-    profile_data = UserVisibleData(
-        name=user.name,
-        age=user.age,
-        city=user.city,
-        description=user.description,
-        media_files=user.media_files
-    )
-    await show_profile(msg, profile_data)
-
-@flags.rate_limit(rate=1, key="user")
-@router.message(Auth.ask_to_auth)
-async def auth_choice(msg: Message, state: FSMContext):
-    if msg.text == "Заполнить профиль":
-        await auth_start(msg, state)
-    else:
-        from .main_menu_handlers import main_menu as show_main_menu
-        await show_main_menu(msg, state)
+async def show_profile_with_restart_keyboard(msg: Message, user: UserVisibleData):
+    keyboard = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Заполнить профиль заново")],
+        [KeyboardButton(text="Главное меню")],
+    ], resize_keyboard=True)
+    await msg.answer("Так выглядит ваш профиль:", reply_markup=keyboard)
+    await show_profile(msg, user)

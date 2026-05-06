@@ -2,7 +2,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 main_menu_keyboard = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="Найти жильё")],
+        [KeyboardButton(text="🏡 Найти квартиру/дом")],
         [KeyboardButton(text="Мои объявления")],
         [KeyboardButton(text="Мой профиль")],
     ],
@@ -14,4 +14,11 @@ skip_keyboard = ReplyKeyboardMarkup(
         [KeyboardButton(text="Пропустить")]
     ],
     resize_keyboard=True
+)
+
+evaluate_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="❤️"), KeyboardButton(text="👎")],
+        [KeyboardButton(text="Главное меню")]
+    ], resize_keyboard=True
 )

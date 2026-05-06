@@ -1,10 +1,12 @@
 from aiogram import F, Router
 from aiogram.types import Message
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, StateFilter
 
 from aiogram.fsm.context import FSMContext
 
-from .keyboards import main_menu_keyboard
+from ..keyboards import main_menu_keyboard
+
+from ..states import MainMenu, SearchOffers, Offer
 
 router = Router()
 
@@ -18,9 +20,10 @@ async def start(msg: Message, state: FSMContext):
     )
     await main_menu(msg, state)
 
-@router.message(F.text == "В главное меню")
+@router.message(~StateFilter(SearchOffers.choice, Offer.view_likes), F.text == "Главное меню")
 async def main_menu(msg: Message, state: FSMContext):
     await state.clear()
+    await state.set_state(MainMenu.main_menu)
 
     await msg.answer(
         "Вы в главном меню",

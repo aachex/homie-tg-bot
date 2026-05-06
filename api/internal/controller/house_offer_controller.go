@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"homie-api/internal/model"
+	"homie-api/internal/repository/postgres"
 	"net/http"
 	"strconv"
 
@@ -14,7 +15,10 @@ import (
 
 type houseOffersRepo interface {
 	OfferById(ctx context.Context, id int64) (model.HouseOffer, error)
-	RandOffer(ctx context.Context) (model.HouseOffer, error)
+	OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error)
+	AddLike(ctx context.Context, offerId int64, userId int64) error
+	DeleteLike(ctx context.Context, offerId int64, userId int64) error
+	RandOffer(ctx context.Context, userId int64, city string) (model.HouseOffer, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
@@ -39,6 +43,10 @@ func (c HouseOffers) OfferById(ctx *gin.Context) {
 	}
 
 	offer, err := c.houseOffersRepo.OfferById(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		controllerError(ctx, err, http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		controllerError(ctx, err, http.StatusInternalServerError)
 		return
@@ -47,8 +55,94 @@ func (c HouseOffers) OfferById(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, offer)
 }
 
+func (c HouseOffers) OfferLikes(ctx *gin.Context) {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		controllerError(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	likes, err := c.houseOffersRepo.OfferLikes(ctx, id)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		controllerError(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, likes)
+}
+
+func (c HouseOffers) AddLike(ctx *gin.Context) {
+	offerId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
+		return
+	}
+
+	userId, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
+	if err != nil {
+		controllerError(ctx, errors.New("invalid userId format"), http.StatusBadRequest)
+		return
+	}
+
+	err = c.houseOffersRepo.AddLike(ctx, offerId, userId)
+	if err != nil {
+		code := http.StatusInternalServerError
+		// Лайк уже стоит - конфликт
+		if errors.Is(err, postgres.ErrLikeAlreadyExists) {
+			code = http.StatusConflict
+		}
+		controllerError(ctx, errors.New("failed to like offer"), code)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, defaultResp{
+		StatusCode: http.StatusCreated,
+		Message:    fmt.Sprintf("added like to offer %d", offerId),
+	})
+}
+
+func (c HouseOffers) DeleteLike(ctx *gin.Context) {
+	offerID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
+		return
+	}
+
+	userID, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
+	if err != nil {
+		controllerError(ctx, errors.New("invalid userId format"), http.StatusBadRequest)
+		return
+	}
+
+	err = c.houseOffersRepo.DeleteLike(ctx, offerID, userID)
+	if err != nil {
+		code := http.StatusInternalServerError
+		if errors.Is(err, postgres.ErrLikeNotFound) {
+			code = http.StatusNotFound
+		}
+		controllerError(ctx, err, code)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, defaultResp{
+		StatusCode: http.StatusOK,
+		Message:    "successfully deleted like",
+	})
+}
+
 func (c HouseOffers) RandOffer(ctx *gin.Context) {
-	offer, err := c.houseOffersRepo.RandOffer(ctx)
+	userId, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
+	if err != nil {
+		controllerError(ctx, err, http.StatusBadRequest)
+		return
+	}
+	city := ctx.Query("city")
+
+	offer, err := c.houseOffersRepo.RandOffer(ctx, userId, city)
+	if errors.Is(err, sql.ErrNoRows) {
+		controllerError(ctx, err, http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		controllerError(ctx, err, http.StatusInternalServerError)
 		return
