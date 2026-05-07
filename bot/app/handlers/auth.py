@@ -1,3 +1,5 @@
+import os
+
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
 
@@ -131,19 +133,25 @@ async def auth_descr(msg: Message, state: FSMContext):
     elif msg.text != "Пропустить":
         await state.update_data(descr=msg.text)
 
-    kb = ReplyKeyboardRemove()
+    kb_array = [
+        [KeyboardButton(text="Пропустить")]
+    ]
     if "user" in data:
-        kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Оставить текущие фотографии")]], resize_keyboard=True)
+        kb_array.append([KeyboardButton(text="Оставить текущие фотографии")])
+
+    kb = ReplyKeyboardMarkup(keyboard=kb_array, resize_keyboard=True)
     await msg.answer("Пожалуйста, отправьте фотографию с вашим лицом. Профилям без лица меньше доверяют", reply_markup=kb)
     await state.set_state(Auth.media_files)
 
-@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.media_files, F.text == "Завершить")
-async def finalize_auth(msg: Message, state: FSMContext):
+async def finalize_auth_handler(msg: Message, state: FSMContext):
     data = await state.get_data()
     if "media_files" not in data:
         return
-    
+    await finalize_auth(msg, state)
+
+async def finalize_auth(msg: Message, state: FSMContext):
+    data = await state.get_data()
     await state.clear()
 
     user = UserVisibleData(
@@ -151,7 +159,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
         age=int(data["age"]),
         city=data["city"],
         description=data.get("descr", ""),
-        media_files=data["media_files"]
+        media_files=data.get("media_files", [os.getenv("NO_PHOTO_FILE_ID")])
     )
 
     if "user" in data:
@@ -175,9 +183,12 @@ async def finalize_auth(msg: Message, state: FSMContext):
     await state.update_data(user=user.__dict__)
     await show_profile_with_restart_keyboard(msg, state, user)
 
-@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.media_files)
 async def auth_media(msg: Message, state: FSMContext):
+    if msg.text == "Пропустить":
+        await finalize_auth(msg, state)
+        return
+
     data = await state.get_data()
     if msg.text == "Оставить текущие фотографии" and "user" in data:
         # Если пользователь решил оставить фото и у нас есть информация о его старых фото
