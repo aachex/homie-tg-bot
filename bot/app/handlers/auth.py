@@ -4,13 +4,16 @@ from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, ReplyKeyb
 from aiogram.fsm.context import FSMContext
 from aiogram import flags
 
-from ..keyboards import skip_keyboard
+from ..keyboards import skip_keyboard, evaluate_keyboard
+
+from .main_menu import main_menu as show_main_menu
+from .search_offers import show_next_offer
 
 from ..util.auth import show_profile, show_unauthorized
 from ..util.shared import is_int, handle_media_upload, normalize_city
 from ..api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
 
-from ..states import Auth, MainMenu
+from ..states import Auth, MainMenu, SearchOffers
 
 router = Router()
 
@@ -23,7 +26,6 @@ async def my_profile(msg: Message, state: FSMContext):
         return
 
     await state.clear()
-    await state.set_state(MainMenu.profile)
     await state.update_data(user=user.__dict__)
 
     profile_data = UserVisibleData(
@@ -33,9 +35,9 @@ async def my_profile(msg: Message, state: FSMContext):
         description=user.description,
         media_files=user.media_files
     )
-    await show_profile_with_restart_keyboard(msg, profile_data)
+    await show_profile_with_restart_keyboard(msg, state, profile_data)
 
-@router.callback_query(F.data == "authorize")
+@router.callback_query(F.data.startswith("authorize:"))
 async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.clear()
@@ -47,6 +49,11 @@ async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
 
     await callback.message.answer("Пожалуйста, введите Ваше имя", reply_markup=kb)
     await state.set_state(Auth.name)
+
+    offer_id_str = callback.data.split(':')[1]
+    if offer_id_str != '0':
+        offer_id = int(offer_id_str)
+        await state.update_data(offer_id=offer_id)
     
 @flags.rate_limit(rate=1, key="user")
 @router.message(MainMenu.profile, F.text == "Заполнить профиль заново")
@@ -162,9 +169,11 @@ async def finalize_auth(msg: Message, state: FSMContext):
         )
         await create_user(new_user)
         
+    if "offer_id" in data:
+        await state.update_data(offer_id=int(data["offer_id"]))
+
     await state.update_data(user=user.__dict__)
-    await state.set_state(MainMenu.profile)
-    await show_profile_with_restart_keyboard(msg, user)
+    await show_profile_with_restart_keyboard(msg, state, user)
 
 @flags.rate_limit(rate=1, key="user")
 @router.message(Auth.media_files)
@@ -180,10 +189,25 @@ async def auth_media(msg: Message, state: FSMContext):
     if done:
         await finalize_auth(msg, state)
 
-async def show_profile_with_restart_keyboard(msg: Message, user: UserVisibleData):
+async def show_profile_with_restart_keyboard(msg: Message, state: FSMContext, user: UserVisibleData):
+    await state.set_state(MainMenu.profile)
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Заполнить профиль заново")],
-        [KeyboardButton(text="Главное меню")],
+        [KeyboardButton(text="Готово")],
     ], resize_keyboard=True)
     await msg.answer("Так выглядит ваш профиль:", reply_markup=keyboard)
     await show_profile(msg, user)
+
+@router.message(MainMenu.profile, F.text == "Готово")
+async def profile_done(msg: Message, state: FSMContext):
+    data = await state.get_data()
+    if "offer_id" not in data:
+        await show_main_menu(msg, state)
+        return
+    
+    await state.set_state(SearchOffers.choice)
+    await state.update_data(user_id=msg.from_user.id)
+    
+    offer_id = int(data["offer_id"])
+    await msg.answer("🔎", reply_markup=evaluate_keyboard)
+    await show_next_offer(msg, state, offer_id)

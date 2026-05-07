@@ -15,6 +15,24 @@ services:
       retries: 5
       start_period: 30s
 
+  redis:
+    image: redis:7-alpine
+    container_name: homie_redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - homie_net
+    ports:
+      - "6379:6379"
+    env_file:
+      - config/dev/redis.env
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   homie_api:
     container_name: homie_api
     build:
@@ -48,6 +66,8 @@ services:
     depends_on:
       homie_api:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
 networks:
   homie_net:
@@ -55,3 +75,4 @@ networks:
 
 volumes:
   db_data:
+  redis_data:

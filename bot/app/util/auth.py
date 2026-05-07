@@ -17,9 +17,11 @@ async def show_profile(msg: Message, user: UserVisibleData):
     
     await msg.answer_media_group(media=media_group.build())
 
-async def show_unauthorized(msg: Message):
+async def show_unauthorized(msg: Message, offer_id: int = 0):    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Заполнить профиль", callback_data="authorize")]
+        [InlineKeyboardButton(text="Заполнить профиль", callback_data=f"authorize:{offer_id}")]
     ], resize_keyboard=True)
-    txt = "Кажется, у вас ещё нет профиля. Чтобы лайкать объявления и создавать свои, нужно заполнить профиль. Это займёт не больше минуты"
-    await msg.answer(txt, reply_markup=kb)
+    txt = """💡 <b>Чтобы оценивать объявления, нужен профиль.</b>
+Создать объявление можно и без него.
+Создание профиля займёт меньше минуты и откроет вам полный функционал."""
+    await msg.answer(txt, reply_markup=kb, parse_mode="HTML")
