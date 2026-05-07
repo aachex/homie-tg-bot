@@ -74,9 +74,9 @@ func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []mode
 func (r OffersRepo) AddLike(ctx context.Context, offerId int64, userId int64) error {
 	query := `
         INSERT INTO offer_like (offer_id, user_id)
-        VALUES ($1, $2)
-        ON CONFLICT (offer_id, user_id) DO NOTHING
-    `
+		SELECT $1, $2
+		WHERE EXISTS (SELECT 1 FROM tg_house_offer WHERE id = $1)
+		ON CONFLICT (offer_id, user_id) DO NOTHING`
 	cmdTag, err := r.connPool.Exec(ctx, query, offerId, userId)
 	if err != nil {
 		return fmt.Errorf("failed to insert like: %w", err)

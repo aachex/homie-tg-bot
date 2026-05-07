@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from .main_menu import main_menu as show_main_menu
 
 from ..util.offer import show_offer
-from ..util.auth import show_unauthorized, show_profile
+from ..util.auth import show_profile
 from ..util.shared import is_int, handle_media_upload, normalize_city
 from ..keyboards import skip_keyboard, evaluate_keyboard
 
@@ -68,6 +68,7 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
     offer = await get_offer_by_id(offer_id)
 
     await state.update_data(offer_id=offer_id)
+    await state.update_data(offer_title=offer.title)
 
     kb_array = [
         [KeyboardButton(text="Отключить объявление")],
@@ -161,18 +162,14 @@ async def del_offer(msg: Message, state: FSMContext):
 @router.callback_query(MainMenu.my_offers, F.data == "create_offer")
 async def create_start(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-
-    user = await get_user_by_id(callback.from_user.id)
-    if user is None:
-        await show_unauthorized(callback.message)
-        return
-    
     await state.clear()
-    
-    await state.update_data(user=user.__dict__)
+
+    keyboard = ReplyKeyboardRemove()
+    user = await get_user_by_id(callback.from_user.id)
+    if user:
+        keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
 
     # Клавиатура с подсказкой
-    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
     await callback.message.answer("В каком городе находится ваша недвижимость?", reply_markup=keyboard)
 
     await state.set_state(OfferCreate.city)
@@ -254,7 +251,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Мои объявления")],
-        [KeyboardButton(text="В главное меню")]
+        [KeyboardButton(text="Главное меню")]
     ], resize_keyboard=True)
     msg_text = f"<b>Готово!</b> Вы успешно создали объявление о сдаче вашей недвижимости. Для более детального взаимодействия с вашими объявлениями ищите вкладку <b>Мои объявления</b> в главном меню."
     await msg.answer(msg_text, parse_mode="HTML", reply_markup=keyboard)
@@ -311,6 +308,13 @@ async def evaluate_user(msg: Message, state: FSMContext):
     offer_id = int(data["offer_id"])
     user_id = int(user_ids[0])
     await delete_like(offer_id, user_id)
+
+    if msg.text == "❤️":
+        title = data["offer_title"]
+        owner_name = msg.from_user.first_name if msg.from_user.first_name != "" else "Владелец"
+        owner_link = f'<a href="https://t.me/{msg.from_user.username}">{owner_name}</a>'
+        txt = f"Владелец объявления <b>\"{title}\"</b> готов обсудить сделку! Пишите 👉 {owner_link}"
+        await msg.bot.send_message(user_id, txt, parse_mode="HTML")
 
     await state.update_data(user_ids=user_ids[1:])
     await show_next_like(msg, state)
