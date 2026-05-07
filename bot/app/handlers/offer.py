@@ -10,7 +10,7 @@ from .main_menu import main_menu as show_main_menu
 from ..util.offer import show_offer
 from ..util.auth import show_profile
 from ..util.shared import is_int, handle_media_upload, normalize_city
-from ..keyboards import skip_keyboard, evaluate_keyboard
+from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
 from ..api.users import get_user_by_id
 from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, get_offer_likes, delete_like, HouseOfferCreate
@@ -189,7 +189,31 @@ async def enter_district(msg: Message, state: FSMContext):
     if msg.text != "Пропустить":
         await state.update_data(district=msg.text)
         
-    txt = "Пожалуйста, дайте короткое название вашему объявлению\n\n<i>Пример:</i> Уютная комната в общежитии в центре"
+    await msg.answer("Разрешено курить?", reply_markup=yes_no_keyboard)
+    await state.set_state(OfferCreate.smoking)
+
+@router.message(OfferCreate.smoking, F.text.in_({"Да", "Нет"}))
+async def select_smoking(msg: Message, state: FSMContext):
+    allowed_smoking = (msg.text == "Да")
+    await state.update_data(smoking=allowed_smoking)
+    
+    await msg.answer("Можно с детьми?", reply_markup=yes_no_keyboard)
+    await state.set_state(OfferCreate.children)
+
+@router.message(OfferCreate.children, F.text.in_({"Да", "Нет"}))
+async def select_children(msg: Message, state: FSMContext):
+    allowed_children = (msg.text == "Да")
+    await state.update_data(smoking=allowed_children)
+
+    await msg.answer("Можно с животными?", reply_markup=yes_no_keyboard)
+    await state.set_state(OfferCreate.pets)
+
+@router.message(OfferCreate.pets, F.text.in_({"Да", "Нет"}))
+async def select_pets(msg: Message, state: FSMContext):
+    allowed_pets = (msg.text == "Да")
+    await state.update_data(smoking=allowed_pets)
+
+    txt = "Введите краткое название вашего объявления\n\n<i>Пример:</i> Уютная комната в общежитии"
     await msg.answer(txt, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.title)
 

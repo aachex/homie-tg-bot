@@ -22,3 +22,7 @@ evaluate_keyboard = ReplyKeyboardMarkup(
         [KeyboardButton(text="Главное меню")]
     ], resize_keyboard=True
 )
+
+yes_no_keyboard = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text="Да"), KeyboardButton(text="Нет")]
+])
