@@ -1,30 +1,12 @@
-from dataclasses import dataclass, field
 from typing import Optional
 
 from .base import APIClient
 
-@dataclass
-class User:
-    """Данные пользователя."""
-    id: int = 0
-    name: str = ""
-    age: int = 0
-    city: str = ""
-    description: str = ""
-    media_files: list[str] = field(default_factory=list)
-
-@dataclass
-class UserVisibleData:
-    """Видимые данные пользователя."""
-    name: Optional[str] = None
-    age: Optional[int] = None
-    city: Optional[str] = None
-    description: Optional[str] = None
-    media_files: Optional[list[str]] = None
+from ..model.user import *
 
 class UsersApi(APIClient):
     """API для взаимодействия с пользователями."""
-    async def get_user_by_id(self, user_id: int) -> Optional[User]:
+    async def get_user_by_id(self, user_id: int) -> User | None:
         """Получает пользователя по ID"""
         result = await self._request("GET", f"user/{user_id}", expected_status=200)
         
