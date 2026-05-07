@@ -4,7 +4,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKey
 from aiogram.fsm.context import FSMContext
 
 from ..api.users import get_user_by_id
-from ..api.offers import get_rand_offer, add_like_to_offer
+from ..api.offers import get_rand_offer, add_like_to_offer, get_offer_by_id
 
 from ..util.offer import show_offer
 from ..util.auth import show_unauthorized
@@ -17,6 +17,8 @@ from ..states import SearchOffers, MainMenu
 from ..keyboards import evaluate_keyboard
 
 router = Router()
+
+_user_city: dict[int, str] = {}
 
 @router.message(MainMenu.main_menu, F.text == "🏡 Найти квартиру/дом")
 @router.message(SearchOffers.offer_not_found, F.text == "Указать город повторно")
@@ -38,7 +40,7 @@ async def select_city(msg: Message, state: FSMContext):
         await msg.answer("Укажите город")
         return
     city = normalize_city(msg.text)
-    await state.update_data(city=city)
+    _user_city[msg.from_user.id] = city
 
     # Проверка что в указанном городе есть объявления
     offer = await get_rand_offer(msg.from_user.id, city)
@@ -58,10 +60,16 @@ async def select_city(msg: Message, state: FSMContext):
     await state.set_state(SearchOffers.choice)
     await show_next_offer(msg, state)
 
-async def show_next_offer(msg: Message, state: FSMContext):
-    data = await state.get_data()
-    city = data["city"]
-    offer = await get_rand_offer(msg.from_user.id, city)
+async def show_next_offer(msg: Message, state: FSMContext, id: int = 0):
+    offer = None
+    user_id = msg.from_user.id
+    
+    if id == 0 and user_id in _user_city:
+        city = _user_city[user_id]
+        offer = await get_rand_offer(msg.from_user.id, city)
+    elif id != 0:
+        offer = await get_offer_by_id(id)
+    
     if offer is None:
         await state.set_state(SearchOffers.offer_not_found)
         kb = ReplyKeyboardMarkup(keyboard=[
@@ -78,6 +86,7 @@ async def show_next_offer(msg: Message, state: FSMContext):
 @router.message(SearchOffers.choice)
 async def evaluate_offer(msg: Message, state: FSMContext):
     if msg.text == "Главное меню":
+        del _user_city[msg.from_user.id]
         await show_main_menu(msg, state)
         return
     
@@ -88,13 +97,13 @@ async def evaluate_offer(msg: Message, state: FSMContext):
     # Если поставили лайк - фиксируем в бд
     if msg.text == "❤️":
         data = await state.get_data()
+        offer_id = int(data["offer_id"])
 
         # Проверяем что пользователь зарегистрирован
         if "user_id" not in data:
-            await show_unauthorized(msg)
+            await show_unauthorized(msg, offer_id)
             return
         
-        offer_id = int(data["offer_id"])
         user_id = int(data["user_id"])
         await add_like_to_offer(offer_id, user_id)
     

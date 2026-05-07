@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from .main_menu import main_menu as show_main_menu
 
 from ..util.offer import show_offer
-from ..util.auth import show_unauthorized, show_profile
+from ..util.auth import show_profile
 from ..util.shared import is_int, handle_media_upload, normalize_city
 from ..keyboards import skip_keyboard, evaluate_keyboard
 

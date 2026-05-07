@@ -17,9 +17,9 @@ async def show_profile(msg: Message, user: UserVisibleData):
     
     await msg.answer_media_group(media=media_group.build())
 
-async def show_unauthorized(msg: Message):
+async def show_unauthorized(msg: Message, offer_id: int = 0):    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Заполнить профиль", callback_data="authorize")]
+        [InlineKeyboardButton(text="Заполнить профиль", callback_data=f"authorize:{offer_id}")]
     ], resize_keyboard=True)
     txt = """💡 <b>Чтобы оценивать объявления, нужен профиль.</b>
 Создать объявление можно и без него.
