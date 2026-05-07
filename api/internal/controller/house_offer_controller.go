@@ -18,7 +18,7 @@ type houseOffersRepo interface {
 	OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error)
 	AddLike(ctx context.Context, offerId int64, userId int64) error
 	DeleteLike(ctx context.Context, offerId int64, userId int64) error
-	RandOffer(ctx context.Context, userId int64, city string) (model.HouseOffer, error)
+	RandOffer(ctx context.Context, userId int64, city string, allowed model.Ruleset) (model.HouseOffer, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
@@ -131,6 +131,8 @@ func (c HouseOffers) DeleteLike(ctx *gin.Context) {
 }
 
 func (c HouseOffers) RandOffer(ctx *gin.Context) {
+	var err, err2, err3 error
+
 	userId, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
 	if err != nil {
 		controllerError(ctx, err, http.StatusBadRequest)
@@ -138,7 +140,16 @@ func (c HouseOffers) RandOffer(ctx *gin.Context) {
 	}
 	city := ctx.Query("city")
 
-	offer, err := c.houseOffersRepo.RandOffer(ctx, userId, city)
+	allowed := model.Ruleset{}
+	allowed.Smoking, err = strconv.ParseBool(ctx.Query("smoking"))
+	allowed.Children, err2 = strconv.ParseBool(ctx.Query("children"))
+	allowed.Pets, err3 = strconv.ParseBool(ctx.Query("pets"))
+	if err != nil || err2 != nil || err3 != nil {
+		controllerError(ctx, errors.Join(err, err2, err3), http.StatusBadRequest)
+		return
+	}
+
+	offer, err := c.houseOffersRepo.RandOffer(ctx, userId, city, allowed)
 	if errors.Is(err, sql.ErrNoRows) {
 		controllerError(ctx, err, http.StatusNotFound)
 		return
