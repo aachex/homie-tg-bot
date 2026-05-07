@@ -2,6 +2,6 @@ from dataclasses import dataclass
 
 @dataclass
 class Ruleset:
-    smoking: bool
-    children: bool
-    pets: bool
+    smoking: bool = False
+    children: bool = False
+    pets: bool = False

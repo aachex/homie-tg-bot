@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS tg_user (
     description TEXT NOT NULL DEFAULT '',
     city TEXT NOT NULL,
     is_smoking BOOL NOT NULL,
-    has_children BOOL NOT NULL
-    has_pets BOOL NOT NULL,
+    has_children BOOL NOT NULL,
+    has_pets BOOL NOT NULL
 );
 -- +goose StatementEnd
 

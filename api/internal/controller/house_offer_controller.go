@@ -202,6 +202,7 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 		Price:       data.Price,
 		OwnerId:     data.OwnerId,
 		MediaFiles:  data.MediaFiles,
+		Ruleset:     data.Ruleset,
 	}
 
 	ctx.JSON(http.StatusCreated, resp)

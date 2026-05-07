@@ -1,5 +1,10 @@
+import json
+
+from dataclasses import asdict
+
 from .base import APIClient
 from ..model.house_offer import *
+
 
 class HouseOffersApi(APIClient):
     async def get_by_id(self, offer_id: int) -> HouseOffer | None:
@@ -23,6 +28,11 @@ class HouseOffersApi(APIClient):
             district=offer_json.get("district", ""),
             price=int(offer_json.get("price", 0)),
             media_files=list(offer_json.get("media_files", [])),
+            ruleset=Ruleset(
+                smoking=bool(offer_json["ruleset"]["smoking"]),
+                children=bool(offer_json["ruleset"]["children"]),
+                pets=bool(offer_json["ruleset"]["pets"])
+            )
         )
         return offer
 
@@ -41,7 +51,7 @@ class HouseOffersApi(APIClient):
         return result
     
     async def create_offer(self, offer: HouseOfferCreate):
-        await self._request("POST", f"offer", data=offer.__dict__, expected_status=201)
+        await self._request("POST", f"offer", data=asdict(offer), expected_status=201)
 
     async def set_active_offer(self, offer_id: int, active: bool):
         await self._request("PATCH", f"offer/{offer_id}?active={active}")

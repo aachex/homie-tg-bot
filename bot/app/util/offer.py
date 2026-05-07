@@ -13,6 +13,25 @@ async def show_offer(msg: Message, offer: HouseOffer | HouseOfferCreate):
         price_str = f"{int(offer.price):,}".replace(',', ' ')
         price_line = f"💰 Цена: {price_str} ₽/месяц"
     
+    # ========== Форматирование правил ==========
+    rules_lines = []
+    if offer.ruleset.smoking:
+        rules_lines.append("✅ Курить разрешено")
+    else:
+        rules_lines.append("❌ Курить запрещено")
+    
+    if offer.ruleset.children:
+        rules_lines.append("✅ С детьми разрешено")
+    else:
+        rules_lines.append("❌ С детьми запрещено")
+    
+    if offer.ruleset.pets:
+        rules_lines.append("✅ С животными разрешено")
+    else:
+        rules_lines.append("❌ С животными запрещено")
+    
+    rules_text = "\n".join(rules_lines)
+    
     # ========== Текстовое сообщение ==========
     district = f", {offer.district}" if offer.district != "" else ""
     message_text = f"""
@@ -25,16 +44,17 @@ async def show_offer(msg: Message, offer: HouseOffer | HouseOfferCreate):
 {offer.description if offer.description else '<i>—</i>'}
 
 <b>📸 Фотографий:</b> {len(offer.media_files)}
+
+<b>📋 Правила проживания:</b>
+{rules_text}
 """
     
     # ========== Отправка созданного объявления ==========
-
     photos_to_send = offer.media_files
         
-    media_group = MediaGroupBuilder(caption=f"{message_text}")
+    media_group = MediaGroupBuilder(caption=message_text)
 
     for photo_id in photos_to_send:
         media_group.add_photo(media=photo_id, parse_mode="HTML")
         
     await msg.answer_media_group(media=media_group.build())
-

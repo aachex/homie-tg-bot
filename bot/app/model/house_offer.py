@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from .ruleset import Ruleset
 
 @dataclass
 class HouseOffer:
@@ -12,6 +13,7 @@ class HouseOffer:
     district: str = ""
     price: int = 0
     media_files: list[str] = field(default_factory=list)
+    ruleset: Ruleset = field(default_factory=Ruleset)
 
 @dataclass
 class HouseOfferCreate:
@@ -23,6 +25,7 @@ class HouseOfferCreate:
     district: str = ""
     price: int = 0
     media_files: list[str] = field(default_factory=list)
+    ruleset: Ruleset = field(default_factory=Ruleset)
 
 @dataclass
 class HouseOfferPreview:
