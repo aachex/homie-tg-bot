@@ -2,3 +2,4 @@ aiogram==3.27.0
 aiohttp==3.13.5
 requests==2.33.1
 aiohttp_socks==0.10.1
+redis==7.4.0
