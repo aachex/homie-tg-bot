@@ -21,5 +21,7 @@ async def show_unauthorized(msg: Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Заполнить профиль", callback_data="authorize")]
     ], resize_keyboard=True)
-    txt = "Кажется, у вас ещё нет профиля. Чтобы лайкать объявления и создавать свои, нужно заполнить профиль. Это займёт не больше минуты"
-    await msg.answer(txt, reply_markup=kb)
+    txt = """💡 <b>Чтобы оценивать объявления, нужен профиль.</b>
+Создать объявление можно и без него.
+Создание профиля займёт меньше минуты и откроет вам полный функционал."""
+    await msg.answer(txt, reply_markup=kb, parse_mode="HTML")

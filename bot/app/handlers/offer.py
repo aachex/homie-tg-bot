@@ -162,18 +162,14 @@ async def del_offer(msg: Message, state: FSMContext):
 @router.callback_query(MainMenu.my_offers, F.data == "create_offer")
 async def create_start(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-
-    user = await get_user_by_id(callback.from_user.id)
-    if user is None:
-        await show_unauthorized(callback.message)
-        return
-    
     await state.clear()
-    
-    await state.update_data(user=user.__dict__)
+
+    keyboard = ReplyKeyboardRemove()
+    user = await get_user_by_id(callback.from_user.id)
+    if user:
+        keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
 
     # Клавиатура с подсказкой
-    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
     await callback.message.answer("В каком городе находится ваша недвижимость?", reply_markup=keyboard)
 
     await state.set_state(OfferCreate.city)
@@ -255,7 +251,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Мои объявления")],
-        [KeyboardButton(text="В главное меню")]
+        [KeyboardButton(text="Главное меню")]
     ], resize_keyboard=True)
     msg_text = f"<b>Готово!</b> Вы успешно создали объявление о сдаче вашей недвижимости. Для более детального взаимодействия с вашими объявлениями ищите вкладку <b>Мои объявления</b> в главном меню."
     await msg.answer(msg_text, parse_mode="HTML", reply_markup=keyboard)
