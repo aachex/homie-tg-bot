@@ -167,9 +167,9 @@ async def create_start(callback: CallbackQuery, state: FSMContext):
     keyboard = ReplyKeyboardRemove()
     user = await get_user_by_id(callback.from_user.id)
     if user:
+        # Добавляем подсказку
         keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
 
-    # Клавиатура с подсказкой
     await callback.message.answer("В каком городе находится ваша недвижимость?", reply_markup=keyboard)
 
     await state.set_state(OfferCreate.city)
@@ -181,7 +181,7 @@ async def select_city(msg: Message, state: FSMContext):
         return
     
     await state.update_data(city=normalize_city(msg.text))
-    await msg.answer("Где находится объект? Укажите район, улицу или название СНТ/деревни", reply_markup=skip_keyboard)
+    await msg.answer("Где находится объект? Укажите район или улицу", reply_markup=skip_keyboard)
     await state.set_state(OfferCreate.district)
 
 @router.message(OfferCreate.district)
