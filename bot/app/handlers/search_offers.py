@@ -73,11 +73,10 @@ async def show_next_offer(msg: Message, state: FSMContext, id: int = 0):
     if offer is None:
         await state.set_state(SearchOffers.offer_not_found)
         kb = ReplyKeyboardMarkup(keyboard=[
-            [KeyboardButton(text="Указать город повторно")],
             [KeyboardButton(text="Главное меню")],
         ], resize_keyboard=True)
 
-        await msg.answer("Мы не нашли ни одного объявления в указанном городе. Возможно опечатка?", reply_markup=kb)
+        await msg.answer("Произошла непредвиденная ошибка... Извините", reply_markup=kb)
         return
 
     await state.update_data(offer_id=offer.id)

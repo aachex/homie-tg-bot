@@ -12,8 +12,8 @@ async def show_profile(msg: Message, user: UserVisibleData):
 
     media_group = MediaGroupBuilder(caption=caption)
 
-    for file_id in user.media_files:
-        media_group.add_photo(media=file_id)
+    for file in user.media_files:
+        media_group.add_photo(media=file)
     
     await msg.answer_media_group(media=media_group.build())
 
