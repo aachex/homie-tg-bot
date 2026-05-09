@@ -7,6 +7,7 @@ import (
 	"homie-api/internal/repository/postgres"
 	"homie-api/pkg/middleware"
 	"log"
+	"log/slog"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -25,13 +26,19 @@ func main() {
 	connPool := mustInitConnPool(connStr)
 	defer connPool.Close()
 
+	// Логгер
+	opts := slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &opts))
+
 	// Репозитории
 	usersRepo := postgres.NewUsersRepo(connPool)
 	offersRepo := postgres.NewOffersRepo(connPool)
 
 	// Контроллеры
-	usersController := controller.NewUsers(usersRepo)
-	offersController := controller.NewHouseOffers(offersRepo)
+	usersController := controller.NewUsers(logger, usersRepo)
+	offersController := controller.NewHouseOffers(logger, offersRepo)
 
 	// Конфигурация сервера
 	r := gin.New()

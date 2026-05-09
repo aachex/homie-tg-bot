@@ -1,50 +1,22 @@
-from dataclasses import dataclass, field
+import json
+
+from dataclasses import asdict
+
 from .base import APIClient
+from ..model.house_offer import *
+from ..model.ruleset import Ruleset
 
-@dataclass
-class HouseOffer:
-    """Данные объявления о сдаче/продаже жилья."""
-    id: int = 0
-    owner_id: int = 0
-    is_active: bool = False
-    title: str = ""
-    description: str = ""
-    city: str = ""
-    district: str = ""
-    price: int = 0
-    media_files: list[str] = field(default_factory=list)
-
-@dataclass
-class HouseOfferCreate:
-    """Данные, необходимые для создания объявления."""
-    owner_id: int = 0
-    title: str = ""
-    description: str = ""
-    city: str = ""
-    district: str = ""
-    price: int = 0
-    media_files: list[str] = field(default_factory=list)
-
-@dataclass
-class HouseOfferPreview:
-    """Поверхностные данные, которые видит владелец своих объявлений."""
-    id: int = 0
-    is_active: bool = False
-    title: str = ""
-    likes_count: int = 0
-
-@dataclass
-class HouseOfferLike:
-    id: int = 0
-    offer_id: int = 0
-    user_id: int = 0
 
 class HouseOffersApi(APIClient):
     async def get_by_id(self, offer_id: int) -> HouseOffer | None:
         return await self.__get_offer(f"offer/{offer_id}")
     
-    async def get_rand(self, exclude_user_id: int, city: str) -> HouseOffer | None:
-        return await self.__get_offer(f"offer/rand?userId={exclude_user_id}&city={city}")
+    async def get_rand(self, exclude_user_id: int, city: str, ruleset: Ruleset) -> HouseOffer | None:
+        if ruleset is None:
+            ruleset = Ruleset(smoking=True, children=True, pets=True)
+        
+        url = f"offer/rand?userId={exclude_user_id}&city={city}&smoking={ruleset.smoking}&children={ruleset.children}&pets={ruleset.pets}"
+        return await self.__get_offer(url)
     
     async def __get_offer(self, url: str) -> HouseOffer | None:
         offer_json = await self._request("GET", url)
@@ -61,6 +33,11 @@ class HouseOffersApi(APIClient):
             district=offer_json.get("district", ""),
             price=int(offer_json.get("price", 0)),
             media_files=list(offer_json.get("media_files", [])),
+            ruleset=Ruleset(
+                smoking=bool(offer_json["ruleset"]["smoking"]),
+                children=bool(offer_json["ruleset"]["children"]),
+                pets=bool(offer_json["ruleset"]["pets"])
+            )
         )
         return offer
 
@@ -79,7 +56,7 @@ class HouseOffersApi(APIClient):
         return result
     
     async def create_offer(self, offer: HouseOfferCreate):
-        await self._request("POST", f"offer", data=offer.__dict__, expected_status=201)
+        await self._request("POST", f"offer", data=asdict(offer), expected_status=201)
 
     async def set_active_offer(self, offer_id: int, active: bool):
         await self._request("PATCH", f"offer/{offer_id}?active={active}")
@@ -110,8 +87,8 @@ _offers_api = HouseOffersApi()
 async def get_offer_by_id(offer_id: int) -> HouseOffer | None:
     return await _offers_api.get_by_id(offer_id)
 
-async def get_rand_offer(exclude_user_id: int, city: str) -> HouseOffer | None:
-    return await _offers_api.get_rand(exclude_user_id, city)
+async def get_rand_offer(exclude_user_id: int, city: str, ruleset: Ruleset | None) -> HouseOffer | None:
+    return await _offers_api.get_rand(exclude_user_id, city, ruleset)
 
 async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:
     return await _offers_api.get_user_offers(user_id)

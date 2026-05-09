@@ -1,12 +1,12 @@
 import os
+from dataclasses import asdict
 
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
 
 from aiogram.fsm.context import FSMContext
-from aiogram import flags
 
-from ..keyboards import skip_keyboard, evaluate_keyboard
+from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
 from .main_menu import main_menu as show_main_menu
 from .search_offers import show_next_offer
@@ -15,11 +15,12 @@ from ..util.auth import show_profile, show_unauthorized
 from ..util.shared import is_int, handle_media_upload, normalize_city
 from ..api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
 
+from ..model.ruleset import Ruleset
+
 from ..states import Auth, MainMenu, SearchOffers
 
 router = Router()
 
-@flags.rate_limit(rate=1, key="user")
 @router.message(MainMenu.main_menu, F.text == "Мой профиль")
 async def my_profile(msg: Message, state: FSMContext):
     user = await get_user_by_id(msg.from_user.id)
@@ -28,39 +29,20 @@ async def my_profile(msg: Message, state: FSMContext):
         return
 
     await state.clear()
-    await state.update_data(user=user.__dict__)
+    await state.update_data(user=asdict(user))
 
     profile_data = UserVisibleData(
         name=user.name,
         age=user.age,
         city=user.city,
         description=user.description,
-        media_files=user.media_files
+        media_files=user.media_files,
+        details=user.details
     )
     await show_profile_with_restart_keyboard(msg, state, profile_data)
 
-@router.callback_query(F.data.startswith("authorize:"))
-async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await state.clear()
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=callback.from_user.first_name)]], resize_keyboard=True)
-
-    data = await state.get_data()
-    if "user" in data:
-        kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=data["user"]["name"])]], resize_keyboard=True)
-
-    await callback.message.answer("Пожалуйста, введите Ваше имя", reply_markup=kb)
-    await state.set_state(Auth.name)
-
-    offer_id_str = callback.data.split(':')[1]
-    if offer_id_str != '0':
-        offer_id = int(offer_id_str)
-        await state.update_data(offer_id=offer_id)
-    
-@flags.rate_limit(rate=1, key="user")
-@router.message(MainMenu.profile, F.text == "Заполнить профиль заново")
-async def auth_start_msg(msg: Message, state: FSMContext):
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=msg.from_user.first_name)]], resize_keyboard=True)
+async def auth_start(msg: Message, state: FSMContext, first_name: str):
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=first_name)]], resize_keyboard=True)
 
     data = await state.get_data()
     if "user" in data:
@@ -69,7 +51,22 @@ async def auth_start_msg(msg: Message, state: FSMContext):
     await msg.answer("Пожалуйста, введите Ваше имя", reply_markup=kb)
     await state.set_state(Auth.name)
 
-@flags.rate_limit(rate=1, key="user")
+@router.callback_query(F.data.startswith("authorize:"))
+async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.clear()
+
+    offer_id_str = callback.data.split(':')[1]
+    if offer_id_str != '0':
+        offer_id = int(offer_id_str)
+        await state.update_data(offer_id=offer_id)
+
+    await auth_start(callback.message, state, callback.from_user.first_name)
+
+@router.message(MainMenu.profile, F.text == "Заполнить профиль заново")
+async def auth_start_msg(msg: Message, state: FSMContext):
+    await auth_start(msg, state, msg.from_user.first_name)
+
 @router.message(Auth.name)
 async def auth_name(msg: Message, state: FSMContext):
     maxNameLen = 100
@@ -86,7 +83,6 @@ async def auth_name(msg: Message, state: FSMContext):
     await msg.answer("Сколько Вам лет?", reply_markup=kb)
     await state.set_state(Auth.age)
 
-@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.age)
 async def auth_age(msg: Message, state: FSMContext):
     if not is_int(msg.text):
@@ -105,9 +101,37 @@ async def auth_age(msg: Message, state: FSMContext):
     await msg.answer("Из какого вы города?", reply_markup=kb)
     await state.set_state(Auth.city)
 
-@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.city)
 async def auth_city(msg: Message, state: FSMContext):
+    if not msg.text:
+        await msg.answer("Введите название города")
+        return
+    await state.update_data(city=normalize_city(msg.text))
+
+    # ✅ Переход к вопросу о курении
+    await msg.answer("Курите ли вы?", reply_markup=yes_no_keyboard)
+    await state.set_state(Auth.smoking)
+
+@router.message(Auth.smoking, F.text.in_({"✅ Да", "❌ Нет"}))
+async def auth_smoking(msg: Message, state: FSMContext):
+    is_smoking = (msg.text == "✅ Да")
+    await state.update_data(smoking=is_smoking)
+    await msg.answer("Есть ли у вас дети?", reply_markup=yes_no_keyboard)
+    await state.set_state(Auth.children)
+
+@router.message(Auth.children, F.text.in_({"✅ Да", "❌ Нет"}))
+async def auth_children(msg: Message, state: FSMContext):
+    has_children = (msg.text == "✅ Да")
+    await state.update_data(children=has_children)
+    await msg.answer("Есть ли у вас домашние животные?", reply_markup=yes_no_keyboard)
+    await state.set_state(Auth.pets)
+
+@router.message(Auth.pets, F.text.in_({"✅ Да", "❌ Нет"}))
+async def auth_pets(msg: Message, state: FSMContext):
+    has_pets = (msg.text == "✅ Да")
+    await state.update_data(pets=has_pets)
+    
+    # ✅ Переход к описанию
     data = await state.get_data()
     kb = skip_keyboard
     if "user" in data:
@@ -115,12 +139,13 @@ async def auth_city(msg: Message, state: FSMContext):
             [KeyboardButton(text="Пропустить")],
             [KeyboardButton(text="Оставить текущее описание")],
         ], resize_keyboard=True)
-
-    await state.update_data(city=normalize_city(msg.text))
-    await msg.answer("Расскажите немного о себе. Данный пункт необязателен, но желателен", reply_markup=kb)
+    
+    await msg.answer(
+        "Расскажите немного о себе. Данный пункт необязателен, но желателен",
+        reply_markup=kb
+    )
     await state.set_state(Auth.descr)
 
-@flags.rate_limit(rate=1, key="user")
 @router.message(Auth.descr)
 async def auth_descr(msg: Message, state: FSMContext):
     data = await state.get_data()
@@ -133,9 +158,7 @@ async def auth_descr(msg: Message, state: FSMContext):
     elif msg.text != "Пропустить":
         await state.update_data(descr=msg.text)
 
-    kb_array = [
-        [KeyboardButton(text="Пропустить")]
-    ]
+    kb_array = [[KeyboardButton(text="Пропустить")]]
     if "user" in data:
         kb_array.append([KeyboardButton(text="Оставить текущие фотографии")])
 
@@ -152,15 +175,21 @@ async def finalize_auth_handler(msg: Message, state: FSMContext):
 
 async def finalize_auth(msg: Message, state: FSMContext):
     data = await state.get_data()
-    await state.clear()
 
     user = UserVisibleData(
         name=data["name"],
         age=int(data["age"]),
         city=data["city"],
         description=data.get("descr", ""),
-        media_files=data.get("media_files", [os.getenv("NO_PHOTO_FILE_ID")])
+        media_files=data.get("media_files", [os.getenv("NO_PHOTO_FILE_ID")]),
+        details=Ruleset(
+            smoking=data["smoking"],
+            children=data["children"],
+            pets=data["pets"]
+        )
     )
+
+    await state.update_data(user=asdict(user))
 
     if "user" in data:
         # Если в fsm есть старые данные пользователя, то значит он 
@@ -174,13 +203,14 @@ async def finalize_auth(msg: Message, state: FSMContext):
             city=user.city,
             description=user.description,
             media_files=user.media_files,
+            details=user.details
         )
         await create_user(new_user)
-        
-    if "offer_id" in data:
-        await state.update_data(offer_id=int(data["offer_id"]))
 
-    await state.update_data(user=user.__dict__)
+        # Если пользователь остановился на каком-либо объявлении
+        if "offer_id" in data:
+            await state.update_data(user=asdict(new_user))
+
     await show_profile_with_restart_keyboard(msg, state, user)
 
 @router.message(Auth.media_files)
