@@ -10,7 +10,6 @@ class UsersApi(APIClient):
     async def get_user_by_id(self, user_id: int) -> User | None:
         """Получает пользователя по ID"""
         result = await self._request("GET", f"user/{user_id}", expected_status=200)
-        print(result)
         if result is None:
             return None
         

@@ -120,7 +120,7 @@ func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64)
 	return nil
 }
 
-func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, allowed model.Ruleset) (offer model.HouseOffer, err error) {
+func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, user model.Ruleset) (offer model.HouseOffer, err error) {
 	query := `
 		SELECT 
 			id,
@@ -139,14 +139,14 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, al
 		WHERE is_active = TRUE AND owner_id <> $1 and city = $2
 	`
 
-	if !allowed.Smoking {
-		query += " AND allowed_smoking = FALSE"
+	if user.Smoking {
+		query += " AND allowed_smoking = TRUE"
 	}
-	if !allowed.Children {
-		query += " AND allowed_children = FALSE"
+	if user.Children {
+		query += " AND allowed_children = TRUE"
 	}
-	if !allowed.Pets {
-		query += " AND allowed_pets = FALSE"
+	if user.Pets {
+		query += " AND allowed_pets = TRUE"
 	}
 	query += " ORDER BY RANDOM()"
 

@@ -193,25 +193,25 @@ async def enter_district(msg: Message, state: FSMContext):
     await msg.answer("Разрешено курить?", reply_markup=yes_no_keyboard)
     await state.set_state(OfferCreate.smoking)
 
-@router.message(OfferCreate.smoking, F.text.in_({"Да", "Нет"}))
+@router.message(OfferCreate.smoking, F.text.in_({"✅ Да", "❌ Нет"}))
 async def select_smoking(msg: Message, state: FSMContext):
-    allowed_smoking = (msg.text == "Да")
+    allowed_smoking = (msg.text == "✅ Да")
     await state.update_data(smoking=allowed_smoking)
 
     await msg.answer("Можно с детьми?", reply_markup=yes_no_keyboard)
     await state.set_state(OfferCreate.children)
 
-@router.message(OfferCreate.children, F.text.in_({"Да", "Нет"}))
+@router.message(OfferCreate.children, F.text.in_({"✅ Да", "❌ Нет"}))
 async def select_children(msg: Message, state: FSMContext):
-    allowed_children = (msg.text == "Да")
+    allowed_children = (msg.text == "✅ Да")
     await state.update_data(children=allowed_children)
 
     await msg.answer("Можно с животными?", reply_markup=yes_no_keyboard)
     await state.set_state(OfferCreate.pets)
 
-@router.message(OfferCreate.pets, F.text.in_({"Да", "Нет"}))
+@router.message(OfferCreate.pets, F.text.in_({"✅ Да", "❌ Нет"}))
 async def select_pets(msg: Message, state: FSMContext):
-    allowed_pets = (msg.text == "Да")
+    allowed_pets = (msg.text == "✅ Да")
     await state.update_data(pets=allowed_pets)
 
     txt = "Введите краткое название вашего объявления\n\n<i>Пример:</i> Уютная комната в общежитии"

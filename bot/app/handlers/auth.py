@@ -112,46 +112,24 @@ async def auth_city(msg: Message, state: FSMContext):
     await msg.answer("Курите ли вы?", reply_markup=yes_no_keyboard)
     await state.set_state(Auth.smoking)
 
-@router.message(Auth.smoking)
+@router.message(Auth.smoking, F.text.in_({"✅ Да", "❌ Нет"}))
 async def auth_smoking(msg: Message, state: FSMContext):
-    """Спрашивает, курит ли пользователь"""
-    if msg.text == "✅ Да":
-        await state.update_data(smoking=True)
-        await msg.answer("Понятно. Есть ли у вас дети?", reply_markup=yes_no_keyboard)
-        await state.set_state(Auth.children)
-    elif msg.text == "❌ Нет":
-        await state.update_data(smoking=False)
-        await msg.answer("Хорошо. Есть ли у вас дети?", reply_markup=yes_no_keyboard)
-        await state.set_state(Auth.children)
-    else:
-        await msg.answer("Пожалуйста, ответьте ✅ Да или ❌ Нет", reply_markup=yes_no_keyboard)
+    is_smoking = (msg.text == "✅ Да")
+    await state.update_data(smoking=is_smoking)
+    await msg.answer("Есть ли у вас дети?", reply_markup=yes_no_keyboard)
+    await state.set_state(Auth.children)
 
-
-@router.message(Auth.children)
+@router.message(Auth.children, F.text.in_({"✅ Да", "❌ Нет"}))
 async def auth_children(msg: Message, state: FSMContext):
-    """Спрашивает, есть ли дети у пользователя"""
-    if msg.text == "✅ Да":
-        await state.update_data(children=True)
-        await msg.answer("Понятно. Есть ли у вас домашние животные?", reply_markup=yes_no_keyboard)
-        await state.set_state(Auth.pets)
-    elif msg.text == "❌ Нет":
-        await state.update_data(children=False)
-        await msg.answer("Хорошо. Есть ли у вас домашние животные?", reply_markup=yes_no_keyboard)
-        await state.set_state(Auth.pets)
-    else:
-        await msg.answer("Пожалуйста, ответьте ✅ Да или ❌ Нет", reply_markup=yes_no_keyboard)
+    has_children = (msg.text == "✅ Да")
+    await state.update_data(children=has_children)
+    await msg.answer("Есть ли у вас домашние животные?", reply_markup=yes_no_keyboard)
+    await state.set_state(Auth.pets)
 
-
-@router.message(Auth.pets)
+@router.message(Auth.pets, F.text.in_({"✅ Да", "❌ Нет"}))
 async def auth_pets(msg: Message, state: FSMContext):
-    """Спрашивает, есть ли животные у пользователя"""
-    if msg.text == "✅ Да":
-        await state.update_data(pets=True)
-    elif msg.text == "❌ Нет":
-        await state.update_data(pets=False)
-    else:
-        await msg.answer("Пожалуйста, ответьте ✅ Да или ❌ Нет", reply_markup=yes_no_keyboard)
-        return
+    has_pets = (msg.text == "✅ Да")
+    await state.update_data(pets=has_pets)
     
     # ✅ Переход к описанию
     data = await state.get_data()
@@ -197,7 +175,6 @@ async def finalize_auth_handler(msg: Message, state: FSMContext):
 
 async def finalize_auth(msg: Message, state: FSMContext):
     data = await state.get_data()
-    await state.clear()
 
     user = UserVisibleData(
         name=data["name"],
@@ -211,6 +188,8 @@ async def finalize_auth(msg: Message, state: FSMContext):
             pets=data["pets"]
         )
     )
+
+    await state.update_data(user=asdict(user))
 
     if "user" in data:
         # Если в fsm есть старые данные пользователя, то значит он 
@@ -227,11 +206,11 @@ async def finalize_auth(msg: Message, state: FSMContext):
             details=user.details
         )
         await create_user(new_user)
-        
-    if "offer_id" in data:
-        await state.update_data(offer_id=int(data["offer_id"]))
 
-    await state.update_data(user=asdict(user))
+        # Если пользователь остановился на каком-либо объявлении
+        if "offer_id" in data:
+            await state.update_data(user=asdict(new_user))
+
     await show_profile_with_restart_keyboard(msg, state, user)
 
 @router.message(Auth.media_files)

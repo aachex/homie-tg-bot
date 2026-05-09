@@ -4,14 +4,16 @@ from dataclasses import asdict
 
 from .base import APIClient
 from ..model.house_offer import *
+from ..model.ruleset import Ruleset
 
 
 class HouseOffersApi(APIClient):
     async def get_by_id(self, offer_id: int) -> HouseOffer | None:
         return await self.__get_offer(f"offer/{offer_id}")
     
-    async def get_rand(self, exclude_user_id: int, city: str) -> HouseOffer | None:
-        return await self.__get_offer(f"offer/rand?userId={exclude_user_id}&city={city}")
+    async def get_rand(self, exclude_user_id: int, city: str, allowed: Ruleset) -> HouseOffer | None:
+        url = f"offer/rand?userId={exclude_user_id}&city={city}&smoking={allowed.smoking}&children={allowed.children}&pets={allowed.pets}"
+        return await self.__get_offer(url)
     
     async def __get_offer(self, url: str) -> HouseOffer | None:
         offer_json = await self._request("GET", url)
@@ -82,8 +84,10 @@ _offers_api = HouseOffersApi()
 async def get_offer_by_id(offer_id: int) -> HouseOffer | None:
     return await _offers_api.get_by_id(offer_id)
 
-async def get_rand_offer(exclude_user_id: int, city: str) -> HouseOffer | None:
-    return await _offers_api.get_rand(exclude_user_id, city)
+async def get_rand_offer(exclude_user_id: int, city: str, ruleset: Ruleset | None) -> HouseOffer | None:
+    if ruleset is None:
+        ruleset = Ruleset(smoking=True, children=True, pets=True)
+    return await _offers_api.get_rand(exclude_user_id, city, ruleset)
 
 async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:
     return await _offers_api.get_user_offers(user_id)
