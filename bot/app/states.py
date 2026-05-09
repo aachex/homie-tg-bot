@@ -6,6 +6,9 @@ class MainMenu(StatesGroup):
     my_offers = State()
     offers_search = State()
 
+class Admin(StatesGroup):
+    panel = State()
+
 class Auth(StatesGroup):
     ask_to_auth = State()
 
