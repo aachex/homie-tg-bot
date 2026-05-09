@@ -35,11 +35,27 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 			city,
 			district,
 			price,
-			media_files
+			media_files,
+			allowed_smoking,
+			allowed_children,
+			allowed_pets
 		FROM tg_house_offer 
 		WHERE id = $1`
 	row := r.connPool.QueryRow(ctx, query, id)
-	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.MediaFiles)
+	err = row.Scan(
+		&offer.Id,
+		&offer.IsActive,
+		&offer.OwnerId,
+		&offer.Title,
+		&offer.Description,
+		&offer.City,
+		&offer.District,
+		&offer.Price,
+		&offer.MediaFiles,
+		&offer.Ruleset.Smoking,
+		&offer.Ruleset.Children,
+		&offer.Ruleset.Pets,
+	)
 	return offer, err
 }
 
@@ -104,7 +120,7 @@ func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64)
 	return nil
 }
 
-func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (offer model.HouseOffer, err error) {
+func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, user model.Ruleset) (offer model.HouseOffer, err error) {
 	query := `
 		SELECT 
 			id,
@@ -115,13 +131,40 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string) (o
 			city,
 			district,
 			price,
-			media_files
+			media_files,
+			allowed_smoking,
+			allowed_children,
+			allowed_pets
 		FROM tg_house_offer 
 		WHERE is_active = TRUE AND owner_id <> $1 and city = $2
-		ORDER BY RANDOM()`
+	`
+
+	if user.Smoking {
+		query += " AND allowed_smoking = TRUE"
+	}
+	if user.Children {
+		query += " AND allowed_children = TRUE"
+	}
+	if user.Pets {
+		query += " AND allowed_pets = TRUE"
+	}
+	query += " ORDER BY RANDOM()"
 
 	row := r.connPool.QueryRow(ctx, query, userId, city)
-	err = row.Scan(&offer.Id, &offer.IsActive, &offer.OwnerId, &offer.Title, &offer.Description, &offer.City, &offer.District, &offer.Price, &offer.MediaFiles)
+	err = row.Scan(
+		&offer.Id,
+		&offer.IsActive,
+		&offer.OwnerId,
+		&offer.Title,
+		&offer.Description,
+		&offer.City,
+		&offer.District,
+		&offer.Price,
+		&offer.MediaFiles,
+		&offer.Ruleset.Smoking,
+		&offer.Ruleset.Children,
+		&offer.Ruleset.Pets,
+	)
 	return offer, err
 }
 
@@ -164,12 +207,28 @@ func (r OffersRepo) CreateOffer(ctx context.Context, data model.HouseOfferCreate
 			city,
 			district,
 			price,
-			media_files
+			media_files,
+			allowed_smoking,
+			allowed_children,
+			allowed_pets
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id`
-
-	row := r.connPool.QueryRow(ctx, query, data.OwnerId, data.Title, data.Description, data.City, data.District, data.Price, data.MediaFiles)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id
+	`
+	row := r.connPool.QueryRow(
+		ctx,
+		query,
+		data.OwnerId,
+		data.Title,
+		data.Description,
+		data.City,
+		data.District,
+		data.Price,
+		data.MediaFiles,
+		data.Ruleset.Smoking,
+		data.Ruleset.Children,
+		data.Ruleset.Pets,
+	)
 	err = row.Scan(&id)
 	return id, err
 }

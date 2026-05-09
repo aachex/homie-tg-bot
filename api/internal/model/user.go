@@ -8,6 +8,7 @@ type User struct {
 	Description string   `json:"description"`
 	City        string   `json:"city"`
 	MediaFiles  []string `json:"media_files"`
+	Details     Ruleset  `json:"details"`
 }
 
 // UserEdit представляет все данные пользователя, которые можно менять.
@@ -17,4 +18,5 @@ type UserEdit struct {
 	Description *string  `json:"description"`
 	City        *string  `json:"city"`
 	MediaFiles  []string `json:"media_files"`
+	Details     *Ruleset `json:"details"`
 }

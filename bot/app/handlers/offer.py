@@ -10,12 +10,13 @@ from .main_menu import main_menu as show_main_menu
 from ..util.offer import show_offer
 from ..util.auth import show_profile
 from ..util.shared import is_int, handle_media_upload, normalize_city
-from ..keyboards import skip_keyboard, evaluate_keyboard
+from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
 from ..api.users import get_user_by_id
 from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, get_offer_likes, delete_like, HouseOfferCreate
 
 from ..states import OfferCreate, Offer, MainMenu
+from ..model.ruleset import Ruleset
 
 router = Router()
 
@@ -167,9 +168,9 @@ async def create_start(callback: CallbackQuery, state: FSMContext):
     keyboard = ReplyKeyboardRemove()
     user = await get_user_by_id(callback.from_user.id)
     if user:
+        # Добавляем подсказку
         keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
 
-    # Клавиатура с подсказкой
     await callback.message.answer("В каком городе находится ваша недвижимость?", reply_markup=keyboard)
 
     await state.set_state(OfferCreate.city)
@@ -181,7 +182,7 @@ async def select_city(msg: Message, state: FSMContext):
         return
     
     await state.update_data(city=normalize_city(msg.text))
-    await msg.answer("Где находится объект? Укажите район, улицу или название СНТ/деревни", reply_markup=skip_keyboard)
+    await msg.answer("Где находится объект? Укажите район или улицу", reply_markup=skip_keyboard)
     await state.set_state(OfferCreate.district)
 
 @router.message(OfferCreate.district)
@@ -189,7 +190,31 @@ async def enter_district(msg: Message, state: FSMContext):
     if msg.text != "Пропустить":
         await state.update_data(district=msg.text)
         
-    txt = "Пожалуйста, дайте короткое название вашему объявлению\n\n<i>Пример:</i> Уютная комната в общежитии в центре"
+    await msg.answer("Разрешено курить?", reply_markup=yes_no_keyboard)
+    await state.set_state(OfferCreate.smoking)
+
+@router.message(OfferCreate.smoking, F.text.in_({"✅ Да", "❌ Нет"}))
+async def select_smoking(msg: Message, state: FSMContext):
+    allowed_smoking = (msg.text == "✅ Да")
+    await state.update_data(smoking=allowed_smoking)
+
+    await msg.answer("Можно с детьми?", reply_markup=yes_no_keyboard)
+    await state.set_state(OfferCreate.children)
+
+@router.message(OfferCreate.children, F.text.in_({"✅ Да", "❌ Нет"}))
+async def select_children(msg: Message, state: FSMContext):
+    allowed_children = (msg.text == "✅ Да")
+    await state.update_data(children=allowed_children)
+
+    await msg.answer("Можно с животными?", reply_markup=yes_no_keyboard)
+    await state.set_state(OfferCreate.pets)
+
+@router.message(OfferCreate.pets, F.text.in_({"✅ Да", "❌ Нет"}))
+async def select_pets(msg: Message, state: FSMContext):
+    allowed_pets = (msg.text == "✅ Да")
+    await state.update_data(pets=allowed_pets)
+
+    txt = "Введите краткое название вашего объявления\n\n<i>Пример:</i> Уютная комната в общежитии"
     await msg.answer(txt, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.title)
 
@@ -242,7 +267,12 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
         city=data["city"],
         district=data.get("district", ""),
         price=int(data.get("price", 0)),
-        media_files=data["media_files"]
+        media_files=data["media_files"],
+        ruleset=Ruleset(
+            smoking=bool(data["smoking"]),
+            children=bool(data["children"]),
+            pets=bool(data["pets"])
+        )
     )
 
     await create_offer(offer)

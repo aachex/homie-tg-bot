@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"homie-api/internal/model"
-	"homie-api/internal/repository/postgres"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -19,11 +19,13 @@ type usersRepo interface {
 }
 
 type Users struct {
+	logger    *slog.Logger
 	usersRepo usersRepo
 }
 
-func NewUsers(usersRepo usersRepo) *Users {
+func NewUsers(logger *slog.Logger, usersRepo usersRepo) *Users {
 	return &Users{
+		logger:    logger,
 		usersRepo: usersRepo,
 	}
 }
@@ -31,45 +33,44 @@ func NewUsers(usersRepo usersRepo) *Users {
 func (c Users) UserById(ctx *gin.Context) {
 	userId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("user by id: invalid id", "error", err, "param", ctx.Param("id"))
+		controllerError(ctx, errors.New("invalid user id"), http.StatusBadRequest)
 		return
 	}
 
 	user, err := c.usersRepo.GetById(ctx, userId)
 	if errors.Is(err, sql.ErrNoRows) {
+		c.logger.Warn("user not found", "user_id", userId)
 		controllerError(ctx, errors.New("user not found"), http.StatusNotFound)
 		return
 	}
-
 	if err != nil {
-		controllerError(ctx, err, http.StatusInternalServerError)
+		c.logger.Error("failed to get user by id", "user_id", userId, "error", err)
+		controllerError(ctx, errors.New("failed to get user"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("user retrieved successfully", "user_id", userId)
 	ctx.JSON(http.StatusOK, user)
 }
 
 func (c Users) CreateUser(ctx *gin.Context) {
-	// Читаем тело запроса
 	var user model.User
 	err := ctx.BindJSON(&user)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("create user: invalid JSON", "error", err)
+		controllerError(ctx, errors.New("invalid request body"), http.StatusBadRequest)
 		return
 	}
 
-	// Добавляем пользователя в БД
 	err = c.usersRepo.CreateUser(ctx, user)
 	if err != nil {
-		code := http.StatusInternalServerError
-		// Пользователь уже существует - конфликт
-		if errors.Is(err, postgres.ErrUserExists) {
-			code = http.StatusConflict
-		}
-		controllerError(ctx, err, code)
+		c.logger.Error("failed to create user", "user_id", user.Id, "error", err)
+		controllerError(ctx, errors.New("failed to create user"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("user created successfully", "user_id", user.Id)
 	ctx.JSON(http.StatusCreated, defaultResp{
 		StatusCode: http.StatusCreated,
 		Message:    "user created",
@@ -80,23 +81,27 @@ func (c Users) EditUser(ctx *gin.Context) {
 	userIdStr := ctx.Param("id")
 	userId, err := strconv.ParseInt(userIdStr, 10, 64)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("edit user: invalid id", "error", err, "param", userIdStr)
+		controllerError(ctx, errors.New("invalid user id"), http.StatusBadRequest)
 		return
 	}
 
 	var patch model.UserEdit
 	err = ctx.BindJSON(&patch)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("edit user: invalid JSON", "error", err, "user_id", userId)
+		controllerError(ctx, errors.New("invalid request body"), http.StatusBadRequest)
 		return
 	}
 
 	err = c.usersRepo.EditUser(ctx, userId, patch)
 	if err != nil {
-		controllerError(ctx, err, http.StatusInternalServerError)
+		c.logger.Error("failed to edit user", "user_id", userId, "error", err)
+		controllerError(ctx, errors.New("failed to update user"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("user edited successfully", "user_id", userId)
 	ctx.JSON(http.StatusOK, defaultResp{
 		StatusCode: http.StatusOK,
 		Message:    "user data updated",

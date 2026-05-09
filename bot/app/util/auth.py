@@ -7,13 +7,26 @@ from ..states import Auth
 
 async def show_profile(msg: Message, user: UserVisibleData):
     caption = f"{user.name}, {user.age}, {user.city}"
-    if user.description != "":
-        caption += f"\n\n{user.description}"
-
+    
+    if user.description:
+        caption += f"\n\n<b>📝 О себе:</b>\n{user.description}"
+    
+    if user.details:
+        details_parts = []
+        if user.details.smoking:
+            details_parts.append("— Курю")
+        if user.details.children:
+            details_parts.append("— Есть дети")
+        if user.details.pets:
+            details_parts.append("— Есть питомцы")
+        
+        if details_parts:
+            caption += f"\n\n<b>❗ Дополнительно:</b>\n" + "\n".join(details_parts)
+    
     media_group = MediaGroupBuilder(caption=caption)
-
-    for file in user.media_files:
-        media_group.add_photo(media=file)
+    
+    for file in user.media_files[:10]:
+        media_group.add_photo(media=file, parse_mode="HTML")
     
     await msg.answer_media_group(media=media_group.build())
 

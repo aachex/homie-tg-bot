@@ -11,6 +11,7 @@ type HouseOffer struct {
 	District    string   `json:"district"`
 	Price       int      `json:"price"`
 	MediaFiles  []string `json:"media_files"`
+	Ruleset     Ruleset  `json:"ruleset"`
 }
 
 // HouseOfferCreate представляет данные, необходимые для создания объявления.
@@ -22,6 +23,7 @@ type HouseOfferCreate struct {
 	District    string   `json:"district"`
 	Price       int      `json:"price"`
 	MediaFiles  []string `json:"media_files"`
+	Ruleset     Ruleset  `json:"ruleset"`
 }
 
 // HouseOfferPreview представляет поверхностные данные, которые видит владелец своих объявлений.

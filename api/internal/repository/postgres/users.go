@@ -2,16 +2,11 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"homie-api/internal/model"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-)
-
-var (
-	ErrUserExists = errors.New("this user already exists")
 )
 
 type UsersRepo struct {
@@ -25,27 +20,62 @@ func NewUsersRepo(connPool *pgxpool.Pool) *UsersRepo {
 }
 
 func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err error) {
-	query := `SELECT id, name, age, description, city, media_files FROM tg_user WHERE id = $1`
+	query := `
+		SELECT
+			id,
+			name,
+			age,
+			description,
+			city,
+			media_files,
+			is_smoking,
+			has_children,
+			has_pets
+		FROM tg_user WHERE id = $1`
 	row := r.connPool.QueryRow(ctx, query, id)
-	err = row.Scan(&user.Id, &user.Name, &user.Age, &user.Description, &user.City, &user.MediaFiles)
+	err = row.Scan(
+		&user.Id,
+		&user.Name,
+		&user.Age,
+		&user.Description,
+		&user.City,
+		&user.MediaFiles,
+		&user.Details.Smoking,
+		&user.Details.Children,
+		&user.Details.Pets,
+	)
 	return user, err
 }
 
 func (r UsersRepo) CreateUser(ctx context.Context, userData model.User) error {
-	err := r.transaction(ctx, func(tx pgx.Tx) error {
-		// Проверяем, что пользователь не существует
-		userExists, err := r.existsTx(ctx, tx, userData.Id)
-		if err != nil {
-			return err
-		}
-
-		if userExists {
-			return ErrUserExists
-		}
-
-		// Пользователь не существует - добавляем его в БД
-		return r.createUserTx(ctx, tx, userData)
-	})
+	query := `
+		INSERT INTO tg_user (
+			id,
+			name,
+			age,
+			description,
+			city,
+			media_files,
+			is_smoking,
+			has_children,
+			has_pets
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT DO NOTHING
+	`
+	_, err := r.connPool.Exec(
+		ctx,
+		query,
+		userData.Id,
+		userData.Name,
+		userData.Age,
+		userData.Description,
+		userData.City,
+		userData.MediaFiles,
+		userData.Details.Smoking,
+		userData.Details.Children,
+		userData.Details.Pets,
+	)
 
 	return err
 }
@@ -76,6 +106,16 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 		updates = append(updates, "media_files = @media_files")
 		args["media_files"] = patch.MediaFiles
 	}
+	if patch.Details != nil {
+		updates = append(updates, "is_smoking = @is_smoking")
+		args["is_smoking"] = patch.Details.Smoking
+
+		updates = append(updates, "has_children = @has_children")
+		args["has_children"] = patch.Details.Children
+
+		updates = append(updates, "has_pets = @has_pets")
+		args["has_pets"] = patch.Details.Pets
+	}
 
 	if len(updates) == 0 {
 		return nil
@@ -87,44 +127,5 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 	args["id"] = userId
 
 	_, err := r.connPool.Exec(ctx, query, args)
-	return err
-}
-
-func (r UsersRepo) existsTx(ctx context.Context, tx pgx.Tx, userId int64) (exists bool, err error) {
-	query := `SELECT EXISTS (SELECT id FROM tg_user WHERE id = $1)`
-	row := tx.QueryRow(ctx, query, userId)
-	err = row.Scan(&exists)
-	return exists, err
-}
-
-func (r UsersRepo) createUserTx(ctx context.Context, tx pgx.Tx, userData model.User) error {
-	query := `INSERT INTO tg_user (id, name, age, description, city, media_files) VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := tx.Exec(
-		ctx,
-		query,
-		userData.Id,
-		userData.Name,
-		userData.Age,
-		userData.Description,
-		userData.City,
-		userData.MediaFiles,
-	)
-
-	return err
-}
-
-func (r UsersRepo) transaction(ctx context.Context, f func(tx pgx.Tx) error) error {
-	tx, err := r.connPool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	err = f(tx)
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit(ctx)
 	return err
 }
