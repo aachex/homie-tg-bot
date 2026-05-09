@@ -1,4 +1,5 @@
 from typing import Optional
+from dataclasses import asdict
 
 from .base import APIClient
 
@@ -9,9 +10,17 @@ class UsersApi(APIClient):
     async def get_user_by_id(self, user_id: int) -> User | None:
         """Получает пользователя по ID"""
         result = await self._request("GET", f"user/{user_id}", expected_status=200)
-        
+        print(result)
         if result is None:
             return None
+        
+        # Извлекаем ruleset из ответа, если есть
+        ruleset_data = result.get("details", {})
+        ruleset = Ruleset(
+            smoking=ruleset_data.get("smoking", False),
+            children=ruleset_data.get("children", False),
+            pets=ruleset_data.get("pets", False)
+        )
         
         return User(
             id=user_id,
@@ -19,21 +28,22 @@ class UsersApi(APIClient):
             age=result.get("age", 0),
             city=result.get("city", ""),
             description=result.get("description", ""),
-            media_files=result.get("media_files", [])
+            media_files=result.get("media_files", []),
+            details=ruleset
         )
     
     async def create_user(self, user: User) -> bool:
         """Создаёт пользователя"""
-        await self._request("POST", "user", data=user.__dict__, expected_status=201)
+        body = asdict(user)
+        await self._request("POST", "user", data=body, expected_status=201)
     
-    async def edit_user(self, user_id: int, user: UserVisibleData) -> bool:
+    async def edit_user(self, user_id: int, user: UserVisibleData):
         """Обновляет пользователя (только указанные поля)"""
         # Убираем поля со значением None
-        data = {k: v for k, v in user.__dict__.items() if v is not None}
+        data = {k: v for k, v in asdict(user).items() if v is not None}
         
         if not data:
             print("No fields to update")
-            return True
         
         await self._request("PATCH", f"user/{user_id}", data=data, expected_status=200)
 

@@ -12,6 +12,9 @@ class Auth(StatesGroup):
     name = State()
     age = State()
     city = State()
+    smoking = State()
+    children = State()
+    pets = State()
     descr = State()
     media_files = State()
 

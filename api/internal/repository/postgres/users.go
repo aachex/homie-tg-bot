@@ -25,9 +25,30 @@ func NewUsersRepo(connPool *pgxpool.Pool) *UsersRepo {
 }
 
 func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err error) {
-	query := `SELECT id, name, age, description, city, media_files FROM tg_user WHERE id = $1`
+	query := `
+		SELECT
+			id,
+			name,
+			age,
+			description,
+			city,
+			media_files,
+			is_smoking,
+			has_children,
+			has_pets
+		FROM tg_user WHERE id = $1`
 	row := r.connPool.QueryRow(ctx, query, id)
-	err = row.Scan(&user.Id, &user.Name, &user.Age, &user.Description, &user.City, &user.MediaFiles)
+	err = row.Scan(
+		&user.Id,
+		&user.Name,
+		&user.Age,
+		&user.Description,
+		&user.City,
+		&user.MediaFiles,
+		&user.Details.Smoking,
+		&user.Details.Children,
+		&user.Details.Pets,
+	)
 	return user, err
 }
 
@@ -44,7 +65,7 @@ func (r UsersRepo) CreateUser(ctx context.Context, userData model.User) error {
 			has_children,
 			has_pets
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT DO NOTHING
 	`
 	_, err := r.connPool.Exec(

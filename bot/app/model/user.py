@@ -20,4 +20,4 @@ class UserVisibleData:
     city: str | None = None
     description: str | None = None
     media_files: list[str] | None = None
-    details: Ruleset = field(default_factory=Ruleset)
+    details: Ruleset | None = field(default_factory=Ruleset)
