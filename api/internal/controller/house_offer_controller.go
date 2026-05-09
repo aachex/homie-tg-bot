@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"homie-api/internal/model"
 	"homie-api/internal/repository/postgres"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -26,11 +27,13 @@ type houseOffersRepo interface {
 }
 
 type HouseOffers struct {
+	logger          *slog.Logger
 	houseOffersRepo houseOffersRepo
 }
 
-func NewHouseOffers(houseOffersRepo houseOffersRepo) *HouseOffers {
+func NewHouseOffers(logger *slog.Logger, houseOffersRepo houseOffersRepo) *HouseOffers {
 	return &HouseOffers{
+		logger:          logger,
 		houseOffersRepo: houseOffersRepo,
 	}
 }
@@ -38,48 +41,57 @@ func NewHouseOffers(houseOffersRepo houseOffersRepo) *HouseOffers {
 func (c HouseOffers) OfferById(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("failed to parse offer id", "error", err, "param", ctx.Param("id"))
+		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
 		return
 	}
 
 	offer, err := c.houseOffersRepo.OfferById(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		controllerError(ctx, err, http.StatusNotFound)
+		c.logger.Warn("offer not found", "offer_id", id)
+		controllerError(ctx, errors.New("offer not found"), http.StatusNotFound)
 		return
 	}
 	if err != nil {
-		controllerError(ctx, err, http.StatusInternalServerError)
+		c.logger.Error("failed to get offer by id", "offer_id", id, "error", err)
+		controllerError(ctx, errors.New("failed to get offer"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("offer retrieved successfully", "offer_id", id)
 	ctx.JSON(http.StatusOK, offer)
 }
 
 func (c HouseOffers) OfferLikes(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("failed to parse offer id for likes", "error", err, "param", ctx.Param("id"))
+		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
 		return
 	}
 
 	likes, err := c.houseOffersRepo.OfferLikes(ctx, id)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		controllerError(ctx, err, http.StatusInternalServerError)
+		c.logger.Error("failed to get likes for offer", "offer_id", id, "error", err)
+		controllerError(ctx, errors.New("failed to get likes"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("likes retrieved for offer", "offer_id", id, "count", len(likes))
 	ctx.JSON(http.StatusOK, likes)
 }
 
 func (c HouseOffers) AddLike(ctx *gin.Context) {
 	offerId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
+		c.logger.Error("add like: invalid offer id", "error", err, "param", ctx.Param("id"))
 		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
 		return
 	}
 
 	userId, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
 	if err != nil {
+		c.logger.Error("add like: invalid userId format", "error", err, "userId", ctx.Query("userId"))
 		controllerError(ctx, errors.New("invalid userId format"), http.StatusBadRequest)
 		return
 	}
@@ -87,14 +99,18 @@ func (c HouseOffers) AddLike(ctx *gin.Context) {
 	err = c.houseOffersRepo.AddLike(ctx, offerId, userId)
 	if err != nil {
 		code := http.StatusInternalServerError
-		// Лайк уже стоит - конфликт
 		if errors.Is(err, postgres.ErrLikeAlreadyExists) {
 			code = http.StatusConflict
+			c.logger.Warn("like already exists", "offer_id", offerId, "user_id", userId)
+			controllerError(ctx, errors.New("like already exists"), code)
+		} else {
+			c.logger.Error("failed to add like", "offer_id", offerId, "user_id", userId, "error", err)
+			controllerError(ctx, errors.New("failed to like offer"), code)
 		}
-		controllerError(ctx, errors.New("failed to like offer"), code)
 		return
 	}
 
+	c.logger.Info("like added successfully", "offer_id", offerId, "user_id", userId)
 	ctx.JSON(http.StatusCreated, defaultResp{
 		StatusCode: http.StatusCreated,
 		Message:    fmt.Sprintf("added like to offer %d", offerId),
@@ -104,12 +120,14 @@ func (c HouseOffers) AddLike(ctx *gin.Context) {
 func (c HouseOffers) DeleteLike(ctx *gin.Context) {
 	offerID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
+		c.logger.Error("delete like: invalid offer id", "error", err, "param", ctx.Param("id"))
 		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
 		return
 	}
 
 	userID, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
 	if err != nil {
+		c.logger.Error("delete like: invalid userId format", "error", err, "userId", ctx.Query("userId"))
 		controllerError(ctx, errors.New("invalid userId format"), http.StatusBadRequest)
 		return
 	}
@@ -119,11 +137,16 @@ func (c HouseOffers) DeleteLike(ctx *gin.Context) {
 		code := http.StatusInternalServerError
 		if errors.Is(err, postgres.ErrLikeNotFound) {
 			code = http.StatusNotFound
+			c.logger.Warn("like not found for deletion", "offer_id", offerID, "user_id", userID)
+			controllerError(ctx, errors.New("like not found"), code)
+		} else {
+			c.logger.Error("failed to delete like", "offer_id", offerID, "user_id", userID, "error", err)
+			controllerError(ctx, errors.New("failed to delete like"), code)
 		}
-		controllerError(ctx, err, code)
 		return
 	}
 
+	c.logger.Info("like deleted successfully", "offer_id", offerID, "user_id", userID)
 	ctx.JSON(http.StatusOK, defaultResp{
 		StatusCode: http.StatusOK,
 		Message:    "successfully deleted like",
@@ -131,50 +154,59 @@ func (c HouseOffers) DeleteLike(ctx *gin.Context) {
 }
 
 func (c HouseOffers) RandOffer(ctx *gin.Context) {
-	var err, err2, err3 error
-
 	userId, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("rand offer: invalid userId", "error", err, "userId", ctx.Query("userId"))
+		controllerError(ctx, errors.New("invalid userId"), http.StatusBadRequest)
 		return
 	}
 	city := ctx.Query("city")
 
+	var err2, err3 error
 	allowed := model.Ruleset{}
 	allowed.Smoking, err = strconv.ParseBool(ctx.Query("smoking"))
 	allowed.Children, err2 = strconv.ParseBool(ctx.Query("children"))
 	allowed.Pets, err3 = strconv.ParseBool(ctx.Query("pets"))
 	if err != nil || err2 != nil || err3 != nil {
-		controllerError(ctx, errors.Join(err, err2, err3), http.StatusBadRequest)
+		c.logger.Error("rand offer: invalid boolean filters",
+			"smoking_err", err, "children_err", err2, "pets_err", err3,
+			"smoking", ctx.Query("smoking"), "children", ctx.Query("children"), "pets", ctx.Query("pets"))
+		controllerError(ctx, errors.New("invalid filter values"), http.StatusBadRequest)
 		return
 	}
 
 	offer, err := c.houseOffersRepo.RandOffer(ctx, userId, city, allowed)
 	if errors.Is(err, sql.ErrNoRows) {
-		controllerError(ctx, err, http.StatusNotFound)
+		c.logger.Warn("no random offer found", "user_id", userId, "city", city, "filters", allowed)
+		controllerError(ctx, errors.New("no offers found"), http.StatusNotFound)
 		return
 	}
 	if err != nil {
-		controllerError(ctx, err, http.StatusInternalServerError)
+		c.logger.Error("failed to get random offer", "user_id", userId, "city", city, "error", err)
+		controllerError(ctx, errors.New("failed to get random offer"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("random offer selected", "user_id", userId, "offer_id", offer.Id)
 	ctx.JSON(http.StatusOK, offer)
 }
 
 func (c HouseOffers) UserOffers(ctx *gin.Context) {
 	userId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("user offers: invalid user id", "error", err, "param", ctx.Param("id"))
+		controllerError(ctx, errors.New("invalid user id"), http.StatusBadRequest)
 		return
 	}
 
 	offers, err := c.houseOffersRepo.UserOffers(ctx, userId)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		controllerError(ctx, err, http.StatusInternalServerError)
+		c.logger.Error("failed to get user offers", "user_id", userId, "error", err)
+		controllerError(ctx, errors.New("failed to get user offers"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("user offers retrieved", "user_id", userId, "count", len(offers))
 	ctx.JSON(http.StatusOK, offers)
 }
 
@@ -182,16 +214,19 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 	var data model.HouseOfferCreate
 	err := ctx.BindJSON(&data)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("create offer: invalid JSON", "error", err)
+		controllerError(ctx, errors.New("invalid request body"), http.StatusBadRequest)
 		return
 	}
 
 	id, err := c.houseOffersRepo.CreateOffer(ctx, data)
 	if err != nil {
-		controllerError(ctx, err, http.StatusInternalServerError)
+		c.logger.Error("failed to create offer", "owner_id", data.OwnerId, "title", data.Title, "error", err)
+		controllerError(ctx, errors.New("failed to create offer"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("offer created successfully", "offer_id", id, "owner_id", data.OwnerId, "title", data.Title)
 	resp := model.HouseOffer{
 		Id:          id,
 		IsActive:    true,
@@ -204,48 +239,54 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 		MediaFiles:  data.MediaFiles,
 		Ruleset:     data.Ruleset,
 	}
-
 	ctx.JSON(http.StatusCreated, resp)
 }
 
 func (c HouseOffers) DeleteOffer(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("delete offer: invalid offer id", "error", err, "param", ctx.Param("id"))
+		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
 		return
 	}
 
 	err = c.houseOffersRepo.DeleteOffer(ctx, id)
 	if err != nil {
-		controllerError(ctx, err, http.StatusInternalServerError)
+		c.logger.Error("failed to delete offer", "offer_id", id, "error", err)
+		controllerError(ctx, errors.New("failed to delete offer"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("offer deleted successfully", "offer_id", id)
 	ctx.JSON(http.StatusOK, defaultResp{
 		StatusCode: http.StatusOK,
-		Message:    fmt.Sprintf("offer %d succesfully deleted", id),
+		Message:    fmt.Sprintf("offer %d successfully deleted", id),
 	})
 }
 
 func (c HouseOffers) SetActiveOffer(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("set active offer: invalid offer id", "error", err, "param", ctx.Param("id"))
+		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
 		return
 	}
 
 	isActive, err := strconv.ParseBool(ctx.Query("active"))
 	if err != nil {
-		controllerError(ctx, err, http.StatusBadRequest)
+		c.logger.Error("set active offer: invalid active flag", "error", err, "active", ctx.Query("active"))
+		controllerError(ctx, errors.New("invalid active flag"), http.StatusBadRequest)
 		return
 	}
 
 	err = c.houseOffersRepo.SetActive(ctx, id, isActive)
 	if err != nil {
-		controllerError(ctx, err, http.StatusInternalServerError)
+		c.logger.Error("failed to set offer active status", "offer_id", id, "active", isActive, "error", err)
+		controllerError(ctx, errors.New("failed to update offer status"), http.StatusInternalServerError)
 		return
 	}
 
+	c.logger.Info("offer active status updated", "offer_id", id, "active", isActive)
 	ctx.JSON(http.StatusOK, defaultResp{
 		StatusCode: http.StatusOK,
 		Message:    fmt.Sprintf("offer active = %t", isActive),

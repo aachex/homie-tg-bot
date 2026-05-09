@@ -11,8 +11,11 @@ class HouseOffersApi(APIClient):
     async def get_by_id(self, offer_id: int) -> HouseOffer | None:
         return await self.__get_offer(f"offer/{offer_id}")
     
-    async def get_rand(self, exclude_user_id: int, city: str, allowed: Ruleset) -> HouseOffer | None:
-        url = f"offer/rand?userId={exclude_user_id}&city={city}&smoking={allowed.smoking}&children={allowed.children}&pets={allowed.pets}"
+    async def get_rand(self, exclude_user_id: int, city: str, ruleset: Ruleset) -> HouseOffer | None:
+        if ruleset is None:
+            ruleset = Ruleset(smoking=True, children=True, pets=True)
+        
+        url = f"offer/rand?userId={exclude_user_id}&city={city}&smoking={ruleset.smoking}&children={ruleset.children}&pets={ruleset.pets}"
         return await self.__get_offer(url)
     
     async def __get_offer(self, url: str) -> HouseOffer | None:
@@ -85,8 +88,6 @@ async def get_offer_by_id(offer_id: int) -> HouseOffer | None:
     return await _offers_api.get_by_id(offer_id)
 
 async def get_rand_offer(exclude_user_id: int, city: str, ruleset: Ruleset | None) -> HouseOffer | None:
-    if ruleset is None:
-        ruleset = Ruleset(smoking=True, children=True, pets=True)
     return await _offers_api.get_rand(exclude_user_id, city, ruleset)
 
 async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:

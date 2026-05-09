@@ -2,16 +2,11 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"homie-api/internal/model"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-)
-
-var (
-	ErrUserExists = errors.New("this user already exists")
 )
 
 type UsersRepo struct {
