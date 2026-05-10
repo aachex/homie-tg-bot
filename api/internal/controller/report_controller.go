@@ -12,6 +12,7 @@ import (
 )
 
 type reportsRepo interface {
+	Count(ctx context.Context) (int, error)
 	Create(ctx context.Context, data model.ReportCreate) (id int64, err error)
 }
 
@@ -25,6 +26,20 @@ func NewReports(logger *slog.Logger, reportsRepo reportsRepo) *Reports {
 		logger:      logger,
 		reportsRepo: reportsRepo,
 	}
+}
+
+func (c Reports) Count(ctx *gin.Context) {
+	count, err := c.reportsRepo.Count(ctx)
+	if err != nil {
+		c.logger.Error("failed to count reports", "error", err)
+		controllerError(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("reports count retrieved successfully", "count", count)
+	ctx.JSON(http.StatusOK, gin.H{
+		"count": count,
+	})
 }
 
 func (c Reports) CreateReport(ctx *gin.Context) {

@@ -69,6 +69,7 @@ func main() {
 	v1.DELETE("/offer/:id/like", offersController.DeleteLike)
 
 	v1.POST("/report", reportsController.CreateReport)
+	v1.GET("/report/count", reportsController.Count)
 
 	v1.POST("/stats/user-activity", statsController.CreateUserActivity)
 	v1.POST("/stats/dau", statsController.DAU)

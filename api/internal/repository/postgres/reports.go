@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"homie-api/internal/model"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,6 +18,17 @@ func NewReportsRepo(connPool *pgxpool.Pool) *ReportsRepo {
 	}
 }
 
+func (r *ReportsRepo) Count(ctx context.Context) (int, error) {
+	query := `SELECT COUNT(*) FROM report`
+
+	var count int
+	err := r.connPool.QueryRow(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count reports: %w", err)
+	}
+
+	return count, nil
+}
 func (r *ReportsRepo) Create(ctx context.Context, data model.ReportCreate) (id int64, err error) {
 	query := `
 		INSERT INTO report (
