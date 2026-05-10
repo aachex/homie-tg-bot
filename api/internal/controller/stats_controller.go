@@ -36,15 +36,32 @@ func (c Stats) DAU(ctx *gin.Context) {
 	var data req
 	err := ctx.BindJSON(&data)
 	if err != nil {
+		c.logger.Error("failed to bind JSON for DAU request", "error", err)
 		controllerError(ctx, err, http.StatusBadRequest)
 		return
 	}
 
+	c.logger.Info("getting DAU statistics",
+		"from", data.From,
+		"to", data.To,
+	)
+
 	dau, err := c.statsRepo.DAU(ctx, data.From, data.To)
 	if err != nil {
+		c.logger.Error("failed to get DAU from repository",
+			"from", data.From,
+			"to", data.To,
+			"error", err,
+		)
 		controllerError(ctx, err, http.StatusInternalServerError)
 		return
 	}
+
+	c.logger.Info("DAU statistics retrieved successfully",
+		"from", data.From,
+		"to", data.To,
+		"days_count", len(dau),
+	)
 
 	ctx.JSON(http.StatusOK, dau)
 }
@@ -63,12 +80,6 @@ func (c Stats) CreateUserActivity(ctx *gin.Context) {
 		return
 	}
 
-	c.logger.Info("creating user activity",
-		"user_id", activityData.UserId,
-		"action", activityData.Action,
-		"action_data", activityData.ActionData,
-	)
-
 	_, err = c.statsRepo.CreateUserActivity(ctx, activityData.UserId, activityData.Action, activityData.ActionData)
 	if err != nil {
 		c.logger.Error("failed to create user activity",
@@ -79,11 +90,6 @@ func (c Stats) CreateUserActivity(ctx *gin.Context) {
 		controllerError(ctx, err, http.StatusInternalServerError)
 		return
 	}
-
-	c.logger.Info("user activity created successfully",
-		"user_id", activityData.UserId,
-		"action", activityData.Action,
-	)
 
 	ctx.JSON(http.StatusCreated, defaultResp{
 		StatusCode: http.StatusCreated,

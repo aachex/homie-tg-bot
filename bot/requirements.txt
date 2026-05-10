@@ -3,3 +3,5 @@ aiohttp==3.13.5
 requests==2.33.1
 aiohttp_socks==0.10.1
 redis==7.4.0
+python-dateutil==2.9.0.post0
+matplotlib==3.10.9

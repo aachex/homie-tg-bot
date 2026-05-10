@@ -11,6 +11,6 @@ type UserActivity struct {
 }
 
 type DailyStat struct {
-	DAU  int
-	Date time.Time
+	DAU  int       `json:"dau"`
+	Date time.Time `json:"date"`
 }

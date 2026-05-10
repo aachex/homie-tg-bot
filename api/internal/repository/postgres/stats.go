@@ -21,12 +21,12 @@ func NewStatsRepo(connPool *pgxpool.Pool) *StatsRepo {
 func (r *StatsRepo) DAU(ctx context.Context, fromDate time.Time, toDate time.Time) (dau []model.DailyStat, err error) {
 	query := `
 		SELECT 
-        	time,
-            COUNT(DISTINCT user_id) as dau
-        FROM user_activities
-        WHERE time >= $1 AND time <= $2
-        GROUP BY time
-        ORDER BY time ASC
+			DATE(time) as day,
+			COUNT(DISTINCT user_id) as dau
+		FROM user_activities
+		WHERE time >= $1 AND time <= $2
+		GROUP BY DATE(time)
+		ORDER BY day ASC
 	`
 
 	rows, err := r.connPool.Query(ctx, query, fromDate, toDate)
@@ -40,6 +40,7 @@ func (r *StatsRepo) DAU(ctx context.Context, fromDate time.Time, toDate time.Tim
 		if err != nil {
 			return nil, err
 		}
+		dau = append(dau, s)
 	}
 
 	err = rows.Err()

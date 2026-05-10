@@ -8,6 +8,7 @@ class MainMenu(StatesGroup):
 
 class Admin(StatesGroup):
     panel = State()
+    stats_overview = State()
 
 class Auth(StatesGroup):
     ask_to_auth = State()
