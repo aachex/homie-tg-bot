@@ -227,19 +227,10 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 	}
 
 	c.logger.Info("offer created successfully", "offer_id", id, "owner_id", data.OwnerId, "title", data.Title)
-	resp := model.HouseOffer{
-		Id:          id,
-		IsActive:    true,
-		Title:       data.Title,
-		Description: data.Description,
-		City:        data.City,
-		District:    data.District,
-		Price:       data.Price,
-		OwnerId:     data.OwnerId,
-		MediaFiles:  data.MediaFiles,
-		Ruleset:     data.Ruleset,
-	}
-	ctx.JSON(http.StatusCreated, resp)
+	ctx.JSON(http.StatusCreated, defaultResp{
+		StatusCode: http.StatusCreated,
+		Message:    "offer created successfully",
+	})
 }
 
 func (c HouseOffers) DeleteOffer(ctx *gin.Context) {
