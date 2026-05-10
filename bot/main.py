@@ -7,6 +7,8 @@ from aiogram.fsm.storage.redis import RedisStorage
 
 from redis.asyncio import Redis
 
+from app.middleware.logging import LoggingMiddleware
+
 from app.handlers.main_menu import router as base_router
 from app.handlers.auth import router as auth_router
 from app.handlers.offer import router as manage_offers_router
@@ -24,6 +26,9 @@ async def main():
     fsm_storage = RedisStorage(redis=redis_client)
 
     dp = Dispatcher(storage=fsm_storage)
+    dp.message.middleware(LoggingMiddleware())
+    dp.callback_query.middleware(LoggingMiddleware())
+
     dp.include_router(base_router)
     dp.include_router(auth_router)
     dp.include_router(manage_offers_router)

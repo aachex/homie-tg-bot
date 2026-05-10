@@ -40,7 +40,7 @@ func main() {
 	// Контроллеры
 	usersController := controller.NewUsers(logger, usersRepo)
 	offersController := controller.NewHouseOffers(logger, offersRepo)
-	statsController := controller.NewStats(activitiesRepo)
+	statsController := controller.NewStats(logger, activitiesRepo)
 
 	// Конфигурация сервера
 	r := gin.New()

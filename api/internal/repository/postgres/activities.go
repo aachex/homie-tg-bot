@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"homie-api/internal/model"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,18 +16,18 @@ func NewActivitiesRepo(connPool *pgxpool.Pool) *ActivitiesRepository {
 	}
 }
 
-func (r *ActivitiesRepository) CreateUserActivity(ctx context.Context, activity model.UserActivityCreate) (id int64, err error) {
+func (r *ActivitiesRepository) CreateUserActivity(ctx context.Context, userId int64, action string, action_data map[string]any) (id int64, err error) {
 	query := `
 		INSERT INTO user_activities (
 			user_id,
 			action,
-			time
+			action_data
 		)
 		VALUES ($1, $2, $3)
 		ON CONFLICT DO NOTHING
 		RETURNING id
 	`
-	row := r.connPool.QueryRow(ctx, query, activity.UserId, activity.Action, activity.Timestamp)
+	row := r.connPool.QueryRow(ctx, query, userId, action, action_data)
 	err = row.Scan(&id)
 	return id, err
 }
