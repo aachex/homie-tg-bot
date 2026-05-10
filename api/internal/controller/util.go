@@ -7,7 +7,7 @@ import (
 )
 
 type defaultResp struct {
-	StatusCode int    `json:"statusCode"`
+	StatusCode int    `json:"status_code"`
 	Message    string `json:"message"`
 }
 

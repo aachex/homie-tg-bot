@@ -46,3 +46,5 @@ class SearchOffers(StatesGroup):
     city = State()
     choice = State()
     offer_not_found = State()
+
+    report_reason = State()

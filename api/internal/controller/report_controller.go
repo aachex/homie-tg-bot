@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"homie-api/internal/model"
 	"log/slog"
@@ -44,7 +45,13 @@ func (c Reports) CreateReport(ctx *gin.Context) {
 	id, err := c.reportsRepo.Create(ctx, req)
 	if err != nil {
 		c.logger.Error("failed to create report", "error", err)
-		controllerError(ctx, errors.New("failed to create report"), http.StatusInternalServerError)
+
+		code := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			code = http.StatusConflict
+		}
+
+		controllerError(ctx, errors.New("failed to create report"), code)
 		return
 	}
 

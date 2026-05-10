@@ -9,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
 from .main_menu import main_menu as show_main_menu
-from .search_offers import show_next_offer
+from .search_offers import show_next_offer, send_mag
 
 from ..util.auth import show_profile, show_unauthorized
 from ..util.shared import is_int, handle_media_upload, normalize_city
@@ -246,9 +246,7 @@ async def profile_done(msg: Message, state: FSMContext):
         await show_main_menu(msg, state)
         return
     
-    await state.set_state(SearchOffers.choice)
-    await state.update_data(user_id=msg.from_user.id)
-    
+    await send_mag(msg)
+
     offer_id = int(data["offer_id"])
-    await msg.answer("🔎", reply_markup=evaluate_keyboard)
     await show_next_offer(msg, state, offer_id)

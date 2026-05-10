@@ -19,7 +19,7 @@ type houseOffersRepo interface {
 	OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error)
 	AddLike(ctx context.Context, offerId int64, userId int64) error
 	DeleteLike(ctx context.Context, offerId int64, userId int64) error
-	RandOffer(ctx context.Context, userId int64, city string, allowed model.Ruleset) (model.HouseOffer, error)
+	RandOffer(ctx context.Context, userId int64, city string, user model.Ruleset) (model.HouseOffer, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
@@ -163,10 +163,10 @@ func (c HouseOffers) RandOffer(ctx *gin.Context) {
 	city := ctx.Query("city")
 
 	var err2, err3 error
-	allowed := model.Ruleset{}
-	allowed.Smoking, err = strconv.ParseBool(ctx.Query("smoking"))
-	allowed.Children, err2 = strconv.ParseBool(ctx.Query("children"))
-	allowed.Pets, err3 = strconv.ParseBool(ctx.Query("pets"))
+	ruleset := model.Ruleset{}
+	ruleset.Smoking, err = strconv.ParseBool(ctx.Query("smoking"))
+	ruleset.Children, err2 = strconv.ParseBool(ctx.Query("children"))
+	ruleset.Pets, err3 = strconv.ParseBool(ctx.Query("pets"))
 	if err != nil || err2 != nil || err3 != nil {
 		c.logger.Error("rand offer: invalid boolean filters",
 			"smoking_err", err, "children_err", err2, "pets_err", err3,
@@ -175,9 +175,9 @@ func (c HouseOffers) RandOffer(ctx *gin.Context) {
 		return
 	}
 
-	offer, err := c.houseOffersRepo.RandOffer(ctx, userId, city, allowed)
+	offer, err := c.houseOffersRepo.RandOffer(ctx, userId, city, ruleset)
 	if errors.Is(err, sql.ErrNoRows) {
-		c.logger.Warn("no random offer found", "user_id", userId, "city", city, "filters", allowed)
+		c.logger.Warn("no random offer found", "user_id", userId, "city", city, "filters", ruleset)
 		controllerError(ctx, errors.New("no offers found"), http.StatusNotFound)
 		return
 	}
