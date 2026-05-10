@@ -35,7 +35,7 @@ func main() {
 	// Репозитории
 	usersRepo := postgres.NewUsersRepo(connPool)
 	offersRepo := postgres.NewOffersRepo(connPool)
-	activitiesRepo := postgres.NewActivitiesRepo(connPool)
+	activitiesRepo := postgres.NewStatsRepo(connPool)
 
 	// Контроллеры
 	usersController := controller.NewUsers(logger, usersRepo)
@@ -67,6 +67,7 @@ func main() {
 	v1.DELETE("/offer/:id/like", offersController.DeleteLike)
 
 	v1.POST("/stats/user-activity", statsController.CreateUserActivity)
+	v1.POST("/stats/dau", statsController.DAU)
 
 	// Запуск
 	log.Fatal(r.Run(":8080"))

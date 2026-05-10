@@ -9,3 +9,8 @@ type UserActivity struct {
 	Timestamp  time.Time      `json:"timestamp"`
 	ActionData map[string]any `json:"action_data"`
 }
+
+type DailyStat struct {
+	DAU  int
+	Date time.Time
+}
