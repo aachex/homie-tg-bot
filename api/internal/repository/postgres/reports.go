@@ -18,6 +18,64 @@ func NewReportsRepo(connPool *pgxpool.Pool) *ReportsRepo {
 	}
 }
 
+// Возвращает только ID (для списка)
+func (r *ReportsRepo) PendingReportIDs(ctx context.Context, offset, limit int) ([]int64, error) {
+	query := `
+		SELECT id
+		FROM report
+		WHERE status = 'pending'
+		ORDER BY created_at DESC
+		OFFSET $1 LIMIT $2
+	`
+
+	rows, err := r.connPool.Query(ctx, query, offset, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pending report IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, rows.Err()
+}
+
+// Возвращает полные данные (для детального просмотра)
+func (r *ReportsRepo) ByID(ctx context.Context, id int64) (*model.Report, error) {
+	query := `
+		SELECT 
+			id,
+			offer_id,
+			reporter_id,
+			reason,
+			status,
+			created_at
+		FROM report
+		WHERE id = $1
+	`
+
+	var report model.Report
+	err := r.connPool.QueryRow(ctx, query, id).Scan(
+		&report.Id,
+		&report.OfferId,
+		&report.ReporterId,
+		&report.Reason,
+		&report.Status,
+		&report.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get report by id: %w", err)
+	}
+
+	return &report, nil
+}
+
 func (r *ReportsRepo) Count(ctx context.Context) (int, error) {
 	query := `SELECT COUNT(*) FROM report`
 

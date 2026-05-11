@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS report (
     reason TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'dismissed')),
     created_at TIMESTAMP DEFAULT NOW(),
-    admin_comment TEXT,
     UNIQUE(offer_id, reporter_id)
 );
 
