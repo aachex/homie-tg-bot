@@ -30,7 +30,8 @@ async def reports_view(msg: Message, state: FSMContext):
     # Получаем ID необработанных жалоб
     data = await state.get_data()
     
-    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports()
+    offset = data.get("offset", 0)
+    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports(offset=offset)
     
     if not report_ids:
         await msg.answer("📭 Нет необработанных жалоб")
@@ -40,20 +41,12 @@ async def reports_view(msg: Message, state: FSMContext):
     await state.update_data(report_ids=report_ids)
     
     # Создаём клавиатуру со списком жалоб
-    builder = InlineKeyboardBuilder()
-    
-    for report_id in report_ids:
-        builder.add(InlineKeyboardButton(
-            text=f"📋 Жалоба #{report_id}",
-            callback_data=f"report_view:{report_id}"
-        ))
-    
-    builder.adjust(1)  # По одной кнопке в ряд
+    kb = create_reports_keyboard(report_ids)
     
     await msg.answer(
-        f"📋 **Необработанные жалобы** (всего: {len(report_ids)})",
-        reply_markup=builder.as_markup(),
-        parse_mode="Markdown"
+        f"📋 <b>Необработанные жалобы</b> (всего: {len(report_ids)})",
+        reply_markup=kb,
+        parse_mode="HTML"
     )
 
 @router.callback_query(Admin.report_details, F.data == "reports_back")
@@ -63,7 +56,8 @@ async def reports_view_callback(callback: CallbackQuery, state: FSMContext):
     # Получаем ID необработанных жалоб
     data = await state.get_data()
     
-    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports()
+    offset = data.get("offset", 0)
+    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports(offset=offset)
     
     if not report_ids:
         await callback.message.edit_text("📭 Нет необработанных жалоб")
@@ -73,6 +67,15 @@ async def reports_view_callback(callback: CallbackQuery, state: FSMContext):
     await state.update_data(report_ids=report_ids)
     
     # Создаём клавиатуру со списком жалоб
+    kb = create_reports_keyboard(report_ids)
+    
+    await callback.message.edit_text(
+        f"📋 <b>Необработанные жалобы</b> (всего: {len(report_ids)})",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+
+def create_reports_keyboard(report_ids: list[int]):
     builder = InlineKeyboardBuilder()
     
     for report_id in report_ids:
@@ -83,11 +86,28 @@ async def reports_view_callback(callback: CallbackQuery, state: FSMContext):
     
     builder.adjust(1)  # По одной кнопке в ряд
     
-    await callback.message.edit_text(
-        f"📋 **Необработанные жалобы** (всего: {len(report_ids)})",
-        reply_markup=builder.as_markup(),
-        parse_mode="Markdown"
+    builder.row(
+        InlineKeyboardButton(text="⬅️", callback_data="reports_prev_page"),
+        InlineKeyboardButton(text="➡️", callback_data="reports_next_page"),
+        width=2
     )
+    
+    return builder.as_markup()
+
+@router.callback_query(Admin.reports, F.data == "reports_next_page")
+async def reports_next_page(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    current_offset = data.get("offset", 0)
+    await state.update_data(offset=current_offset+10)
+    await reports_view_callback(callback, state)
+
+@router.callback_query(Admin.reports, F.data == "reports_prev_page")
+async def reports_prev_page(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    current_offset = data.get("offset", 0)
+    await state.update_data(offset=max(0, current_offset-10))
+    await reports_view_callback(callback, state)
+
 
 @router.callback_query(Admin.reports, F.data.startswith("report_view:"))
 async def report_details(callback: CallbackQuery, state: FSMContext):

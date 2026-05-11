@@ -9,8 +9,8 @@ from ..model.report import Report, ReportCreate
 class ReportsApi(APIClient):
     """API для взаимодействия с жалобами."""
 
-    async def get_pending(self) -> list[int]:
-        reports_json = await self._request("GET", "report/pending-reports")
+    async def get_pending(self, offset: int = 0, limit: int = 10) -> list[int]:
+        reports_json = await self._request("GET", f"report/pending-reports?offset={offset}&limit={limit}")
         
         if not reports_json:
             return []
@@ -47,8 +47,8 @@ class ReportsApi(APIClient):
 # Глобальный экземпляр API
 _reports_api = ReportsApi()
 
-async def get_pending_reports() -> list[Report]:
-    return await _reports_api.get_pending()
+async def get_pending_reports(offset: int = 0, limit: int = 10) -> list[Report]:
+    return await _reports_api.get_pending(offset, limit)
 
 async def report_by_id(id: int) -> Report | None:
     return await _reports_api.get_by_id(id)
