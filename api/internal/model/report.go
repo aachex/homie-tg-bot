@@ -7,7 +7,6 @@ type Report struct {
 	OfferId    int64     `json:"offer_id"`
 	ReporterId int64     `json:"reporter_id"`
 	Reason     string    `json:"reason"`
-	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 

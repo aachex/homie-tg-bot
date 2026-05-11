@@ -23,7 +23,6 @@ func (r *ReportsRepo) PendingReportIDs(ctx context.Context, offset, limit int) (
 	query := `
 		SELECT id
 		FROM report
-		WHERE status = 'pending'
 		ORDER BY created_at DESC
 		OFFSET $1 LIMIT $2
 	`
@@ -54,7 +53,6 @@ func (r *ReportsRepo) ByID(ctx context.Context, id int64) (*model.Report, error)
 			offer_id,
 			reporter_id,
 			reason,
-			status,
 			created_at
 		FROM report
 		WHERE id = $1
@@ -66,7 +64,6 @@ func (r *ReportsRepo) ByID(ctx context.Context, id int64) (*model.Report, error)
 		&report.OfferId,
 		&report.ReporterId,
 		&report.Reason,
-		&report.Status,
 		&report.CreatedAt,
 	)
 	if err != nil {

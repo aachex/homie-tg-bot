@@ -5,7 +5,6 @@ CREATE TABLE IF NOT EXISTS report (
     offer_id BIGINT NOT NULL REFERENCES tg_house_offer(id) ON DELETE CASCADE,
     reporter_id BIGINT NOT NULL,
     reason TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'dismissed')),
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(offer_id, reporter_id)
 );
