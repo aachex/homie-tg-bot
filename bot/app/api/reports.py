@@ -47,6 +47,9 @@ class ReportsApi(APIClient):
         body = asdict(report)
         await self._request("POST", "report", data=body, expected_status=201)
 
+    async def delete_report(self, id: int):
+        await self._request("DELETE", f"report/{id}")
+
 
 # Глобальный экземпляр API
 _reports_api = ReportsApi()
@@ -63,3 +66,6 @@ async def reports_count() -> int:
 async def create_report(report: ReportCreate):
     """Создаёт жалобу на объявление"""
     await _reports_api.create_report(report)
+
+async def delete_report(id: int):
+    await _reports_api.delete_report(id)

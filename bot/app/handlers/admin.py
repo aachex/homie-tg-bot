@@ -9,7 +9,8 @@ from .main_menu import ADMIN_IDS
 
 from ..states import MainMenu, Admin
 
-from ..api.reports import get_pending_reports, report_by_id, reports_count
+from ..api.reports import get_pending_reports, report_by_id, reports_count, delete_report
+from ..api.offers import delete_offer
 
 router = Router()
 
@@ -42,10 +43,7 @@ async def reports_view(msg: Message, state: FSMContext):
 
     # Получаем ID необработанных жалоб
     offset = data.get("offset", 0)
-    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports(offset=offset, limit=MAX_REPORTS_PER_PAGE)
-    
-    # Сохраняем список ID в состояние
-    await state.update_data(report_ids=report_ids)
+    report_ids = await get_pending_reports(offset=offset, limit=MAX_REPORTS_PER_PAGE)
     
     # Создаём клавиатуру со списком жалоб
     kb = create_reports_keyboard(report_ids)
@@ -64,15 +62,12 @@ async def reports_view_callback(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     
     offset = data.get("offset", 0)
-    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports(offset=offset, limit=MAX_REPORTS_PER_PAGE)
+    report_ids = await get_pending_reports(offset=offset, limit=MAX_REPORTS_PER_PAGE)
     
     if not report_ids:
         await callback.message.edit_text("📭 Нет необработанных жалоб")
         return
-    
-    # Сохраняем список ID в состояние
-    await state.update_data(report_ids=report_ids)
-    
+        
     # Создаём клавиатуру со списком жалоб
     kb = create_reports_keyboard(report_ids)
     
@@ -112,9 +107,6 @@ async def reports_next_page(callback: CallbackQuery, state: FSMContext):
         return
 
     await state.update_data(offset=offset+MAX_REPORTS_PER_PAGE)
-
-    next_reports = await get_pending_reports(offset+MAX_REPORTS_PER_PAGE, MAX_REPORTS_PER_PAGE)
-    await state.update_data(report_ids=next_reports)
     await reports_view_callback(callback, state)
 
 @router.callback_query(Admin.reports, F.data == "reports_prev_page")
@@ -127,8 +119,6 @@ async def reports_prev_page(callback: CallbackQuery, state: FSMContext):
         return
     
     await state.update_data(offset=offset-MAX_REPORTS_PER_PAGE)
-    next_reports = await get_pending_reports(offset-MAX_REPORTS_PER_PAGE, MAX_REPORTS_PER_PAGE)
-    await state.update_data(report_ids=next_reports)
     await reports_view_callback(callback, state)
 
 
@@ -159,7 +149,10 @@ async def report_details(callback: CallbackQuery, state: FSMContext):
         f"📝 <b>Причина жалобы:</b>\n"
         f"<i>{report.reason}</i>\n"
     )
-    
+
+    await state.update_data(offer_id=report.offer_id)
+    await state.update_data(reporter_id=report.reporter_id)
+
     # Клавиатура действий
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -176,6 +169,41 @@ async def report_details(callback: CallbackQuery, state: FSMContext):
         reply_markup=keyboard,
         parse_mode="HTML"
     )
+
+@router.callback_query(Admin.report_details, F.data.startswith("report_approve:"))
+async def approve_report(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+
+    report_id = int(callback.data.split(":")[1])
+    await delete_report(report_id)
+
+    offer_id = int(data["offer_id"])
+    await delete_offer(offer_id)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад к списку", callback_data="reports_back")]
+    ])
+    await callback.message.edit_text(
+        "Жалоба одобрена, пост удалён",
+        reply_markup=kb
+    )
+
+    reporter_id = int(data["reporter_id"])
+    await callback.bot.send_message(reporter_id, "Объявление, на которое Вы недавно жаловались, было удалено. Спасибо, что помогаете нам становиться лучше")
+
+@router.callback_query(Admin.report_details, F.data.startswith("report_reject:"))
+async def reject_report(callback: CallbackQuery, state: FSMContext):
+    report_id = int(callback.data.split(":")[1])
+    await delete_report(report_id)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад к списку", callback_data="reports_back")]
+    ])
+    await callback.message.edit_text(
+        "Жалоба отклонена",
+        reply_markup=kb
+    )
+    
 
 @router.message(StateFilter(*Admin.__states__), F.text == "📊 Статистика")
 async def stats_overview(msg: Message, state: FSMContext):
