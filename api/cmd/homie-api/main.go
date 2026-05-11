@@ -72,6 +72,7 @@ func main() {
 	v1.GET("/report/:id", reportsController.ByID)
 	v1.GET("/report/count", reportsController.Count)
 	v1.POST("/report", reportsController.CreateReport)
+	v1.DELETE("/report/:id", reportsController.DeleteReport)
 
 	v1.POST("/stats/user-activity", statsController.CreateUserActivity)
 	v1.POST("/stats/dau", statsController.DAU)

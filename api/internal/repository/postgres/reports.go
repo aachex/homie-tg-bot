@@ -99,3 +99,9 @@ func (r *ReportsRepo) Create(ctx context.Context, data model.ReportCreate) (id i
 	err = row.Scan(&id)
 	return id, err
 }
+
+func (r *ReportsRepo) Delete(ctx context.Context, id int64) error {
+	query := `DELETE FROM report WHERE id = $1`
+	_, err := r.connPool.Exec(ctx, query, id)
+	return err
+}

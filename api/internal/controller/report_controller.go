@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"homie-api/internal/model"
 	"log/slog"
 	"net/http"
@@ -17,6 +18,7 @@ type reportsRepo interface {
 	PendingReportIDs(ctx context.Context, offset, limit int) (report_ids []int64, err error)
 	Count(ctx context.Context) (int, error)
 	Create(ctx context.Context, data model.ReportCreate) (id int64, err error)
+	Delete(ctx context.Context, id int64) error
 }
 
 type Reports struct {
@@ -142,5 +144,36 @@ func (c Reports) CreateReport(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, defaultResp{
 		StatusCode: http.StatusCreated,
 		Message:    "report created successfully",
+	})
+}
+
+func (c Reports) DeleteReport(ctx *gin.Context) {
+	// Получаем ID из URL параметра
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.logger.Error("invalid report id", "error", err, "id", idStr)
+		controllerError(ctx, errors.New("invalid report id"), http.StatusBadRequest)
+		return
+	}
+
+	c.logger.Info("deleting report", "report_id", id)
+
+	err = c.reportsRepo.Delete(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.logger.Warn("report not found for deletion", "report_id", id)
+			controllerError(ctx, errors.New("report not found"), http.StatusNotFound)
+			return
+		}
+		c.logger.Error("failed to delete report", "report_id", id, "error", err)
+		controllerError(ctx, errors.New("failed to delete report"), http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("report deleted successfully", "report_id", id)
+	ctx.JSON(http.StatusOK, defaultResp{
+		StatusCode: http.StatusOK,
+		Message:    fmt.Sprintf("report %d deleted successfully", id),
 	})
 }
