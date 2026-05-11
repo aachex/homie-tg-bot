@@ -10,6 +10,9 @@ class Admin(StatesGroup):
     panel = State()
     stats_overview = State()
 
+    reports = State()
+    report_details = State()
+
 class Auth(StatesGroup):
     ask_to_auth = State()
 

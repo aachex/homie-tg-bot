@@ -10,9 +10,7 @@ class Report:
     offer_id: int
     reporter_id: int
     reason: str
-    status: str
     created_at: datetime
-    admin_comment: str | None = None
 
 
 @dataclass
