@@ -1,14 +1,16 @@
+import os
+
 from aiogram import F, Router
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import CommandStart, StateFilter
 
 from aiogram.fsm.context import FSMContext
 
-from ..keyboards import main_menu_keyboard
-
 from ..states import MainMenu, SearchOffers, Offer
 
 router = Router()
+
+ADMIN_IDS = [int(admin_id) for admin_id in os.getenv("ADMIN_IDS").split(',')]
 
 @router.message(CommandStart())
 async def start(msg: Message, state: FSMContext):
@@ -25,8 +27,18 @@ async def main_menu(msg: Message, state: FSMContext):
     await state.clear()
     await state.set_state(MainMenu.main_menu)
 
+    kb_array = [
+        [KeyboardButton(text="🏡 Найти квартиру/дом")],
+        [KeyboardButton(text="Мой профиль")],
+        [KeyboardButton(text="Мои объявления")],
+    ]
+    if msg.from_user.id in ADMIN_IDS:
+        kb_array.append([KeyboardButton(text="Админ-панель", style="primary")])
+
+    kb = ReplyKeyboardMarkup(keyboard=kb_array, resize_keyboard=True)
+
     await msg.answer(
         "Вы в главном меню",
-        reply_markup=main_menu_keyboard,
+        reply_markup=kb,
         parse_mode="HTML"
     )

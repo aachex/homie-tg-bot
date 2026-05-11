@@ -19,9 +19,9 @@ type OffersRepo struct {
 }
 
 func NewOffersRepo(connPool *pgxpool.Pool) *OffersRepo {
-	r := new(OffersRepo)
-	r.connPool = connPool
-	return r
+	return &OffersRepo{
+		connPool: connPool,
+	}
 }
 
 func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseOffer, err error) {

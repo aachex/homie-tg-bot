@@ -35,10 +35,14 @@ func main() {
 	// Репозитории
 	usersRepo := postgres.NewUsersRepo(connPool)
 	offersRepo := postgres.NewOffersRepo(connPool)
+	reportsRepo := postgres.NewReportsRepo(connPool)
+	statsRepo := postgres.NewStatsRepo(connPool)
 
 	// Контроллеры
 	usersController := controller.NewUsers(logger, usersRepo)
 	offersController := controller.NewHouseOffers(logger, offersRepo)
+	reportsController := controller.NewReports(logger, reportsRepo)
+	statsController := controller.NewStats(logger, statsRepo)
 
 	// Конфигурация сервера
 	r := gin.New()
@@ -63,6 +67,15 @@ func main() {
 	v1.GET("/offer/:id/likes", offersController.OfferLikes)
 	v1.POST("/offer/:id/like", offersController.AddLike)
 	v1.DELETE("/offer/:id/like", offersController.DeleteLike)
+
+	v1.GET("/report/pending-reports", reportsController.PendingReports)
+	v1.GET("/report/:id", reportsController.ByID)
+	v1.GET("/report/count", reportsController.Count)
+	v1.POST("/report", reportsController.CreateReport)
+	v1.DELETE("/report/:id", reportsController.DeleteReport)
+
+	v1.POST("/stats/user-activity", statsController.CreateUserActivity)
+	v1.POST("/stats/dau", statsController.DAU)
 
 	// Запуск
 	log.Fatal(r.Run(":8080"))

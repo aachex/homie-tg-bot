@@ -13,7 +13,7 @@ class HouseOffersApi(APIClient):
     
     async def get_rand(self, exclude_user_id: int, city: str, ruleset: Ruleset) -> HouseOffer | None:
         if ruleset is None:
-            ruleset = Ruleset(smoking=True, children=True, pets=True)
+            ruleset = Ruleset(smoking=False, children=False, pets=False)
         
         url = f"offer/rand?userId={exclude_user_id}&city={city}&smoking={ruleset.smoking}&children={ruleset.children}&pets={ruleset.pets}"
         return await self.__get_offer(url)
