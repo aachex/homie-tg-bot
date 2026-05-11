@@ -6,6 +6,13 @@ class MainMenu(StatesGroup):
     my_offers = State()
     offers_search = State()
 
+class Admin(StatesGroup):
+    panel = State()
+    stats_overview = State()
+
+    reports = State()
+    report_details = State()
+
 class Auth(StatesGroup):
     ask_to_auth = State()
 
@@ -42,3 +49,5 @@ class SearchOffers(StatesGroup):
     city = State()
     choice = State()
     offer_not_found = State()
+
+    report_reason = State()
