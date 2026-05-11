@@ -9,33 +9,40 @@ from .main_menu import ADMIN_IDS
 
 from ..states import MainMenu, Admin
 
-from ..api.reports import get_pending_reports, report_by_id
+from ..api.reports import get_pending_reports, report_by_id, reports_count
 
 router = Router()
+
+MAX_REPORTS_PER_PAGE = 10
 
 @router.message(MainMenu.main_menu, F.from_user.id.in_(ADMIN_IDS), F.text == "Админ-панель")
 async def admin_panel(msg: Message, state: FSMContext):
     await state.set_state(Admin.panel)
 
+    rep_cnt = await reports_count()
+    await state.update_data(reports_count=rep_cnt)
+
+    rep_btn_txt = f"⚠️ Жалобы ({rep_cnt})" if rep_cnt > 0 else "⚠️ Жалобы"
+
     kb = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="📊 Статистика"), KeyboardButton(text="⚠️ Жалобы")],
+        [KeyboardButton(text="📊 Статистика"), KeyboardButton(text=rep_btn_txt)],
         [KeyboardButton(text="Главное меню")]
     ], resize_keyboard=True)
     await msg.answer("👑 Добро пожаловать в панель администраторов", parse_mode="HTML", reply_markup=kb)
 
 @router.message(StateFilter(*Admin.__states__), F.text.startswith("⚠️ Жалобы"))
 async def reports_view(msg: Message, state: FSMContext):
+    data = await state.get_data()
+    
+    if int(data["reports_count"]) == 0:
+        await msg.answer("📭 Нет необработанных жалоб")
+        return
+    
     await state.set_state(Admin.reports)
 
     # Получаем ID необработанных жалоб
-    data = await state.get_data()
-    
     offset = data.get("offset", 0)
-    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports(offset=offset)
-    
-    if not report_ids:
-        await msg.answer("📭 Нет необработанных жалоб")
-        return
+    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports(offset=offset, limit=MAX_REPORTS_PER_PAGE)
     
     # Сохраняем список ID в состояние
     await state.update_data(report_ids=report_ids)
@@ -44,7 +51,7 @@ async def reports_view(msg: Message, state: FSMContext):
     kb = create_reports_keyboard(report_ids)
     
     await msg.answer(
-        f"📋 <b>Необработанные жалобы</b> (всего: {len(report_ids)})",
+        f"📋 <b>Необработанные жалобы</b>",
         reply_markup=kb,
         parse_mode="HTML"
     )
@@ -57,7 +64,7 @@ async def reports_view_callback(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     
     offset = data.get("offset", 0)
-    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports(offset=offset)
+    report_ids = data["report_ids"] if "report_ids" in data else await get_pending_reports(offset=offset, limit=MAX_REPORTS_PER_PAGE)
     
     if not report_ids:
         await callback.message.edit_text("📭 Нет необработанных жалоб")
@@ -70,7 +77,7 @@ async def reports_view_callback(callback: CallbackQuery, state: FSMContext):
     kb = create_reports_keyboard(report_ids)
     
     await callback.message.edit_text(
-        f"📋 <b>Необработанные жалобы</b> (всего: {len(report_ids)})",
+        f"📋 <b>Необработанные жалобы</b>",
         reply_markup=kb,
         parse_mode="HTML"
     )
@@ -85,7 +92,7 @@ def create_reports_keyboard(report_ids: list[int]):
         ))
     
     builder.adjust(1)  # По одной кнопке в ряд
-    
+
     builder.row(
         InlineKeyboardButton(text="⬅️", callback_data="reports_prev_page"),
         InlineKeyboardButton(text="➡️", callback_data="reports_next_page"),
@@ -96,16 +103,32 @@ def create_reports_keyboard(report_ids: list[int]):
 
 @router.callback_query(Admin.reports, F.data == "reports_next_page")
 async def reports_next_page(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    
     data = await state.get_data()
-    current_offset = data.get("offset", 0)
-    await state.update_data(offset=current_offset+10)
+    total = data["reports_count"]
+    offset = data.get("offset", 0)
+    if offset + MAX_REPORTS_PER_PAGE >= total:
+        return
+
+    await state.update_data(offset=offset+MAX_REPORTS_PER_PAGE)
+
+    next_reports = await get_pending_reports(offset+MAX_REPORTS_PER_PAGE, MAX_REPORTS_PER_PAGE)
+    await state.update_data(report_ids=next_reports)
     await reports_view_callback(callback, state)
 
 @router.callback_query(Admin.reports, F.data == "reports_prev_page")
 async def reports_prev_page(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+
     data = await state.get_data()
-    current_offset = data.get("offset", 0)
-    await state.update_data(offset=max(0, current_offset-10))
+    offset = data.get("offset", 0)
+    if offset - MAX_REPORTS_PER_PAGE < 0:
+        return
+    
+    await state.update_data(offset=offset-MAX_REPORTS_PER_PAGE)
+    next_reports = await get_pending_reports(offset-MAX_REPORTS_PER_PAGE, MAX_REPORTS_PER_PAGE)
+    await state.update_data(report_ids=next_reports)
     await reports_view_callback(callback, state)
 
 

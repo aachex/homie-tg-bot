@@ -37,6 +37,10 @@ class ReportsApi(APIClient):
             reason=report_json.get("reason", ""),
             created_at=parse_date(report_json.get("created_at")),
         )
+    
+    async def count(self) -> int:
+        resp = await self._request("GET", "report/count")
+        return resp.get("count", 0)
 
     async def create_report(self, report: ReportCreate):
         """Создаёт жалобу на объявление"""
@@ -52,6 +56,9 @@ async def get_pending_reports(offset: int = 0, limit: int = 10) -> list[Report]:
 
 async def report_by_id(id: int) -> Report | None:
     return await _reports_api.get_by_id(id)
+
+async def reports_count() -> int:
+    return await _reports_api.count()
 
 async def create_report(report: ReportCreate):
     """Создаёт жалобу на объявление"""
