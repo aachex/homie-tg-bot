@@ -13,11 +13,11 @@ from .search_offers import show_next_offer, send_mag
 
 from ..util.auth import show_profile, show_unauthorized
 from ..util.shared import is_int, handle_media_upload, normalize_city
-from ..api.users import get_user_by_id, create_user, edit_user, User, UserVisibleData
+from ..api.users import get_user_by_id, create_user, edit_user, User, UserCreate, UserEdit
 
 from ..model.ruleset import Ruleset
 
-from ..states import Auth, MainMenu, SearchOffers
+from ..states import Auth, MainMenu
 
 router = Router()
 
@@ -31,15 +31,7 @@ async def my_profile(msg: Message, state: FSMContext):
     await state.clear()
     await state.update_data(user=asdict(user))
 
-    profile_data = UserVisibleData(
-        name=user.name,
-        age=user.age,
-        city=user.city,
-        description=user.description,
-        media_files=user.media_files,
-        details=user.details
-    )
-    await show_profile_with_restart_keyboard(msg, state, profile_data)
+    await show_profile_with_restart_keyboard(msg, state, user)
 
 async def auth_start(msg: Message, state: FSMContext, first_name: str):
     kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=first_name)]], resize_keyboard=True)
@@ -114,6 +106,7 @@ async def auth_descr(msg: Message, state: FSMContext):
     data = await state.get_data()
     
     if "user" in data and msg.text == "Оставить текущее описание":
+        print(data["user"])
         await state.update_data(descr=data["user"]["description"])
     else:
         await state.update_data(descr=msg.text)
@@ -135,46 +128,38 @@ async def finalize_auth_handler(msg: Message, state: FSMContext):
 
 async def finalize_auth(msg: Message, state: FSMContext):
     data = await state.get_data()
-    print("SUCCESS\n", data)
 
-    # TODO: отправить данные на сервер и расставить флаги с помощью LLM
-    return
-    user = UserVisibleData(
+    user = UserCreate(
+        id=msg.from_user.id,
         name=data["name"],
-        age=int(data["age"]),
         city=data["city"],
         description=data.get("descr", ""),
         media_files=data.get("media_files", [os.getenv("NO_PHOTO_FILE_ID")]),
-        details=Ruleset(
-            smoking=data["smoking"],
-            children=data["children"],
-            pets=data["pets"]
-        )
     )
-
-    await state.update_data(user=asdict(user))
 
     if "user" in data:
         # Если в fsm есть старые данные пользователя, то значит он 
         # уже регистрировался и нужно редактировать его профиль, а не создавать
-        await edit_user(msg.from_user.id, user)
-    else:
-        new_user = User(
-            id=msg.from_user.id,
+        user_edit = UserEdit(
             name=user.name,
-            age=user.age,
             city=user.city,
             description=user.description,
             media_files=user.media_files,
-            details=user.details
         )
-        await create_user(new_user)
+        await edit_user(msg.from_user.id, user_edit)
+    else:
+        await create_user(user)
+    
+    await state.update_data(user=asdict(user))
+    print(asdict(user))
 
-        # Если пользователь остановился на каком-либо объявлении
-        if "offer_id" in data:
-            await state.update_data(user=asdict(new_user))
-
-    await show_profile_with_restart_keyboard(msg, state, user)
+    user2 = User(
+        id=user.id,
+        name=user.name,
+        city=user.city,
+        media_files=user.media_files
+    )
+    await show_profile_with_restart_keyboard(msg, state, user2)
 
 @router.message(Auth.media_files)
 async def auth_media(msg: Message, state: FSMContext):
@@ -193,7 +178,7 @@ async def auth_media(msg: Message, state: FSMContext):
     if done:
         await finalize_auth(msg, state)
 
-async def show_profile_with_restart_keyboard(msg: Message, state: FSMContext, user: UserVisibleData):
+async def show_profile_with_restart_keyboard(msg: Message, state: FSMContext, user: User):
     await state.set_state(MainMenu.profile)
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Заполнить профиль заново")],
