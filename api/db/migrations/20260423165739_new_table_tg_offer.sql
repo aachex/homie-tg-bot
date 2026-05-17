@@ -6,6 +6,9 @@ CREATE TABLE IF NOT EXISTS tg_house_offer (
     description TEXT NOT NULL DEFAULT '',
     price INTEGER NOT NULL,
     owner_id BIGINT NOT NULL,
+    media_files TEXT[] NOT NULL,
+
+    -- TODO: умные флаги
     allowed_smoking BOOL NOT NULL DEFAULT FALSE,
     allowed_children BOOL NOT NULL DEFAULT FALSE,
     allowed_pets BOOL NOT NULL DEFAULT FALSE
