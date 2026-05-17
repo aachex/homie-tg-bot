@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"homie-api/internal/model"
 	"log/slog"
+	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -88,6 +89,9 @@ func (c *Client) ExtractUserFlags(ctx context.Context, text string) (*model.User
 	}
 
 	content := resp.Choices[0].Message.Content
+	content = cleanJSONResponse(content)
+
+	c.logger.Info("successfully fetched LLM reponse", "text", content)
 
 	var flags model.UserFlags
 	if err := json.Unmarshal([]byte(content), &flags); err != nil {
@@ -97,4 +101,14 @@ func (c *Client) ExtractUserFlags(ctx context.Context, text string) (*model.User
 
 	c.logger.Info("flags extracted", "flags", flags)
 	return &flags, nil
+}
+
+func cleanJSONResponse(content string) string {
+	// Ищем первый '{' и последний '}'
+	start := strings.Index(content, "{")
+	end := strings.LastIndex(content, "}")
+	if start != -1 && end != -1 && end > start {
+		return content[start : end+1]
+	}
+	return content
 }
