@@ -132,26 +132,6 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 		updates = append(updates, "media_files = @media_files")
 		args["media_files"] = patch.MediaFiles
 	}
-	if patch.Flags != nil {
-		flagUpdates := map[string]any{
-			"smoking":         patch.Flags.Smoking,
-			"children":        patch.Flags.Children,
-			"pets":            patch.Flags.Pets,
-			"occupants_count": patch.Flags.OccupantsCount,
-			"noise_lvl":       patch.Flags.NoiseLvl,
-			"works_from_home": patch.Flags.WorksFromHome,
-			"alcohol":         patch.Flags.Alcohol,
-			"age_min":         patch.Flags.AgeMin,
-			"age_max":         patch.Flags.AgeMax,
-		}
-
-		for column, value := range flagUpdates {
-			if value != nil {
-				updates = append(updates, fmt.Sprintf("%s = @%s", column, column))
-				args[column] = value
-			}
-		}
-	}
 
 	if len(updates) == 0 {
 		return nil

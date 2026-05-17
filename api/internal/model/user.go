@@ -76,9 +76,16 @@ type CreateUserRequest struct {
 }
 
 // UserEdit представляет данные пользователя, которые можно менять
+type UserEditRequest struct {
+	Name        *string  `json:"name,omitempty"`
+	City        *string  `json:"city,omitempty"`
+	Description *string  `json:"description,omitempty"`
+	MediaFiles  []string `json:"media_files,omitempty"`
+}
+
+// UserEdit представляет данные пользователя, которые можно менять
 type UserEdit struct {
-	Name       *string    `json:"name,omitempty"`
-	City       *string    `json:"city,omitempty"`
-	MediaFiles []string   `json:"media_files,omitempty"`
-	Flags      *UserFlags `json:"flags,omitempty"`
+	Name       *string  `json:"name,omitempty"`
+	City       *string  `json:"city,omitempty"`
+	MediaFiles []string `json:"media_files,omitempty"`
 }

@@ -87,32 +87,7 @@ func (c Users) CreateUser(ctx *gin.Context) {
 		Message:    "user created successfully",
 	})
 
-	go func() {
-		ctx := context.Background()
-
-		flags, err := c.llmClient.ExtractUserFlags(ctx, userCreate.Description)
-		if err != nil {
-			c.logger.Error("failed to extract user flags from description",
-				"user_id", userCreate.Id,
-				"description_length", len(userCreate.Description),
-				"error", err,
-			)
-			return
-		}
-
-		err = c.usersRepo.UpdateFlags(ctx, user.Id, *flags)
-		if err != nil {
-			c.logger.Error("failed to update flags",
-				"user_id", userCreate.Id,
-				"error", err,
-			)
-			return
-		}
-
-		c.logger.Info("successfully extracted flags",
-			"user_id", userCreate.Id,
-		)
-	}()
+	go c.updateFlags(userCreate.Id, userCreate.Description)
 }
 
 func (c Users) EditUser(ctx *gin.Context) {
@@ -124,7 +99,7 @@ func (c Users) EditUser(ctx *gin.Context) {
 		return
 	}
 
-	var patch model.UserEdit
+	var patch model.UserEditRequest
 	err = ctx.BindJSON(&patch)
 	if err != nil {
 		c.logger.Error("edit user: invalid JSON", "error", err, "user_id", userId)
@@ -132,7 +107,13 @@ func (c Users) EditUser(ctx *gin.Context) {
 		return
 	}
 
-	err = c.usersRepo.EditUser(ctx, userId, patch)
+	userEdit := model.UserEdit{
+		Name:       patch.Name,
+		City:       patch.City,
+		MediaFiles: patch.MediaFiles,
+	}
+
+	err = c.usersRepo.EditUser(ctx, userId, userEdit)
 	if err != nil {
 		c.logger.Error("failed to edit user", "user_id", userId, "error", err)
 		controllerError(ctx, errors.New("failed to update user"), http.StatusInternalServerError)
@@ -144,4 +125,36 @@ func (c Users) EditUser(ctx *gin.Context) {
 		StatusCode: http.StatusOK,
 		Message:    "user data updated",
 	})
+
+	if patch.Description != nil {
+		go c.updateFlags(userId, *patch.Description)
+	}
+}
+
+// updateFlags извлекает флаги из описания юзера и обновляет их в БД.
+func (c Users) updateFlags(userId int64, description string) {
+	ctx := context.Background()
+
+	flags, err := c.llmClient.ExtractUserFlags(ctx, description)
+	if err != nil {
+		c.logger.Error("failed to extract user flags from description",
+			"user_id", userId,
+			"description_length", len(description),
+			"error", err,
+		)
+		return
+	}
+
+	err = c.usersRepo.UpdateFlags(ctx, userId, *flags)
+	if err != nil {
+		c.logger.Error("failed to update flags",
+			"user_id", userId,
+			"error", err,
+		)
+		return
+	}
+
+	c.logger.Info("successfully extracted flags",
+		"user_id", userId,
+	)
 }
