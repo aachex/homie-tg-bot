@@ -74,31 +74,17 @@ async def auth_name(msg: Message, state: FSMContext):
         await msg.answer(f"Име не может быть длиннее {maxNameLen} символов")
         return
     
-    data = await state.get_data()
     kb = ReplyKeyboardRemove()
+
+    data = await state.get_data()
     if "user" in data:
-        kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=str(data["user"]["age"]))]], resize_keyboard=True)
+        kb = ReplyKeyboardMarkup(keyboard=[
+            [KeyboardButton(text=data["user"]["city"])]
+        ], resize_keyboard=True)
+
+    await msg.answer("Из какого Вы города?", reply_markup=kb)
 
     await state.update_data(name=msg.text)
-    await msg.answer("Сколько Вам лет?", reply_markup=kb)
-    await state.set_state(Auth.age)
-
-@router.message(Auth.age)
-async def auth_age(msg: Message, state: FSMContext):
-    if not is_int(msg.text):
-        await msg.answer("Возраст должен быть числом")
-        return
-    if int(msg.text) < 0 or int(msg.text) > 150:
-        await msg.answer("Возраст должен быть от 0 до 150 включительно")
-        return
-    
-    data = await state.get_data()
-    kb = ReplyKeyboardRemove()
-    if "user" in data:
-        kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=data["user"]["city"])]], resize_keyboard=True)
-
-    await state.update_data(age=msg.text)
-    await msg.answer("Из какого вы города?", reply_markup=kb)
     await state.set_state(Auth.city)
 
 @router.message(Auth.city)
@@ -108,54 +94,28 @@ async def auth_city(msg: Message, state: FSMContext):
         return
     await state.update_data(city=normalize_city(msg.text))
 
-    # ✅ Переход к вопросу о курении
-    await msg.answer("Курите ли вы?", reply_markup=yes_no_keyboard)
-    await state.set_state(Auth.smoking)
-
-@router.message(Auth.smoking, F.text.in_({"✅ Да", "❌ Нет"}))
-async def auth_smoking(msg: Message, state: FSMContext):
-    is_smoking = (msg.text == "✅ Да")
-    await state.update_data(smoking=is_smoking)
-    await msg.answer("Есть ли у вас дети?", reply_markup=yes_no_keyboard)
-    await state.set_state(Auth.children)
-
-@router.message(Auth.children, F.text.in_({"✅ Да", "❌ Нет"}))
-async def auth_children(msg: Message, state: FSMContext):
-    has_children = (msg.text == "✅ Да")
-    await state.update_data(children=has_children)
-    await msg.answer("Есть ли у вас домашние животные?", reply_markup=yes_no_keyboard)
-    await state.set_state(Auth.pets)
-
-@router.message(Auth.pets, F.text.in_({"✅ Да", "❌ Нет"}))
-async def auth_pets(msg: Message, state: FSMContext):
-    has_pets = (msg.text == "✅ Да")
-    await state.update_data(pets=has_pets)
-    
-    # ✅ Переход к описанию
     data = await state.get_data()
-    kb = skip_keyboard
+    kb = ReplyKeyboardRemove()
     if "user" in data:
         kb = ReplyKeyboardMarkup(keyboard=[
-            [KeyboardButton(text="Пропустить")],
             [KeyboardButton(text="Оставить текущее описание")],
         ], resize_keyboard=True)
-    
-    await msg.answer(
-        "Расскажите немного о себе. Данный пункт необязателен, но желателен",
-        reply_markup=kb
-    )
+
+    txt = "<b>Расскажите о себе, и я найду лучшие объявления для Вас</b>\n\nПример: Студент 3-го курса, работаю удалённо, не курю, не устраиваю вечеринок. Ищу уютную двушку до 50к"
+    await msg.answer(txt, parse_mode="HTML", reply_markup=kb)
     await state.set_state(Auth.descr)
 
 @router.message(Auth.descr)
 async def auth_descr(msg: Message, state: FSMContext):
-    data = await state.get_data()
-
     if not msg.text:
         await msg.answer("Нужно ввести текст")
         return
-    if msg.text == "Оставить текущее описание":
+    
+    data = await state.get_data()
+    
+    if "user" in data and msg.text == "Оставить текущее описание":
         await state.update_data(descr=data["user"]["description"])
-    elif msg.text != "Пропустить":
+    else:
         await state.update_data(descr=msg.text)
 
     kb_array = [[KeyboardButton(text="Пропустить")]]
@@ -175,7 +135,10 @@ async def finalize_auth_handler(msg: Message, state: FSMContext):
 
 async def finalize_auth(msg: Message, state: FSMContext):
     data = await state.get_data()
+    print("SUCCESS\n", data)
 
+    # TODO: отправить данные на сервер и расставить флаги с помощью LLM
+    return
     user = UserVisibleData(
         name=data["name"],
         age=int(data["age"]),
