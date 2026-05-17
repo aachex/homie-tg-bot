@@ -49,6 +49,7 @@ class UsersApi(APIClient):
             id=user_id,
             name=result.get("name", ""),
             city=result.get("city", ""),
+            description=result.get("description", ""),
             media_files=result.get("media_files", []),
             flags=flags,
         )

@@ -59,35 +59,28 @@ func (c Users) UserById(ctx *gin.Context) {
 }
 
 func (c Users) CreateUser(ctx *gin.Context) {
-	var userCreate model.CreateUserRequest
-	err := ctx.BindJSON(&userCreate)
+	var user model.UserCreate
+	err := ctx.BindJSON(&user)
 	if err != nil {
 		c.logger.Error("create user: invalid JSON", "error", err)
 		controllerError(ctx, errors.New("invalid request body"), http.StatusBadRequest)
 		return
 	}
 
-	user := model.UserCreate{
-		Id:         userCreate.Id,
-		Name:       userCreate.Name,
-		City:       userCreate.City,
-		MediaFiles: userCreate.MediaFiles,
-	}
-
 	err = c.usersRepo.CreateUser(ctx, user)
 	if err != nil {
-		c.logger.Error("failed to create user", "user_id", userCreate.Id, "error", err)
+		c.logger.Error("failed to create user", "user_id", user.Id, "error", err)
 		controllerError(ctx, errors.New("failed to create user"), http.StatusInternalServerError)
 		return
 	}
 
-	c.logger.Info("user created successfully", "user_id", userCreate.Id)
+	c.logger.Info("user created successfully", "user_id", user.Id)
 	ctx.JSON(http.StatusCreated, defaultResp{
 		StatusCode: http.StatusOK,
 		Message:    "user created successfully",
 	})
 
-	go c.updateFlags(userCreate.Id, userCreate.Description)
+	go c.updateFlags(user.Id, user.Description)
 }
 
 func (c Users) EditUser(ctx *gin.Context) {
@@ -99,7 +92,7 @@ func (c Users) EditUser(ctx *gin.Context) {
 		return
 	}
 
-	var patch model.UserEditRequest
+	var patch model.UserEdit
 	err = ctx.BindJSON(&patch)
 	if err != nil {
 		c.logger.Error("edit user: invalid JSON", "error", err, "user_id", userId)
@@ -107,13 +100,7 @@ func (c Users) EditUser(ctx *gin.Context) {
 		return
 	}
 
-	userEdit := model.UserEdit{
-		Name:       patch.Name,
-		City:       patch.City,
-		MediaFiles: patch.MediaFiles,
-	}
-
-	err = c.usersRepo.EditUser(ctx, userId, userEdit)
+	err = c.usersRepo.EditUser(ctx, userId, patch)
 	if err != nil {
 		c.logger.Error("failed to edit user", "user_id", userId, "error", err)
 		controllerError(ctx, errors.New("failed to update user"), http.StatusInternalServerError)

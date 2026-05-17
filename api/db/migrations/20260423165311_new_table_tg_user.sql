@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS tg_user (
     id BIGINT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     city TEXT NOT NULL,
+    description TEXT NOT NULL,
     media_files TEXT[] NOT NULL DEFAULT '{}',
     
     -- Флаги арендатора. Если значение NULL, то значит, что у LLM не получилось его определить

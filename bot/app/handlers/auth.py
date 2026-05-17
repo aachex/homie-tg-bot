@@ -13,7 +13,7 @@ from .search_offers import show_next_offer, send_mag
 
 from ..util.auth import show_profile, show_unauthorized
 from ..util.shared import is_int, handle_media_upload, normalize_city
-from ..api.users import get_user_by_id, create_user, edit_user, User, UserCreate, UserEdit
+from ..api.users import get_user_by_id, create_user, edit_user, User, UserCreate, UserEdit, UserFlags
 
 from ..model.ruleset import Ruleset
 
@@ -151,7 +151,6 @@ async def finalize_auth(msg: Message, state: FSMContext):
         await create_user(user)
     
     await state.update_data(user=asdict(user))
-    print(asdict(user))
 
     user2 = User(
         id=user.id,
@@ -159,7 +158,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
         city=user.city,
         media_files=user.media_files
     )
-    await show_profile_with_restart_keyboard(msg, state, user2)
+    await show_profile_with_restart_keyboard(msg, state, user2, processing_flags=True)
 
 @router.message(Auth.media_files)
 async def auth_media(msg: Message, state: FSMContext):
@@ -178,14 +177,14 @@ async def auth_media(msg: Message, state: FSMContext):
     if done:
         await finalize_auth(msg, state)
 
-async def show_profile_with_restart_keyboard(msg: Message, state: FSMContext, user: User):
+async def show_profile_with_restart_keyboard(msg: Message, state: FSMContext, user: User, processing_flags: bool = False):
     await state.set_state(MainMenu.profile)
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Заполнить профиль заново")],
         [KeyboardButton(text="Готово")],
     ], resize_keyboard=True)
-    await msg.answer("Так выглядит ваш профиль:", reply_markup=keyboard)
-    await show_profile(msg, user)
+    await msg.answer("Так выглядит ваш профиль", reply_markup=keyboard)
+    await show_profile(msg, user, processing_flags)
 
 @router.message(MainMenu.profile, F.text == "Готово")
 async def profile_done(msg: Message, state: FSMContext):

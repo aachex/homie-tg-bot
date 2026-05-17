@@ -52,22 +52,15 @@ type UserFlags struct {
 
 // User представляет все данные пользователя
 type User struct {
-	Id         int64     `json:"id"`
-	Name       string    `json:"name"`
-	City       string    `json:"city"`
-	MediaFiles []string  `json:"media_files"`
-	Flags      UserFlags `json:"flags"`
+	Id          int64     `json:"id"`
+	Name        string    `json:"name"`
+	City        string    `json:"city"`
+	Description string    `json:"description"`
+	MediaFiles  []string  `json:"media_files"`
+	Flags       UserFlags `json:"flags"`
 }
 
 type UserCreate struct {
-	Id         int64    `json:"id"`
-	Name       string   `json:"name"`
-	City       string   `json:"city"`
-	MediaFiles []string `json:"media_files"`
-}
-
-// CreateUserRequest описывает тело запроса для создания пользователя
-type CreateUserRequest struct {
 	Id          int64    `json:"id"`
 	Name        string   `json:"name"`
 	City        string   `json:"city"`
@@ -76,16 +69,9 @@ type CreateUserRequest struct {
 }
 
 // UserEdit представляет данные пользователя, которые можно менять
-type UserEditRequest struct {
+type UserEdit struct {
 	Name        *string  `json:"name,omitempty"`
 	City        *string  `json:"city,omitempty"`
 	Description *string  `json:"description,omitempty"`
 	MediaFiles  []string `json:"media_files,omitempty"`
-}
-
-// UserEdit представляет данные пользователя, которые можно менять
-type UserEdit struct {
-	Name       *string  `json:"name,omitempty"`
-	City       *string  `json:"city,omitempty"`
-	MediaFiles []string `json:"media_files,omitempty"`
 }

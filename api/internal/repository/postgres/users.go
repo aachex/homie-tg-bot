@@ -26,6 +26,7 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 			id,
 			name,
 			city,
+			description,
 			media_files,
 			smoking,
 			children,
@@ -42,6 +43,7 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 		&user.Id,
 		&user.Name,
 		&user.City,
+		&user.Description,
 		&user.MediaFiles,
 		&user.Flags.Smoking,
 		&user.Flags.Children,
@@ -62,9 +64,10 @@ func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) er
 			id,
 			name,
 			city,
+			description,
 			media_files
 		)
-		VALUES ($1, $2, $3, $4)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT DO NOTHING
 	`
 	_, err := r.connPool.Exec(
@@ -73,6 +76,7 @@ func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) er
 		userData.Id,
 		userData.Name,
 		userData.City,
+		userData.Description,
 		userData.MediaFiles,
 	)
 
@@ -127,6 +131,10 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 	if patch.City != nil {
 		updates = append(updates, "city = @city")
 		args["city"] = patch.City
+	}
+	if patch.Description != nil {
+		updates = append(updates, "description = @description")
+		args["description"] = patch.Description
 	}
 	if patch.MediaFiles != nil {
 		updates = append(updates, "media_files = @media_files")

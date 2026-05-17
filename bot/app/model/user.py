@@ -53,6 +53,7 @@ class User:
     id: int = 0
     name: str = ""
     city: str = ""
+    description: str = ""
     media_files: list[str] = field(default_factory=list)
     flags: UserFlags = field(default_factory=UserFlags)
 
