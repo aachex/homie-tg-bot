@@ -86,16 +86,16 @@ func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) er
 func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error {
 	query := `
 		UPDATE tg_user SET
-			smoking = COALESCE($1, smoking),
-			children = COALESCE($2, children),
-			pets = COALESCE($3, pets),
-			occupants_count = COALESCE($4, occupants_count),
-			noise_lvl = COALESCE($5, noise_lvl),
-			works_from_home = COALESCE($6, works_from_home),
-			alcohol = COALESCE($7, alcohol),
-			age_min = COALESCE($8, age_min),
-			age_max = COALESCE($9, age_max)
-		WHERE id = $10
+            smoking = $1,
+            children = $2,
+            pets = $3,
+            occupants_count = $4,
+            noise_lvl = $5,
+            works_from_home = $6,
+            alcohol = $7,
+            age_min = $8,
+            age_max = $9
+        WHERE id = $10
 	`
 
 	_, err := r.connPool.Exec(ctx, query,
