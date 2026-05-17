@@ -15,7 +15,8 @@ import (
 
 type usersRepo interface {
 	GetById(ctx context.Context, id int64) (model.User, error)
-	CreateUser(ctx context.Context, userData model.User) error
+	CreateUser(ctx context.Context, userData model.UserCreate) error
+	UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error
 	EditUser(ctx context.Context, userId int64, patch model.UserEdit) error
 }
 
@@ -66,23 +67,11 @@ func (c Users) CreateUser(ctx *gin.Context) {
 		return
 	}
 
-	flags, err := c.llmClient.ExtractUserFlags(ctx, userCreate.Description)
-	if err != nil {
-		c.logger.Error("failed to extract user flags from description",
-			"user_id", userCreate.Id,
-			"description_length", len(userCreate.Description),
-			"error", err,
-		)
-		controllerError(ctx, errors.New("failed to process user data"), http.StatusInternalServerError)
-		return
-	}
-
-	user := model.User{
+	user := model.UserCreate{
 		Id:         userCreate.Id,
 		Name:       userCreate.Name,
 		City:       userCreate.City,
 		MediaFiles: userCreate.MediaFiles,
-		Flags:      *flags,
 	}
 
 	err = c.usersRepo.CreateUser(ctx, user)
@@ -93,7 +82,37 @@ func (c Users) CreateUser(ctx *gin.Context) {
 	}
 
 	c.logger.Info("user created successfully", "user_id", userCreate.Id)
-	ctx.JSON(http.StatusCreated, user)
+	ctx.JSON(http.StatusCreated, defaultResp{
+		StatusCode: http.StatusOK,
+		Message:    "user created successfully",
+	})
+
+	go func() {
+		ctx := context.Background()
+
+		flags, err := c.llmClient.ExtractUserFlags(ctx, userCreate.Description)
+		if err != nil {
+			c.logger.Error("failed to extract user flags from description",
+				"user_id", userCreate.Id,
+				"description_length", len(userCreate.Description),
+				"error", err,
+			)
+			return
+		}
+
+		err = c.usersRepo.UpdateFlags(ctx, user.Id, *flags)
+		if err != nil {
+			c.logger.Error("failed to update flags",
+				"user_id", userCreate.Id,
+				"error", err,
+			)
+			return
+		}
+
+		c.logger.Info("successfully extracted flags",
+			"user_id", userCreate.Id,
+		)
+	}()
 }
 
 func (c Users) EditUser(ctx *gin.Context) {

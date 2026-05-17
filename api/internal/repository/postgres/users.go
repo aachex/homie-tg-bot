@@ -56,24 +56,15 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 	return user, err
 }
 
-func (r UsersRepo) CreateUser(ctx context.Context, userData model.User) error {
+func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) error {
 	query := `
 		INSERT INTO tg_user (
 			id,
 			name,
 			city,
-			media_files,
-			smoking,
-			children,
-			pets,
-			occupants_count,
-			noise_lvl,
-			works_from_home,
-			alcohol,
-			age_min,
-			age_max
+			media_files
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT DO NOTHING
 	`
 	_, err := r.connPool.Exec(
@@ -83,18 +74,44 @@ func (r UsersRepo) CreateUser(ctx context.Context, userData model.User) error {
 		userData.Name,
 		userData.City,
 		userData.MediaFiles,
-		userData.Flags.Smoking,
-		userData.Flags.Children,
-		userData.Flags.Pets,
-		userData.Flags.OccupantsCount,
-		userData.Flags.NoiseLvl,
-		userData.Flags.WorksFromHome,
-		userData.Flags.Alcohol,
-		userData.Flags.AgeMin,
-		userData.Flags.AgeMax,
 	)
 
 	return err
+}
+
+func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error {
+	query := `
+		UPDATE tg_user SET
+			smoking = COALESCE($1, smoking),
+			children = COALESCE($2, children),
+			pets = COALESCE($3, pets),
+			occupants_count = COALESCE($4, occupants_count),
+			noise_lvl = COALESCE($5, noise_lvl),
+			works_from_home = COALESCE($6, works_from_home),
+			alcohol = COALESCE($7, alcohol),
+			age_min = COALESCE($8, age_min),
+			age_max = COALESCE($9, age_max)
+		WHERE id = $10
+	`
+
+	_, err := r.connPool.Exec(ctx, query,
+		flags.Smoking,
+		flags.Children,
+		flags.Pets,
+		flags.OccupantsCount,
+		flags.NoiseLvl,
+		flags.WorksFromHome,
+		flags.Alcohol,
+		flags.AgeMin,
+		flags.AgeMax,
+		userID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to update user flags: %w", err)
+	}
+
+	return nil
 }
 
 func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserEdit) error {

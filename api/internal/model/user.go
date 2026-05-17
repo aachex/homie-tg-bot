@@ -59,6 +59,14 @@ type User struct {
 	Flags      UserFlags `json:"flags"`
 }
 
+type UserCreate struct {
+	Id         int64    `json:"id"`
+	Name       string   `json:"name"`
+	City       string   `json:"city"`
+	MediaFiles []string `json:"media_files"`
+}
+
+// CreateUserRequest описывает тело запроса для создания пользователя
 type CreateUserRequest struct {
 	Id          int64    `json:"id"`
 	Name        string   `json:"name"`
