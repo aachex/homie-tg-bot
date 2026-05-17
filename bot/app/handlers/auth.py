@@ -105,10 +105,7 @@ async def auth_descr(msg: Message, state: FSMContext):
     
     data = await state.get_data()
     
-    if "user" in data and msg.text == "Оставить текущее описание":
-        print(data["user"])
-        await state.update_data(descr=data["user"]["description"])
-    else:
+    if "user" not in data or msg.text != "Оставить текущее описание":
         await state.update_data(descr=msg.text)
 
     kb_array = [[KeyboardButton(text="Пропустить")]]
@@ -133,7 +130,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
         id=msg.from_user.id,
         name=data["name"],
         city=data["city"],
-        description=data.get("descr", ""),
+        description=data.get("descr"),
         media_files=data.get("media_files", [os.getenv("NO_PHOTO_FILE_ID")]),
     )
 

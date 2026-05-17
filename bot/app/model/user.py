@@ -71,7 +71,7 @@ class UserCreate:
 @dataclass
 class UserEdit:
     """Изменяемые данные пользователя"""
-    name: str
-    city: str
-    description: str
+    name: str | None = None
+    city: str | None = None
+    description: str | None = None
     media_files: list[str] = field(default_factory=list)
