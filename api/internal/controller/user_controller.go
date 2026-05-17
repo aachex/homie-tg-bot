@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"homie-api/internal/llm"
 	"homie-api/internal/model"
 	"log/slog"
 	"net/http"
@@ -20,12 +21,14 @@ type usersRepo interface {
 
 type Users struct {
 	logger    *slog.Logger
+	llmClient *llm.Client
 	usersRepo usersRepo
 }
 
-func NewUsers(logger *slog.Logger, usersRepo usersRepo) *Users {
+func NewUsers(logger *slog.Logger, llmClient *llm.Client, usersRepo usersRepo) *Users {
 	return &Users{
 		logger:    logger,
+		llmClient: llmClient,
 		usersRepo: usersRepo,
 	}
 }
@@ -55,26 +58,42 @@ func (c Users) UserById(ctx *gin.Context) {
 }
 
 func (c Users) CreateUser(ctx *gin.Context) {
-	var user model.User
-	err := ctx.BindJSON(&user)
+	var userCreate model.CreateUserRequest
+	err := ctx.BindJSON(&userCreate)
 	if err != nil {
 		c.logger.Error("create user: invalid JSON", "error", err)
 		controllerError(ctx, errors.New("invalid request body"), http.StatusBadRequest)
 		return
 	}
 
+	flags, err := c.llmClient.ExtractUserFlags(ctx, userCreate.Description)
+	if err != nil {
+		c.logger.Error("failed to extract user flags from description",
+			"user_id", userCreate.Id,
+			"description_length", len(userCreate.Description),
+			"error", err,
+		)
+		controllerError(ctx, errors.New("failed to process user data"), http.StatusInternalServerError)
+		return
+	}
+
+	user := model.User{
+		Id:         userCreate.Id,
+		Name:       userCreate.Name,
+		City:       userCreate.City,
+		MediaFiles: userCreate.MediaFiles,
+		Flags:      *flags,
+	}
+
 	err = c.usersRepo.CreateUser(ctx, user)
 	if err != nil {
-		c.logger.Error("failed to create user", "user_id", user.Id, "error", err)
+		c.logger.Error("failed to create user", "user_id", userCreate.Id, "error", err)
 		controllerError(ctx, errors.New("failed to create user"), http.StatusInternalServerError)
 		return
 	}
 
-	c.logger.Info("user created successfully", "user_id", user.Id)
-	ctx.JSON(http.StatusCreated, defaultResp{
-		StatusCode: http.StatusCreated,
-		Message:    "user created",
-	})
+	c.logger.Info("user created successfully", "user_id", userCreate.Id)
+	ctx.JSON(http.StatusCreated, user)
 }
 
 func (c Users) EditUser(ctx *gin.Context) {

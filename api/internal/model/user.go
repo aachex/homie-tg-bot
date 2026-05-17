@@ -59,6 +59,14 @@ type User struct {
 	Flags      UserFlags `json:"flags"`
 }
 
+type CreateUserRequest struct {
+	Id          int64    `json:"id"`
+	Name        string   `json:"name"`
+	City        string   `json:"city"`
+	Description string   `json:"description"`
+	MediaFiles  []string `json:"media_files"`
+}
+
 // UserEdit представляет данные пользователя, которые можно менять
 type UserEdit struct {
 	Name       *string    `json:"name,omitempty"`

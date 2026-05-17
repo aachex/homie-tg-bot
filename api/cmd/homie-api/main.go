@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"homie-api/internal/controller"
+	"homie-api/internal/llm"
 	"homie-api/internal/repository/postgres"
 	"homie-api/pkg/middleware"
 	"log"
@@ -38,8 +39,12 @@ func main() {
 	reportsRepo := postgres.NewReportsRepo(connPool)
 	statsRepo := postgres.NewStatsRepo(connPool)
 
+	// LLM
+	llmApiKey := os.Getenv("OPENROUTER_API_KEY")
+	llmClient := llm.NewClient(logger, llmApiKey, "openai/gpt-oss-120b:free")
+
 	// Контроллеры
-	usersController := controller.NewUsers(logger, usersRepo)
+	usersController := controller.NewUsers(logger, llmClient, usersRepo)
 	offersController := controller.NewHouseOffers(logger, offersRepo)
 	reportsController := controller.NewReports(logger, reportsRepo)
 	statsController := controller.NewStats(logger, statsRepo)

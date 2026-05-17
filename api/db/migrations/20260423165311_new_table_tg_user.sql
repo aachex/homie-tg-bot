@@ -1,9 +1,9 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TYPE children_enum AS ENUM {'zero', 'one', 'two+', 'planning'}
-CREATE TYPE pets_enum AS ENUM {'cats', 'dogs', 'other'}
-CREATE TYPE noiselvl_enum AS ENUM {'quiet', 'normal', 'loud'}
-CREATE TYPE alcohol_enum AS ENUM {'never', 'rare', 'regular'}
+CREATE TYPE children_enum AS ENUM ('zero', 'one', 'two+', 'planning');
+CREATE TYPE pets_enum AS ENUM ('cats', 'dogs', 'other');
+CREATE TYPE noiselvl_enum AS ENUM ('quiet', 'normal', 'loud');
+CREATE TYPE alcohol_enum AS ENUM ('never', 'rare', 'regular');
 
 CREATE TABLE IF NOT EXISTS tg_user (
     id BIGINT PRIMARY KEY NOT NULL,
