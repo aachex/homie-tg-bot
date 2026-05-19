@@ -20,12 +20,9 @@ class Auth(StatesGroup):
     media_files = State()
 
 class OfferCreate(StatesGroup):
-    type = State()
     city = State()
     district = State()
-    smoking = State()
-    children = State()
-    pets = State()
+    tenant = State()
     title = State()
     price = State()
     description = State()

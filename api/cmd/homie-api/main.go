@@ -45,7 +45,7 @@ func main() {
 
 	// Контроллеры
 	usersController := controller.NewUsers(logger, llmClient, usersRepo)
-	offersController := controller.NewHouseOffers(logger, offersRepo)
+	offersController := controller.NewHouseOffers(logger, llmClient, offersRepo)
 	reportsController := controller.NewReports(logger, reportsRepo)
 	statsController := controller.NewStats(logger, statsRepo)
 
@@ -65,7 +65,7 @@ func main() {
 	v1.GET("/user/:id/offers", offersController.UserOffers)
 
 	v1.GET("/offer/:id", offersController.OfferById)
-	v1.GET("/offer/rand", offersController.RandOffer)
+	v1.POST("/offer/rand", offersController.RandOffer)
 	v1.POST("/offer", offersController.CreateOffer)
 	v1.DELETE("/offer/:id", offersController.DeleteOffer)
 	v1.PATCH("/offer/:id", offersController.SetActiveOffer)

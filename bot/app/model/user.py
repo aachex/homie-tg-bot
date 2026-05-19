@@ -1,36 +1,5 @@
 from dataclasses import dataclass, field
-from enum import Enum
-
-from .ruleset import Ruleset
-
-
-class ChildrenEnum(str, Enum):
-    """Количество детей"""
-    ZERO = "zero"
-    ONE = "one"
-    TWO_PLUS = "two+"
-    PLANNING = "planning"
-
-
-class PetsEnum(str, Enum):
-    """Тип животных"""
-    CATS = "cats"
-    DOGS = "dogs"
-    OTHER = "other"
-
-
-class NoiseLvlEnum(str, Enum):
-    """Уровень шума"""
-    QUIET = "quiet"
-    NORMAL = "normal"
-    LOUD = "loud"
-
-
-class AlcoholEnum(str, Enum):
-    """Отношение к алкоголю"""
-    NEVER = "never"
-    RARE = "rare"
-    REGULAR = "regular"
+from .enums import *
 
 
 @dataclass
@@ -45,6 +14,7 @@ class UserFlags:
     alcohol: AlcoholEnum | None = None
     age_min: int | None = None
     age_max: int | None = None
+    sex: SexEnum | None = None
 
 
 @dataclass

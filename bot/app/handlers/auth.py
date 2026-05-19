@@ -15,8 +15,6 @@ from ..util.auth import show_profile, show_unauthorized
 from ..util.shared import is_int, handle_media_upload, normalize_city
 from ..api.users import get_user_by_id, create_user, edit_user, User, UserCreate, UserEdit, UserFlags
 
-from ..model.ruleset import Ruleset
-
 from ..states import Auth, MainMenu
 
 router = Router()
@@ -117,6 +115,8 @@ async def auth_descr(msg: Message, state: FSMContext):
     
     if "user" not in data or msg.text != "Оставить текущее описание":
         await state.update_data(descr=msg.text)
+    else:
+        await state.update_data(descr=data["user"]["description"])
 
     kb_array = [[KeyboardButton(text="Пропустить")]]
     if "user" in data:

@@ -36,12 +36,22 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 			district,
 			price,
 			media_files,
-			allowed_smoking,
-			allowed_children,
-			allowed_pets
+			flag_processing,
+			preferred_smoking,
+			preferred_children,
+			preferred_pets,
+			preferred_occupants_count,
+			preferred_noise_lvl,
+			preferred_works_from_home,
+			preferred_alcohol,
+			preferred_age_min,
+			preferred_age_max,
+			preferred_sex
 		FROM tg_house_offer 
 		WHERE id = $1`
+
 	row := r.connPool.QueryRow(ctx, query, id)
+
 	err = row.Scan(
 		&offer.Id,
 		&offer.IsActive,
@@ -52,10 +62,19 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 		&offer.District,
 		&offer.Price,
 		&offer.MediaFiles,
-		&offer.Ruleset.Smoking,
-		&offer.Ruleset.Children,
-		&offer.Ruleset.Pets,
+		&offer.FlagProcessing,
+		&offer.Preferences.Smoking,
+		&offer.Preferences.Children,
+		&offer.Preferences.Pets,
+		&offer.Preferences.OccupantsCount,
+		&offer.Preferences.NoiseLvl,
+		&offer.Preferences.WorksFromHome,
+		&offer.Preferences.Alcohol,
+		&offer.Preferences.AgeMin,
+		&offer.Preferences.AgeMax,
+		&offer.Preferences.Sex,
 	)
+
 	return offer, err
 }
 
@@ -120,7 +139,7 @@ func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64)
 	return nil
 }
 
-func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, user model.Ruleset) (offer model.HouseOffer, err error) {
+func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags) (offer model.HouseOffer, err error) {
 	query := `
 		SELECT 
 			id,
@@ -132,25 +151,93 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, us
 			district,
 			price,
 			media_files,
-			allowed_smoking,
-			allowed_children,
-			allowed_pets
+			preferred_smoking,
+			preferred_children,
+			preferred_pets,
+			preferred_occupants_count,
+			preferred_noise_lvl,
+			preferred_works_from_home,
+			preferred_alcohol,
+			preferred_age_min,
+			preferred_age_max,
+			preferred_sex
 		FROM tg_house_offer 
-		WHERE is_active = TRUE AND owner_id <> $1 and city = $2
+		WHERE is_active = TRUE AND owner_id <> $1 AND city = $2
 	`
 
-	if user.Smoking {
-		query += " AND allowed_smoking = TRUE"
-	}
-	if user.Children {
-		query += " AND allowed_children = TRUE"
-	}
-	if user.Pets {
-		query += " AND allowed_pets = TRUE"
-	}
-	query += " ORDER BY RANDOM()"
+	args := []any{userId, city}
+	argCounter := 3
 
-	row := r.connPool.QueryRow(ctx, query, userId, city)
+	// Курение
+	if userFlags.Smoking != nil {
+		query += fmt.Sprintf(" AND (preferred_smoking = $%d OR preferred_smoking IS NULL)", argCounter)
+		args = append(args, *userFlags.Smoking)
+		argCounter++
+	}
+
+	// Дети
+	if userFlags.Children != nil {
+		query += fmt.Sprintf(" AND (preferred_children = $%d OR preferred_children IS NULL)", argCounter)
+		args = append(args, *userFlags.Children)
+		argCounter++
+	}
+
+	// Животные
+	if userFlags.Pets != nil {
+		query += fmt.Sprintf(" AND (preferred_pets = $%d OR preferred_pets IS NULL)", argCounter)
+		args = append(args, *userFlags.Pets)
+		argCounter++
+	}
+
+	// Количество проживающих
+	if userFlags.OccupantsCount != nil {
+		query += fmt.Sprintf(" AND (preferred_occupants_count >= $%d OR preferred_occupants_count IS NULL)", argCounter)
+		args = append(args, *userFlags.OccupantsCount)
+		argCounter++
+	}
+
+	// Уровень шума
+	if userFlags.NoiseLvl != nil {
+		query += fmt.Sprintf(" AND (preferred_noise_lvl = $%d OR preferred_noise_lvl IS NULL)", argCounter)
+		args = append(args, *userFlags.NoiseLvl)
+		argCounter++
+	}
+
+	// Работа из дома
+	if userFlags.WorksFromHome != nil {
+		query += fmt.Sprintf(" AND (preferred_works_from_home = $%d OR preferred_works_from_home IS NULL)", argCounter)
+		args = append(args, *userFlags.WorksFromHome)
+		argCounter++
+	}
+
+	// Алкоголь
+	if userFlags.Alcohol != nil {
+		query += fmt.Sprintf(" AND (preferred_alcohol = $%d OR preferred_alcohol IS NULL)", argCounter)
+		args = append(args, *userFlags.Alcohol)
+		argCounter++
+	}
+
+	// Возраст
+	if userFlags.AgeMin != nil {
+		query += fmt.Sprintf(" AND (preferred_age_max >= $%d OR preferred_age_max IS NULL)", argCounter)
+		args = append(args, *userFlags.AgeMin)
+		argCounter++
+	}
+	if userFlags.AgeMax != nil {
+		query += fmt.Sprintf(" AND (preferred_age_min <= $%d OR preferred_age_min IS NULL)", argCounter)
+		args = append(args, *userFlags.AgeMax)
+		argCounter++
+	}
+
+	if userFlags.Sex != nil {
+		query += fmt.Sprintf(" AND (sex == $%d OR sex IS NULL)", argCounter)
+		args = append(args, *userFlags.Sex)
+		argCounter++
+	}
+
+	query += " ORDER BY RANDOM() LIMIT 1"
+
+	row := r.connPool.QueryRow(ctx, query, args...)
 	err = row.Scan(
 		&offer.Id,
 		&offer.IsActive,
@@ -161,9 +248,15 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, us
 		&offer.District,
 		&offer.Price,
 		&offer.MediaFiles,
-		&offer.Ruleset.Smoking,
-		&offer.Ruleset.Children,
-		&offer.Ruleset.Pets,
+		&offer.Preferences.Smoking,
+		&offer.Preferences.Children,
+		&offer.Preferences.Pets,
+		&offer.Preferences.OccupantsCount,
+		&offer.Preferences.NoiseLvl,
+		&offer.Preferences.WorksFromHome,
+		&offer.Preferences.Alcohol,
+		&offer.Preferences.AgeMin,
+		&offer.Preferences.AgeMax,
 	)
 	return offer, err
 }
@@ -208,14 +301,13 @@ func (r OffersRepo) CreateOffer(ctx context.Context, data model.HouseOfferCreate
 			district,
 			price,
 			media_files,
-			allowed_smoking,
-			allowed_children,
-			allowed_pets
+			flag_processing
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
 		RETURNING id
 	`
-	row := r.connPool.QueryRow(
+
+	err = r.connPool.QueryRow(
 		ctx,
 		query,
 		data.OwnerId,
@@ -225,11 +317,8 @@ func (r OffersRepo) CreateOffer(ctx context.Context, data model.HouseOfferCreate
 		data.District,
 		data.Price,
 		data.MediaFiles,
-		data.Ruleset.Smoking,
-		data.Ruleset.Children,
-		data.Ruleset.Pets,
-	)
-	err = row.Scan(&id)
+	).Scan(&id)
+
 	return id, err
 }
 
@@ -245,5 +334,40 @@ func (r OffersRepo) SetActive(ctx context.Context, id int64, active bool) error 
 		SET is_active = $1
 		WHERE id = $2`
 	_, err := r.connPool.Exec(ctx, query, active, id)
+	return err
+}
+
+// UpdateOfferPreferences обновляет предпочтения арендодателя (флаги)
+func (r OffersRepo) UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OwnerPreferences) error {
+	query := `
+		UPDATE tg_house_offer SET
+			preferred_smoking = $1,
+			preferred_children = $2,
+			preferred_pets = $3,
+			preferred_occupants_count = $4,
+			preferred_noise_lvl = $5,
+			preferred_works_from_home = $6,
+			preferred_alcohol = $7,
+			preferred_age_min = $8,
+			preferred_age_max = $9,
+			preferred_sex = $10,
+			flag_processing = FALSE
+		WHERE id = $11
+	`
+
+	_, err := r.connPool.Exec(ctx, query,
+		prefs.Smoking,
+		prefs.Children,
+		prefs.Pets,
+		prefs.OccupantsCount,
+		prefs.NoiseLvl,
+		prefs.WorksFromHome,
+		prefs.Alcohol,
+		prefs.AgeMin,
+		prefs.AgeMax,
+		prefs.Sex,
+		offerId,
+	)
+
 	return err
 }
