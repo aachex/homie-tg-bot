@@ -45,7 +45,7 @@ func main() {
 
 	// Контроллеры
 	usersController := controller.NewUsers(logger, llmClient, usersRepo)
-	offersController := controller.NewHouseOffers(logger, offersRepo)
+	offersController := controller.NewHouseOffers(logger, llmClient, offersRepo)
 	reportsController := controller.NewReports(logger, reportsRepo)
 	statsController := controller.NewStats(logger, statsRepo)
 

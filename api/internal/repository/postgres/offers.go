@@ -291,9 +291,10 @@ func (r OffersRepo) CreateOffer(ctx context.Context, data model.HouseOfferCreate
 			city,
 			district,
 			price,
-			media_files
+			media_files,
+			flag_processing
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
 		RETURNING id
 	`
 
@@ -324,5 +325,38 @@ func (r OffersRepo) SetActive(ctx context.Context, id int64, active bool) error 
 		SET is_active = $1
 		WHERE id = $2`
 	_, err := r.connPool.Exec(ctx, query, active, id)
+	return err
+}
+
+// UpdateOfferPreferences обновляет предпочтения арендодателя (флаги)
+func (r OffersRepo) UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OwnerPreferences) error {
+	query := `
+		UPDATE tg_house_offer SET
+			preferred_smoking = $1,
+			preferred_children = $2,
+			preferred_pets = $3,
+			preferred_occupants_count = $4,
+			preferred_noise_lvl = $5,
+			preferred_works_from_home = $6,
+			preferred_alcohol = $7,
+			preferred_age_min = $8,
+			preferred_age_max = $9,
+			flag_processing = FALSE
+		WHERE id = $10
+	`
+
+	_, err := r.connPool.Exec(ctx, query,
+		prefs.Smoking,
+		prefs.Children,
+		prefs.Pets,
+		prefs.OccupantsCount,
+		prefs.NoiseLvl,
+		prefs.WorksFromHome,
+		prefs.Alcohol,
+		prefs.AgeMin,
+		prefs.AgeMax,
+		offerId,
+	)
+
 	return err
 }

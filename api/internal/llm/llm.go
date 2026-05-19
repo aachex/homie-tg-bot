@@ -39,7 +39,7 @@ func (c *Client) ExtractUserFlags(ctx context.Context, text string) (model.UserF
 		return model.UserFlags{}, nil
 	}
 
-	systemPrompt, err := readSystemPrompt()
+	systemPrompt, err := readFile("internal/llm/tenant_prompt.txt")
 	if err != nil {
 		return model.UserFlags{}, err
 	}
@@ -81,8 +81,57 @@ func (c *Client) ExtractUserFlags(ctx context.Context, text string) (model.UserF
 	return flags, nil
 }
 
-func readSystemPrompt() (string, error) {
-	file, err := os.Open("internal/llm/system_prompt.txt")
+// ExtractOwnerPreferences извлекает предпочтения арендодателя из текста
+func (c *Client) ExtractOwnerPreferences(ctx context.Context, text string) (model.OwnerPreferences, error) {
+	if text == "" {
+		c.logger.Warn("empty text provided for owner preferences extraction")
+		return model.OwnerPreferences{}, nil
+	}
+
+	systemPrompt, err := readFile("internal/llm/owner_prompt.txt")
+	if err != nil {
+		return model.OwnerPreferences{}, err
+	}
+
+	userPrompt := "Текст арендодателя: " + text
+
+	resp, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model: c.model,
+		Messages: []openai.ChatCompletionMessage{
+			{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
+			{Role: openai.ChatMessageRoleUser, Content: userPrompt},
+		},
+		ResponseFormat: &openai.ChatCompletionResponseFormat{
+			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
+		},
+		Temperature: 0.1,
+	})
+	if err != nil {
+		c.logger.Error("LLM request failed for owner preferences", "error", err)
+		return model.OwnerPreferences{}, err
+	}
+
+	if len(resp.Choices) == 0 {
+		return model.OwnerPreferences{}, fmt.Errorf("no choices in response")
+	}
+
+	content := resp.Choices[0].Message.Content
+	content = cleanJSONResponse(content)
+
+	c.logger.Info("successfully fetched LLM response for owner", "text", content)
+
+	var prefs model.OwnerPreferences
+	if err := json.Unmarshal([]byte(content), &prefs); err != nil {
+		c.logger.Error("failed to parse owner preferences JSON", "content", content, "error", err)
+		return model.OwnerPreferences{}, err
+	}
+
+	c.logger.Info("owner preferences extracted", "prefs", prefs)
+	return prefs, nil
+}
+
+func readFile(filePath string) (string, error) {
+	file, err := os.Open(filePath)
 	if err != nil {
 		return "", err
 	}

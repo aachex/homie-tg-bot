@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"homie-api/internal/llm"
 	"homie-api/internal/model"
 	"homie-api/internal/repository/postgres"
 	"log/slog"
@@ -24,16 +25,19 @@ type houseOffersRepo interface {
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
 	SetActive(ctx context.Context, id int64, active bool) error
+	UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OwnerPreferences) error
 }
 
 type HouseOffers struct {
 	logger          *slog.Logger
+	llmClient       *llm.Client
 	houseOffersRepo houseOffersRepo
 }
 
-func NewHouseOffers(logger *slog.Logger, houseOffersRepo houseOffersRepo) *HouseOffers {
+func NewHouseOffers(logger *slog.Logger, llmClient *llm.Client, houseOffersRepo houseOffersRepo) *HouseOffers {
 	return &HouseOffers{
 		logger:          logger,
+		llmClient:       llmClient,
 		houseOffersRepo: houseOffersRepo,
 	}
 }
@@ -237,6 +241,34 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 		StatusCode: http.StatusCreated,
 		Message:    "offer created successfully",
 	})
+
+	go c.updatePreferences(context.Background(), id, data.TenantDescription)
+}
+
+func (c HouseOffers) updatePreferences(ctx context.Context, offerId int64, text string) {
+	prefs, err := c.llmClient.ExtractOwnerPreferences(ctx, text)
+	if err != nil {
+		c.logger.Error("failed to extract preferences",
+			"offer_id", offerId,
+			"error", err,
+		)
+	}
+
+	err = c.houseOffersRepo.UpdateOfferPreferences(ctx, offerId, prefs)
+	if err != nil {
+		c.logger.Error("failed to update preferences",
+			"offer_id", offerId,
+			"error", err,
+		)
+		return
+	}
+
+	c.logger.Info("preferences updated successfully",
+		"offer_id", offerId,
+		"smoking", prefs.Smoking,
+		"children", prefs.Children,
+		"pets", prefs.Pets,
+	)
 }
 
 func (c HouseOffers) DeleteOffer(ctx *gin.Context) {
