@@ -19,7 +19,7 @@ type houseOffersRepo interface {
 	OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error)
 	AddLike(ctx context.Context, offerId int64, userId int64) error
 	DeleteLike(ctx context.Context, offerId int64, userId int64) error
-	RandOffer(ctx context.Context, userId int64, city string, user model.Ruleset) (model.HouseOffer, error)
+	RandOffer(ctx context.Context, userId int64, city string, user model.UserFlags) (model.HouseOffer, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
@@ -154,40 +154,46 @@ func (c HouseOffers) DeleteLike(ctx *gin.Context) {
 }
 
 func (c HouseOffers) RandOffer(ctx *gin.Context) {
-	userId, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
+	var req struct {
+		UserID    int64           `json:"user_id" binding:"required"`
+		City      string          `json:"city" binding:"required"`
+		UserFlags model.UserFlags `json:"user_flags"`
+	}
+
+	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
-		c.logger.Error("rand offer: invalid userId", "error", err, "userId", ctx.Query("userId"))
-		controllerError(ctx, errors.New("invalid userId"), http.StatusBadRequest)
-		return
-	}
-	city := ctx.Query("city")
-
-	var err2, err3 error
-	ruleset := model.Ruleset{}
-	ruleset.Smoking, err = strconv.ParseBool(ctx.Query("smoking"))
-	ruleset.Children, err2 = strconv.ParseBool(ctx.Query("children"))
-	ruleset.Pets, err3 = strconv.ParseBool(ctx.Query("pets"))
-	if err != nil || err2 != nil || err3 != nil {
-		c.logger.Error("rand offer: invalid boolean filters",
-			"smoking_err", err, "children_err", err2, "pets_err", err3,
-			"smoking", ctx.Query("smoking"), "children", ctx.Query("children"), "pets", ctx.Query("pets"))
-		controllerError(ctx, errors.New("invalid filter values"), http.StatusBadRequest)
+		c.logger.Error("rand offer: invalid JSON", "error", err)
+		controllerError(ctx, errors.New("invalid request body"), http.StatusBadRequest)
 		return
 	}
 
-	offer, err := c.houseOffersRepo.RandOffer(ctx, userId, city, ruleset)
+	c.logger.Info("random offer request",
+		"user_id", req.UserID,
+		"city", req.City,
+		"smoking", req.UserFlags.Smoking,
+		"children", req.UserFlags.Children,
+		"pets", req.UserFlags.Pets,
+		"occupants_count", req.UserFlags.OccupantsCount,
+		"noise_lvl", req.UserFlags.NoiseLvl,
+		"works_from_home", req.UserFlags.WorksFromHome,
+		"alcohol", req.UserFlags.Alcohol,
+		"age_min", req.UserFlags.AgeMin,
+		"age_max", req.UserFlags.AgeMax,
+	)
+
+	offer, err := c.houseOffersRepo.RandOffer(ctx, req.UserID, req.City, req.UserFlags)
 	if errors.Is(err, sql.ErrNoRows) {
-		c.logger.Warn("no random offer found", "user_id", userId, "city", city, "filters", ruleset)
+		c.logger.Warn("no random offer found", "user_id", req.UserID, "city", req.City)
 		controllerError(ctx, errors.New("no offers found"), http.StatusNotFound)
 		return
 	}
 	if err != nil {
-		c.logger.Error("failed to get random offer", "user_id", userId, "city", city, "error", err)
+		c.logger.Error("failed to get random offer", "user_id", req.UserID, "city", req.City, "error", err)
 		controllerError(ctx, errors.New("failed to get random offer"), http.StatusInternalServerError)
 		return
 	}
 
-	c.logger.Info("random offer selected", "user_id", userId, "offer_id", offer.Id)
+	c.logger.Info("random offer selected", "user_id", req.UserID, "offer_id", offer.Id)
 	ctx.JSON(http.StatusOK, offer)
 }
 
