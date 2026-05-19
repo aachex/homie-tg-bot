@@ -1,5 +1,19 @@
 from dataclasses import dataclass, field
-from .ruleset import Ruleset
+from .enums import *
+
+@dataclass
+class OwnerPreferences:
+    """Флаги арендатора"""
+    smoking: bool | None = None
+    children: ChildrenEnum | None = None
+    pets: PetsEnum | None = None
+    occupants_count: int | None = None
+    noise_lvl: NoiseLvlEnum | None = None
+    works_from_home: bool | None = None
+    alcohol: AlcoholEnum | None = None
+    age_min: int | None = None
+    age_max: int | None = None
+
 
 @dataclass
 class HouseOffer:
@@ -13,7 +27,9 @@ class HouseOffer:
     district: str = ""
     price: int = 0
     media_files: list[str] = field(default_factory=list)
-    ruleset: Ruleset = field(default_factory=Ruleset)
+    flag_processing: bool = False
+    preferences: OwnerPreferences = field(default_factory=OwnerPreferences)
+
 
 @dataclass
 class HouseOfferCreate:
@@ -25,7 +41,8 @@ class HouseOfferCreate:
     district: str = ""
     price: int = 0
     media_files: list[str] = field(default_factory=list)
-    ruleset: Ruleset = field(default_factory=Ruleset)
+    tenant_description: str = ""
+
 
 @dataclass
 class HouseOfferPreview:
@@ -34,6 +51,7 @@ class HouseOfferPreview:
     is_active: bool = False
     title: str = ""
     likes_count: int = 0
+
 
 @dataclass
 class HouseOfferLike:

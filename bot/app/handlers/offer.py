@@ -13,10 +13,9 @@ from ..util.shared import is_int, handle_media_upload, normalize_city
 from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
 from ..api.users import get_user_by_id
-from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, get_offer_likes, delete_like, HouseOfferCreate
+from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, get_offer_likes, delete_like, HouseOfferCreate, HouseOffer
 
 from ..states import OfferCreate, Offer, MainMenu
-from ..model.ruleset import Ruleset
 
 router = Router()
 
@@ -190,32 +189,18 @@ async def enter_district(msg: Message, state: FSMContext):
     if msg.text != "Пропустить":
         await state.update_data(district=msg.text)
         
-    await msg.answer("Разрешено курить?", reply_markup=yes_no_keyboard)
-    await state.set_state(OfferCreate.smoking)
+    await msg.answer("Какого жильца вы хотите видеть? Опишите свободным языком", reply_markup=ReplyKeyboardRemove())
+    await state.set_state(OfferCreate.tenant)
 
-@router.message(OfferCreate.smoking, F.text.in_({"✅ Да", "❌ Нет"}))
-async def select_smoking(msg: Message, state: FSMContext):
-    allowed_smoking = (msg.text == "✅ Да")
-    await state.update_data(smoking=allowed_smoking)
+@router.message(OfferCreate.tenant)
+async def enter_tenant_descr(msg: Message, state: FSMContext):
+    if not msg.text:
+        await msg.answer("Опишите, каких жильцов хотите видеть")
+        return
+    await state.update_data(tenant=msg.text)
 
-    await msg.answer("Можно с детьми?", reply_markup=yes_no_keyboard)
-    await state.set_state(OfferCreate.children)
-
-@router.message(OfferCreate.children, F.text.in_({"✅ Да", "❌ Нет"}))
-async def select_children(msg: Message, state: FSMContext):
-    allowed_children = (msg.text == "✅ Да")
-    await state.update_data(children=allowed_children)
-
-    await msg.answer("Можно с животными?", reply_markup=yes_no_keyboard)
-    await state.set_state(OfferCreate.pets)
-
-@router.message(OfferCreate.pets, F.text.in_({"✅ Да", "❌ Нет"}))
-async def select_pets(msg: Message, state: FSMContext):
-    allowed_pets = (msg.text == "✅ Да")
-    await state.update_data(pets=allowed_pets)
-
-    txt = "Введите краткое название вашего объявления\n\n<i>Пример:</i> Уютная комната в общежитии"
-    await msg.answer(txt, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+    txt = "<b>Дайте короткое название вашему объявлению</b>\n\nПример: Комната в общежитии в центре"
+    await msg.answer(txt, parse_mode="HTML")
     await state.set_state(OfferCreate.title)
 
 @router.message(OfferCreate.title)
@@ -260,7 +245,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
     await state.clear()
     await state.set_state(OfferCreate.finalize)
 
-    offer = HouseOfferCreate(
+    offer_create = HouseOfferCreate(
         owner_id=msg.from_user.id,
         title=data["title"],
         description=data.get("descr", ""),
@@ -268,15 +253,21 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
         district=data.get("district", ""),
         price=int(data.get("price", 0)),
         media_files=data["media_files"],
-        ruleset=Ruleset(
-            smoking=bool(data["smoking"]),
-            children=bool(data["children"]),
-            pets=bool(data["pets"])
-        )
+        tenant_description=data["tenant"]
     )
+    await create_offer(offer_create)  # Отправляем на создание в API
 
-    await create_offer(offer)
-
+    # Конвертируем в HouseOffer для отображения
+    offer = HouseOffer(
+        owner_id=offer_create.owner_id,
+        title=offer_create.title,
+        description=offer_create.description,
+        city=offer_create.city,
+        district=offer_create.district,
+        price=offer_create.price,
+        media_files=offer_create.media_files,
+        flag_processing=True,  # пока флаги не обработаны
+    )
     await show_offer(msg, offer)
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
