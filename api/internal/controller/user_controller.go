@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"homie-api/internal/llm"
 	"homie-api/internal/model"
 	"log/slog"
 	"net/http"
@@ -14,18 +15,21 @@ import (
 
 type usersRepo interface {
 	GetById(ctx context.Context, id int64) (model.User, error)
-	CreateUser(ctx context.Context, userData model.User) error
+	CreateUser(ctx context.Context, userData model.UserCreate) error
+	UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error
 	EditUser(ctx context.Context, userId int64, patch model.UserEdit) error
 }
 
 type Users struct {
 	logger    *slog.Logger
+	llmClient *llm.Client
 	usersRepo usersRepo
 }
 
-func NewUsers(logger *slog.Logger, usersRepo usersRepo) *Users {
+func NewUsers(logger *slog.Logger, llmClient *llm.Client, usersRepo usersRepo) *Users {
 	return &Users{
 		logger:    logger,
+		llmClient: llmClient,
 		usersRepo: usersRepo,
 	}
 }
@@ -55,7 +59,7 @@ func (c Users) UserById(ctx *gin.Context) {
 }
 
 func (c Users) CreateUser(ctx *gin.Context) {
-	var user model.User
+	var user model.UserCreate
 	err := ctx.BindJSON(&user)
 	if err != nil {
 		c.logger.Error("create user: invalid JSON", "error", err)
@@ -72,9 +76,11 @@ func (c Users) CreateUser(ctx *gin.Context) {
 
 	c.logger.Info("user created successfully", "user_id", user.Id)
 	ctx.JSON(http.StatusCreated, defaultResp{
-		StatusCode: http.StatusCreated,
-		Message:    "user created",
+		StatusCode: http.StatusOK,
+		Message:    "user created successfully",
 	})
+
+	go c.updateFlags(user.Id, user.Description)
 }
 
 func (c Users) EditUser(ctx *gin.Context) {
@@ -106,4 +112,37 @@ func (c Users) EditUser(ctx *gin.Context) {
 		StatusCode: http.StatusOK,
 		Message:    "user data updated",
 	})
+
+	if patch.Description != nil {
+		go c.updateFlags(userId, *patch.Description)
+	}
+}
+
+// updateFlags извлекает флаги из описания юзера и обновляет их в БД.
+func (c Users) updateFlags(userId int64, description string) {
+	ctx := context.Background()
+
+	flags, err := c.llmClient.ExtractUserFlags(ctx, description)
+	if err != nil {
+		c.logger.Error("failed to extract user flags from description",
+			"user_id", userId,
+			"description_length", len(description),
+			"error", err,
+		)
+		// Не заканчиваем выполнение при ошибке т.к. нужно,
+		// чтобы выполнился c.usersRepo.UpdateFlags, который поставит flag_processing = FALSE
+	}
+
+	err = c.usersRepo.UpdateFlags(ctx, userId, flags)
+	if err != nil {
+		c.logger.Error("failed to update flags",
+			"user_id", userId,
+			"error", err,
+		)
+		return
+	}
+
+	c.logger.Info("successfully extracted flags",
+		"user_id", userId,
+	)
 }
