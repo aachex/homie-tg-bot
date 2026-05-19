@@ -129,10 +129,11 @@ func (c Users) updateFlags(userId int64, description string) {
 			"description_length", len(description),
 			"error", err,
 		)
-		return
+		// Не заканчиваем выполнение при ошибке т.к. нужно,
+		// чтобы выполнился c.usersRepo.UpdateFlags, который поставит flag_processing = FALSE
 	}
 
-	err = c.usersRepo.UpdateFlags(ctx, userId, *flags)
+	err = c.usersRepo.UpdateFlags(ctx, userId, flags)
 	if err != nil {
 		c.logger.Error("failed to update flags",
 			"user_id", userId,
