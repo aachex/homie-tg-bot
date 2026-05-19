@@ -153,9 +153,10 @@ async def finalize_auth(msg: Message, state: FSMContext):
         id=user.id,
         name=user.name,
         city=user.city,
-        media_files=user.media_files
+        media_files=user.media_files,
+        flag_processing=True
     )
-    await show_profile_with_restart_keyboard(msg, state, user2, processing_flags=True)
+    await show_profile_with_restart_keyboard(msg, state, user2)
 
 @router.message(Auth.media_files)
 async def auth_media(msg: Message, state: FSMContext):
@@ -174,14 +175,14 @@ async def auth_media(msg: Message, state: FSMContext):
     if done:
         await finalize_auth(msg, state)
 
-async def show_profile_with_restart_keyboard(msg: Message, state: FSMContext, user: User, processing_flags: bool = False):
+async def show_profile_with_restart_keyboard(msg: Message, state: FSMContext, user: User):
     await state.set_state(MainMenu.profile)
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Заполнить профиль заново")],
         [KeyboardButton(text="Готово")],
     ], resize_keyboard=True)
     await msg.answer("Так выглядит ваш профиль", reply_markup=keyboard)
-    await show_profile(msg, user, processing_flags)
+    await show_profile(msg, user)
 
 @router.message(MainMenu.profile, F.text == "Готово")
 async def profile_done(msg: Message, state: FSMContext):

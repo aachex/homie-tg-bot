@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS tg_user (
     city TEXT NOT NULL,
     description TEXT NOT NULL,
     media_files TEXT[] NOT NULL DEFAULT '{}',
+    flag_processing BOOL NOT NULL DEFAULT FALSE,
     
     -- Флаги арендатора. Если значение NULL, то значит, что у LLM не получилось его определить
     smoking BOOL,

@@ -28,6 +28,7 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 			city,
 			description,
 			media_files,
+			flag_processing,
 			smoking,
 			children,
 			pets,
@@ -45,6 +46,7 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 		&user.City,
 		&user.Description,
 		&user.MediaFiles,
+		&user.FlagProcessing,
 		&user.Flags.Smoking,
 		&user.Flags.Children,
 		&user.Flags.Pets,
@@ -65,9 +67,10 @@ func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) er
 			name,
 			city,
 			description,
-			media_files
+			media_files,
+			flag_processing
 		)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, $2, $3, $4, $5, TRUE)
 		ON CONFLICT DO NOTHING
 	`
 	_, err := r.connPool.Exec(
@@ -83,6 +86,43 @@ func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) er
 	return err
 }
 
+func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserEdit) error {
+	args := pgx.NamedArgs{}
+
+	query := "UPDATE tg_user SET "
+	updates := []string{}
+
+	if patch.Name != nil {
+		updates = append(updates, "name = @name")
+		args["name"] = patch.Name
+	}
+	if patch.City != nil {
+		updates = append(updates, "city = @city")
+		args["city"] = patch.City
+	}
+	if patch.Description != nil {
+		updates = append(updates, "description = @description")
+		updates = append(updates, "flag_processing = TRUE") // Если обновилось описание, то значит нужно заново извлекать флаги
+		args["description"] = patch.Description
+	}
+	if patch.MediaFiles != nil {
+		updates = append(updates, "media_files = @media_files")
+		args["media_files"] = patch.MediaFiles
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	query += strings.Join(updates, ",")
+
+	query += " WHERE id = @id"
+	args["id"] = userId
+
+	_, err := r.connPool.Exec(ctx, query, args)
+	return err
+}
+
 func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error {
 	query := `
 		UPDATE tg_user SET
@@ -94,7 +134,8 @@ func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.Us
             works_from_home = $6,
             alcohol = $7,
             age_min = $8,
-            age_max = $9
+            age_max = $9,
+			flag_processing = FALSE
         WHERE id = $10
 	`
 
@@ -116,40 +157,4 @@ func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.Us
 	}
 
 	return nil
-}
-
-func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserEdit) error {
-	args := pgx.NamedArgs{}
-
-	query := "UPDATE tg_user SET "
-	updates := []string{}
-
-	if patch.Name != nil {
-		updates = append(updates, "name = @name")
-		args["name"] = patch.Name
-	}
-	if patch.City != nil {
-		updates = append(updates, "city = @city")
-		args["city"] = patch.City
-	}
-	if patch.Description != nil {
-		updates = append(updates, "description = @description")
-		args["description"] = patch.Description
-	}
-	if patch.MediaFiles != nil {
-		updates = append(updates, "media_files = @media_files")
-		args["media_files"] = patch.MediaFiles
-	}
-
-	if len(updates) == 0 {
-		return nil
-	}
-
-	query += strings.Join(updates, ",")
-
-	query += " WHERE id = @id"
-	args["id"] = userId
-
-	_, err := r.connPool.Exec(ctx, query, args)
-	return err
 }

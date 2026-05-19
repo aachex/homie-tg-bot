@@ -52,12 +52,13 @@ type UserFlags struct {
 
 // User представляет все данные пользователя
 type User struct {
-	Id          int64     `json:"id"`
-	Name        string    `json:"name"`
-	City        string    `json:"city"`
-	Description string    `json:"description"`
-	MediaFiles  []string  `json:"media_files"`
-	Flags       UserFlags `json:"flags"`
+	Id             int64     `json:"id"`
+	Name           string    `json:"name"`
+	City           string    `json:"city"`
+	Description    string    `json:"description"`
+	MediaFiles     []string  `json:"media_files"`
+	FlagProcessing bool      `json:"flag_processing"`
+	Flags          UserFlags `json:"flags"`
 }
 
 type UserCreate struct {

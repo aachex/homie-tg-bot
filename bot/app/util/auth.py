@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from ..api.users import User
 from ..states import Auth
 
-async def show_profile(msg: Message, user: User, processing_flags: bool = False):
+async def show_profile(msg: Message, user: User):
     # Базовый заголовок
     lines = [f"👤 <b>{user.name}</b>"]
     
@@ -17,7 +17,7 @@ async def show_profile(msg: Message, user: User, processing_flags: bool = False)
     lines.append(f"📸 <b>Фото:</b> {photos_count}")
     
     # Флаги (user.flags)
-    if processing_flags:
+    if user.flag_processing:
         lines.append("\n📋 <b>Обо мне:</b>")
         lines.append("⏳ Обрабатывается...")
     elif user.flags:

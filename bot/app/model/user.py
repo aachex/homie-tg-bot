@@ -55,6 +55,7 @@ class User:
     city: str = ""
     description: str = ""
     media_files: list[str] = field(default_factory=list)
+    flag_processing: bool = False
     flags: UserFlags = field(default_factory=UserFlags)
 
 
