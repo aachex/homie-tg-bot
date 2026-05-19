@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS tg_house_offer (
     preferred_works_from_home BOOL,
     preferred_alcohol alcohol_enum,
     preferred_age_min INT,
-    preferred_age_max INT
+    preferred_age_max INT,
+    preferred_sex sex_enum
 );
 -- +goose StatementEnd
 

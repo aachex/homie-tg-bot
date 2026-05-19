@@ -33,6 +33,10 @@ class UsersApi(APIClient):
         if flags_data.get("alcohol"):
             alcohol = AlcoholEnum(flags_data["alcohol"])
         
+        sex = None
+        if flags_data.get("sex"):
+            sex = SexEnum(flags_data["sex"])
+        
         flags = UserFlags(
             smoking=flags_data.get("smoking"),
             children=children,
@@ -41,6 +45,7 @@ class UsersApi(APIClient):
             noise_lvl=noise_lvl,
             works_from_home=flags_data.get("works_from_home"),
             alcohol=alcohol,
+            sex=sex,
             age_min=flags_data.get("age_min"),
             age_max=flags_data.get("age_max"),
         )

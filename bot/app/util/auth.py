@@ -3,7 +3,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKe
 from aiogram.fsm.context import FSMContext
 
 from ..api.users import User
-from ..states import Auth
+from ..model.enums import *
 
 async def show_profile(msg: Message, user: User):
     # Базовый заголовок
@@ -28,32 +28,40 @@ async def show_profile(msg: Message, user: User):
             flag_lines.append("🚬 Курю")
         elif user.flags.smoking is False:
             flag_lines.append("🚭 Не курю")
-        
+
+        # Пол
+        if user.flags.sex == SexEnum.MALE:
+            flag_lines.append("👨 Мужчина")
+        elif user.flags.sex == SexEnum.FEMALE:
+            flag_lines.append("👩 Женщина")
+
         # Дети
         if user.flags.children:
             children_map = {
-                "zero": "👶 Без детей",
+                "none": "👶 Без детей",
                 "one": "👶 Один ребёнок",
                 "two+": "👶 Двое и более детей",
                 "planning": "🤰 Планируем ребёнка"
             }
             if user.flags.children.value in children_map:
                 flag_lines.append(children_map[user.flags.children.value])
-        
+
         # Животные
         if user.flags.pets:
             pets_map = {
+                "none": "🐾 Нет животных",
                 "cats": "🐱 Есть кошки",
                 "dogs": "🐶 Есть собаки",
-                "other": "🐾 Есть другие животные"
+                "other": "🐾 Есть другие животные",
+                "any": "🐾 Есть животные"
             }
             if user.flags.pets.value in pets_map:
                 flag_lines.append(pets_map[user.flags.pets.value])
-        
+
         # Количество проживающих
         if user.flags.occupants_count:
             flag_lines.append(f"👥 Проживает: {user.flags.occupants_count} чел.")
-        
+
         # Уровень шума
         if user.flags.noise_lvl:
             noise_map = {
@@ -63,13 +71,13 @@ async def show_profile(msg: Message, user: User):
             }
             if user.flags.noise_lvl.value in noise_map:
                 flag_lines.append(noise_map[user.flags.noise_lvl.value])
-        
+
         # Работа из дома
         if user.flags.works_from_home is True:
             flag_lines.append("💻 Работаю из дома")
         elif user.flags.works_from_home is False:
             flag_lines.append("🏢 Работаю в офисе")
-        
+
         # Алкоголь
         if user.flags.alcohol:
             alcohol_map = {
@@ -79,16 +87,19 @@ async def show_profile(msg: Message, user: User):
             }
             if user.flags.alcohol.value in alcohol_map:
                 flag_lines.append(alcohol_map[user.flags.alcohol.value])
-        
+
         # Возрастной диапазон
         if user.flags.age_min or user.flags.age_max:
-            age_parts = []
-            if user.flags.age_min:
-                age_parts.append(f"от {user.flags.age_min}")
-            if user.flags.age_max:
-                age_parts.append(f"до {user.flags.age_max}")
-            flag_lines.append(f"🎂 Возраст: {' '.join(age_parts)}")
-        
+            if user.flags.age_min and user.flags.age_max and user.flags.age_min == user.flags.age_max:
+                flag_lines.append(f"🎂 Возраст: {user.flags.age_min} лет")
+            else:
+                age_parts = []
+                if user.flags.age_min:
+                    age_parts.append(f"от {user.flags.age_min}")
+                if user.flags.age_max:
+                    age_parts.append(f"до {user.flags.age_max}")
+                flag_lines.append(f"🎂 Возраст: {' '.join(age_parts)}")
+
         if flag_lines:
             lines.append("\n📋 <b>Обо мне:</b>")
             lines.extend(flag_lines)

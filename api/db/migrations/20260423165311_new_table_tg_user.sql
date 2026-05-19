@@ -1,9 +1,10 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TYPE children_enum AS ENUM ('zero', 'one', 'two+', 'planning');
-CREATE TYPE pets_enum AS ENUM ('zero', 'cats', 'dogs', 'other', 'any');
+CREATE TYPE children_enum AS ENUM ('none', 'one', 'two+', 'planning');
+CREATE TYPE pets_enum AS ENUM ('none', 'cats', 'dogs', 'other', 'any');
 CREATE TYPE noiselvl_enum AS ENUM ('quiet', 'normal', 'loud');
 CREATE TYPE alcohol_enum AS ENUM ('never', 'rare', 'regular');
+CREATE TYPE sex_enum AS ENUM ('male', 'female');
 
 CREATE TABLE IF NOT EXISTS tg_user (
     id BIGINT PRIMARY KEY NOT NULL,
@@ -22,7 +23,8 @@ CREATE TABLE IF NOT EXISTS tg_user (
     works_from_home BOOL,
     alcohol alcohol_enum,
     age_min INT,
-    age_max INT
+    age_max INT,
+    sex sex_enum
 );
 -- +goose StatementEnd
 
@@ -30,6 +32,7 @@ CREATE TABLE IF NOT EXISTS tg_user (
 -- +goose StatementBegin
 DROP TABLE IF EXISTS tg_user;
 
+DROP TYPE IF EXISTS sex_enum CASCADE;
 DROP TYPE IF EXISTS alcohol_enum CASCADE;
 DROP TYPE IF EXISTS noiselvl_enum CASCADE;
 DROP TYPE IF EXISTS pets_enum CASCADE;

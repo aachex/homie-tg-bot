@@ -115,6 +115,8 @@ async def auth_descr(msg: Message, state: FSMContext):
     
     if "user" not in data or msg.text != "Оставить текущее описание":
         await state.update_data(descr=msg.text)
+    else:
+        await state.update_data(descr=data["user"]["description"])
 
     kb_array = [[KeyboardButton(text="Пропустить")]]
     if "user" in data:

@@ -3,7 +3,7 @@ from enum import Enum
 
 class ChildrenEnum(str, Enum):
     """Количество детей"""
-    ZERO = "zero"
+    NONE = "none"
     ONE = "one"
     TWO_PLUS = "two+"
     PLANNING = "planning"
@@ -15,6 +15,7 @@ class PetsEnum(str, Enum):
     CATS = "cats"
     DOGS = "dogs"
     OTHER = "other"
+    ANY = "any"
 
 
 class NoiseLvlEnum(str, Enum):
@@ -29,3 +30,8 @@ class AlcoholEnum(str, Enum):
     NEVER = "never"
     RARE = "rare"
     REGULAR = "regular"
+
+class SexEnum(str, Enum):
+    """Пол арендатора"""
+    MALE = "male"
+    FEMALE = "female"

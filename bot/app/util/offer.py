@@ -26,8 +26,15 @@ async def show_offer(msg: Message, offer: HouseOffer):
         elif offer.preferences.smoking is False:
             rules_lines.append("❌ Курить запрещено")
         
+        # Пол арендатора
+        if offer.preferences.sex == SexEnum.MALE:
+            rules_lines.append("👨 Желательно мужчина")
+        elif offer.preferences.sex == SexEnum.FEMALE:
+            rules_lines.append("👩 Желательно женщина")
+        print(f"SEX: {offer.preferences.sex}")
+        
         # Дети
-        if offer.preferences.children == ChildrenEnum.ZERO:
+        if offer.preferences.children == ChildrenEnum.NONE:
             rules_lines.append("❌ Без детей")
         elif offer.preferences.children == ChildrenEnum.ONE:
             rules_lines.append("✅ Можно с одним ребёнком")
@@ -45,6 +52,8 @@ async def show_offer(msg: Message, offer: HouseOffer):
             rules_lines.append("✅ Можно с собаками")
         elif offer.preferences.pets == PetsEnum.OTHER:
             rules_lines.append("✅ Можно с другими животными")
+        elif offer.preferences.pets == PetsEnum.ANY:
+            rules_lines.append("🐾 Можно с любыми животными")
         
         # Количество проживающих
         if offer.preferences.occupants_count is not None:
@@ -74,7 +83,10 @@ async def show_offer(msg: Message, offer: HouseOffer):
         
         # Возраст
         if offer.preferences.age_min is not None and offer.preferences.age_max is not None:
-            rules_lines.append(f"🎂 Возраст: от {offer.preferences.age_min} до {offer.preferences.age_max}")
+            if offer.preferences.age_min == offer.preferences.age_max:
+                rules_lines.append(f"🎂 Возраст: {offer.preferences.age_min}")
+            else:
+                rules_lines.append(f"🎂 Возраст: {offer.preferences.age_min}–{offer.preferences.age_max}")
         elif offer.preferences.age_min is not None:
             rules_lines.append(f"🎂 Возраст: от {offer.preferences.age_min}")
         elif offer.preferences.age_max is not None:

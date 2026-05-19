@@ -45,7 +45,8 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 			preferred_works_from_home,
 			preferred_alcohol,
 			preferred_age_min,
-			preferred_age_max
+			preferred_age_max,
+			preferred_sex
 		FROM tg_house_offer 
 		WHERE id = $1`
 
@@ -71,6 +72,7 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 		&offer.Preferences.Alcohol,
 		&offer.Preferences.AgeMin,
 		&offer.Preferences.AgeMax,
+		&offer.Preferences.Sex,
 	)
 
 	return offer, err
@@ -157,7 +159,8 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, us
 			preferred_works_from_home,
 			preferred_alcohol,
 			preferred_age_min,
-			preferred_age_max
+			preferred_age_max,
+			preferred_sex
 		FROM tg_house_offer 
 		WHERE is_active = TRUE AND owner_id <> $1 AND city = $2
 	`
@@ -223,6 +226,12 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, us
 	if userFlags.AgeMax != nil {
 		query += fmt.Sprintf(" AND (preferred_age_min <= $%d OR preferred_age_min IS NULL)", argCounter)
 		args = append(args, *userFlags.AgeMax)
+		argCounter++
+	}
+
+	if userFlags.Sex != nil {
+		query += fmt.Sprintf(" AND (sex == $%d OR sex IS NULL)", argCounter)
+		args = append(args, *userFlags.Sex)
 		argCounter++
 	}
 
@@ -341,8 +350,9 @@ func (r OffersRepo) UpdateOfferPreferences(ctx context.Context, offerId int64, p
 			preferred_alcohol = $7,
 			preferred_age_min = $8,
 			preferred_age_max = $9,
+			preferred_sex = $10,
 			flag_processing = FALSE
-		WHERE id = $10
+		WHERE id = $11
 	`
 
 	_, err := r.connPool.Exec(ctx, query,
@@ -355,6 +365,7 @@ func (r OffersRepo) UpdateOfferPreferences(ctx context.Context, offerId int64, p
 		prefs.Alcohol,
 		prefs.AgeMin,
 		prefs.AgeMax,
+		prefs.Sex,
 		offerId,
 	)
 

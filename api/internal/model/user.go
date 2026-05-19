@@ -1,42 +1,5 @@
 package model
 
-// ChildrenEnum тип для количества детей
-type ChildrenEnum string
-
-const (
-	ChildrenZero     ChildrenEnum = "zero"
-	ChildrenOne      ChildrenEnum = "one"
-	ChildrenTwoPlus  ChildrenEnum = "two+"
-	ChildrenPlanning ChildrenEnum = "planning"
-)
-
-// PetsEnum тип для животных
-type PetsEnum string
-
-const (
-	PetsCats  PetsEnum = "cats"
-	PetsDogs  PetsEnum = "dogs"
-	PetsOther PetsEnum = "other"
-)
-
-// NoiseLvlEnum тип для уровня шума
-type NoiseLvlEnum string
-
-const (
-	NoiseQuiet  NoiseLvlEnum = "quiet"
-	NoiseNormal NoiseLvlEnum = "normal"
-	NoiseLoud   NoiseLvlEnum = "loud"
-)
-
-// AlcoholEnum тип для употребления алкоголя
-type AlcoholEnum string
-
-const (
-	AlcoholNever   AlcoholEnum = "never"
-	AlcoholRare    AlcoholEnum = "rare"
-	AlcoholRegular AlcoholEnum = "regular"
-)
-
 // UserFlags представляет флаги арендатора.
 type UserFlags struct {
 	Smoking        *bool         `json:"smoking,omitempty"`
@@ -48,6 +11,7 @@ type UserFlags struct {
 	Alcohol        *AlcoholEnum  `json:"alcohol,omitempty"`
 	AgeMin         *int          `json:"age_min,omitempty"`
 	AgeMax         *int          `json:"age_max,omitempty"`
+	Sex            *SexEnum      `json:"sex,omitempty"`
 }
 
 // User представляет все данные пользователя

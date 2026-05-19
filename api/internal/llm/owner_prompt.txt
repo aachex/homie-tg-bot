@@ -22,7 +22,8 @@
     "works_from_home": true/false/null,
     "alcohol": "never"/"rare"/"regular"/null,
     "age_min": число/null,
-    "age_max": число/null
+    "age_max": число/null,
+    "sex": "male"/"female"/null
 }
 
 ================================================================================
@@ -71,10 +72,15 @@
 
 8. age_min, age_max (возрастные ограничения):
    - числа: минимальный и максимальный желаемый возраст
-   - Примеры: "до 30 лет" → age_min: null, age_max: 30
+   - "до 30 лет" → age_min: null, age_max: 30
    - "от 25 до 40" → age_min: 25, age_max: 40
    - "старше 35" → age_min: 35, age_max: null
    - "мне 25 лет" (если владелец описывает свой возраст — не учитывать, только требования к арендатору)
+
+9. sex (пол желаемого арендатора):
+   - "male": мужчина, парень, мужского пола (формулировки: "сдам мужчине", "только парню", "желательно мужчина")
+   - "female": женщина, девушка, женского пола (формулировки: "сдам девушке", "только женщине", "желательно девушка")
+   - null: не указано, любой
 
 ================================================================================
 ПРАВИЛА ИЗВЛЕЧЕНИЯ (применяй последовательно):
@@ -95,6 +101,8 @@
 14. "тихие" → noise_lvl: "quiet"
 15. "работают из дома" → works_from_home: true
 16. "непьющие" → alcohol: "never"
+17. "сдам мужчине" → sex: "male"
+18. "сдам девушке" → sex: "female"
 
 ================================================================================
 ПРИМЕРЫ ПРАВИЛЬНЫХ ОТВЕТОВ:
@@ -102,23 +110,23 @@
 
 Пример 1:
 Арендодатель: "Сдам квартиру только некурящим, без детей и животных, тихим"
-Ответ: {"smoking": false, "children": "none", "pets": "none", "noise_lvl": "quiet", "occupants_count": null, "works_from_home": null, "alcohol": null, "age_min": null, "age_max": null}
+Ответ: {"smoking": false, "children": "none", "pets": "none", "noise_lvl": "quiet", "occupants_count": null, "works_from_home": null, "alcohol": null, "age_min": null, "age_max": null, "sex": null}
 
 Пример 2:
 Арендодатель: "Можно с кошкой, не больше 2х человек, от 25 до 40 лет, работающие"
-Ответ: {"smoking": null, "children": null, "pets": "cats", "occupants_count": 2, "noise_lvl": null, "works_from_home": null, "alcohol": null, "age_min": 25, "age_max": 40}
+Ответ: {"smoking": null, "children": null, "pets": "cats", "occupants_count": 2, "noise_lvl": null, "works_from_home": null, "alcohol": null, "age_min": 25, "age_max": 40, "sex": null}
 
 Пример 3:
 Арендодатель: "Семейная пара без детей, непьющие, работают в офисе"
-Ответ: {"smoking": null, "children": "none", "pets": null, "occupants_count": 2, "noise_lvl": null, "works_from_home": false, "alcohol": "never", "age_min": null, "age_max": null}
+Ответ: {"smoking": null, "children": "none", "pets": null, "occupants_count": 2, "noise_lvl": null, "works_from_home": false, "alcohol": "never", "age_min": null, "age_max": null, "sex": null}
 
 Пример 4:
-Арендодатель: "Можно с детьми, с собакой, курить разрешено, до 35 лет"
-Ответ: {"smoking": true, "children": "one", "pets": "dogs", "occupants_count": null, "noise_lvl": null, "works_from_home": null, "alcohol": null, "age_min": null, "age_max": 35}
+Арендодатель: "Можно с детьми, с собакой, курить разрешено, до 35 лет, сдам девушке"
+Ответ: {"smoking": true, "children": "one", "pets": "dogs", "occupants_count": null, "noise_lvl": null, "works_from_home": null, "alcohol": null, "age_min": null, "age_max": 35, "sex": "female"}
 
 Пример 5:
-Арендодатель: "Студентам не сдам, только работающим из дома, некурящим"
-Ответ: {"smoking": false, "children": null, "pets": null, "occupants_count": null, "noise_lvl": null, "works_from_home": true, "alcohol": null, "age_min": null, "age_max": null}
+Арендодатель: "Студентам не сдам, только работающим из дома, некурящим, сдам мужчине"
+Ответ: {"smoking": false, "children": null, "pets": null, "occupants_count": null, "noise_lvl": null, "works_from_home": true, "alcohol": null, "age_min": null, "age_max": null, "sex": "male"}
 
 ================================================================================
 ЧЕГО ДЕЛАТЬ НЕЛЬЗЯ (примеры НЕПРАВИЛЬНЫХ ответов):

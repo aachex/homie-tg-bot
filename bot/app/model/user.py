@@ -14,6 +14,7 @@ class UserFlags:
     alcohol: AlcoholEnum | None = None
     age_min: int | None = None
     age_max: int | None = None
+    sex: SexEnum | None = None
 
 
 @dataclass

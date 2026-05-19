@@ -22,7 +22,8 @@
     "works_from_home": true/false/null,
     "alcohol": "never"/"rare"/"regular"/null,
     "age_min": число/null,
-    "age_max": число/null
+    "age_max": число/null,
+    "sex": "male"/"female"/null
 }
 
 ================================================================================
@@ -76,6 +77,11 @@
    - "старше 40" -> age_min: 40, age_max: null
    - если возраст не указан -> null
 
+9. sex (пол):
+   - "male": мужчина, парень, мужского пола, м
+   - "female": женщина, девушка, женского пола, ж
+   - null: не указано
+
 ================================================================================
 ПРАВИЛА ИЗВЛЕЧЕНИЯ (применяй последовательно):
 ================================================================================
@@ -84,30 +90,32 @@
 3. Если есть противоречия в тексте, выбирай последнее упоминание.
 4. Числа могут быть написаны словами: "два" -> 2, "трое" -> 3.
 5. Если указан диапазон возрастов, заполняй оба поля.
+6. "живу один" -> occupants_count: 1
+7. "снимаем вдвоём с девушкой" -> occupants_count: 2
 
 ================================================================================
 ПРИМЕРЫ ПРАВИЛЬНЫХ ОТВЕТОВ:
 ================================================================================
 
-Пример 1:
-Пользователь: "Я не курю, живу с котом, работаю из дома, мне 28 лет"
-Ответ: {"smoking": false, "pets": "cats", "children": null, "occupants_count": 1, "noise_lvl": null, "works_from_home": true, "alcohol": null, "age_min": 28, "age_max": 28}
+Пример 1 (мужчина, не курит, с котом):
+Пользователь: "Я мужчина, не курю, живу с котом, работаю из дома, мне 28 лет"
+Ответ: {"smoking": false, "pets": "cats", "children": null, "occupants_count": 1, "noise_lvl": null, "works_from_home": true, "alcohol": null, "age_min": 28, "age_max": 28, "sex": "male"}
 
-Пример 2:
+Пример 2 (пара, планируют ребёнка):
 Пользователь: "Снимаем вдвоём с девушкой, планируем ребёнка, иногда выпиваю, возраст от 25 до 35"
-Ответ: {"smoking": null, "pets": null, "children": "planning", "occupants_count": 2, "noise_lvl": null, "works_from_home": null, "alcohol": "rare", "age_min": 25, "age_max": 35}
+Ответ: {"smoking": null, "pets": null, "children": "planning", "occupants_count": 2, "noise_lvl": null, "works_from_home": null, "alcohol": "rare", "age_min": 25, "age_max": 35, "sex": null}
 
-Пример 3:
+Пример 3 (курящий мужчина):
 Пользователь: "Курю, шумный, возраст 30 лет"
-Ответ: {"smoking": true, "pets": null, "children": null, "occupants_count": null, "noise_lvl": "loud", "works_from_home": null, "alcohol": null, "age_min": 30, "age_max": 30}
+Ответ: {"smoking": true, "pets": null, "children": null, "occupants_count": null, "noise_lvl": "loud", "works_from_home": null, "alcohol": null, "age_min": 30, "age_max": 30, "sex": "male"}
 
-Пример 4:
+Пример 4 (семья с детьми и собакой):
 Пользователь: "Семья: я, жена и двое детей. Живём с собакой. Не курим, пьём только по праздникам"
-Ответ: {"smoking": false, "pets": "dogs", "children": "two+", "occupants_count": 4, "noise_lvl": null, "works_from_home": null, "alcohol": "rare", "age_min": null, "age_max": null}
+Ответ: {"smoking": false, "pets": "dogs", "children": "two+", "occupants_count": 4, "noise_lvl": null, "works_from_home": null, "alcohol": "rare", "age_min": null, "age_max": null, "sex": null}
 
-Пример 5:
-Пользователь: "Студент, живу один, без животных, не пью"
-Ответ: {"smoking": null, "pets": "none", "children": null, "occupants_count": 1, "noise_lvl": null, "works_from_home": null, "alcohol": "never", "age_min": null, "age_max": null}
+Пример 5 (девушка-студентка):
+Пользователь: "Студентка, живу одна, без животных, не пью, 20 лет"
+Ответ: {"smoking": null, "pets": "none", "children": null, "occupants_count": 1, "noise_lvl": null, "works_from_home": null, "alcohol": "never", "age_min": 20, "age_max": 20, "sex": "female"}
 
 ================================================================================
 ЧЕГО ДЕЛАТЬ НЕЛЬЗЯ (примеры НЕПРАВИЛЬНЫХ ответов):

@@ -37,7 +37,8 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 			works_from_home,
 			alcohol,
 			age_min,
-			age_max
+			age_max,
+			sex
 		FROM tg_user WHERE id = $1`
 	row := r.connPool.QueryRow(ctx, query, id)
 	err = row.Scan(
@@ -56,6 +57,7 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 		&user.Flags.Alcohol,
 		&user.Flags.AgeMin,
 		&user.Flags.AgeMax,
+		&user.Flags.Sex,
 	)
 	return user, err
 }
@@ -135,8 +137,9 @@ func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.Us
             alcohol = $7,
             age_min = $8,
             age_max = $9,
+			sex = $10,
 			flag_processing = FALSE
-        WHERE id = $10
+        WHERE id = $11
 	`
 
 	_, err := r.connPool.Exec(ctx, query,
@@ -149,6 +152,7 @@ func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.Us
 		flags.Alcohol,
 		flags.AgeMin,
 		flags.AgeMax,
+		flags.Sex,
 		userID,
 	)
 

@@ -33,6 +33,7 @@ class HouseOffersApi(APIClient):
             alcohol=AlcoholEnum(prefs_json["alcohol"]) if prefs_json.get("alcohol") else None,
             age_min=prefs_json.get("age_min"),
             age_max=prefs_json.get("age_max"),
+            sex=prefs_json.get("sex")
         )
         
         return HouseOffer(

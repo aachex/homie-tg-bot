@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"homie-api/internal/llm"
 	"homie-api/internal/model"
 	"log/slog"
@@ -80,7 +81,7 @@ func (c Users) CreateUser(ctx *gin.Context) {
 		Message:    "user created successfully",
 	})
 
-	go c.updateFlags(user.Id, user.Description)
+	go c.updateFlags(user.Id, user.Name, user.Description)
 }
 
 func (c Users) EditUser(ctx *gin.Context) {
@@ -113,16 +114,17 @@ func (c Users) EditUser(ctx *gin.Context) {
 		Message:    "user data updated",
 	})
 
-	if patch.Description != nil {
-		go c.updateFlags(userId, *patch.Description)
+	if patch.Name != nil && patch.Description != nil {
+		go c.updateFlags(userId, *patch.Name, *patch.Description)
 	}
 }
 
 // updateFlags извлекает флаги из описания юзера и обновляет их в БД.
-func (c Users) updateFlags(userId int64, description string) {
+func (c Users) updateFlags(userId int64, name string, description string) {
 	ctx := context.Background()
 
-	flags, err := c.llmClient.ExtractUserFlags(ctx, description)
+	text := fmt.Sprintf("Меня зовут %s. %s", name, description)
+	flags, err := c.llmClient.ExtractUserFlags(ctx, text)
 	if err != nil {
 		c.logger.Error("failed to extract user flags from description",
 			"user_id", userId,
