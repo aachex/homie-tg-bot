@@ -34,7 +34,7 @@ async def show_profile(msg: Message, user: User):
             children_map = {
                 "zero": "👶 Без детей",
                 "one": "👶 Один ребёнок",
-                "two+": "👶👶 Двое и более детей",
+                "two+": "👶 Двое и более детей",
                 "planning": "🤰 Планируем ребёнка"
             }
             if user.flags.children.value in children_map:

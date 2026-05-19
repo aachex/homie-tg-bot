@@ -30,8 +30,13 @@ async def my_profile(msg: Message, state: FSMContext):
 
     await state.clear()
     await state.update_data(user=asdict(user))
+    await state.update_data(flag_processing=user.flag_processing)
 
-    await show_profile_with_restart_keyboard(msg, state, user)
+    keyboard = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Заполнить профиль заново")],
+        [KeyboardButton(text="Готово")],
+    ], resize_keyboard=True)
+    await show_profile_with_keyboard(msg, state, user, keyboard)
 
 async def auth_start(msg: Message, state: FSMContext, first_name: str):
     kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=first_name)]], resize_keyboard=True)
@@ -40,6 +45,11 @@ async def auth_start(msg: Message, state: FSMContext, first_name: str):
     if "user" in data:
         kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=data["user"]["name"])]], resize_keyboard=True)
 
+    flag_processing = data.get("flag_processing", False)
+    if flag_processing:
+        await msg.answer("Пожалуйста, немного подождите...")
+        return
+    
     await msg.answer("Пожалуйста, введите Ваше имя", reply_markup=kb)
     await state.set_state(Auth.name)
 
@@ -146,8 +156,11 @@ async def finalize_auth(msg: Message, state: FSMContext):
         await edit_user(msg.from_user.id, user_edit)
     else:
         await create_user(user)
+
+    flag_processing = (user.description is not None)
     
     await state.update_data(user=asdict(user))
+    await state.update_data(flag_processing=flag_processing)
 
     user2 = User(
         id=user.id,
@@ -156,7 +169,11 @@ async def finalize_auth(msg: Message, state: FSMContext):
         media_files=user.media_files,
         flag_processing=True
     )
-    await show_profile_with_restart_keyboard(msg, state, user2)
+
+    keyboard = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Готово")],
+    ], resize_keyboard=True)
+    await show_profile_with_keyboard(msg, state, user2, keyboard)
 
 @router.message(Auth.media_files)
 async def auth_media(msg: Message, state: FSMContext):
@@ -175,12 +192,9 @@ async def auth_media(msg: Message, state: FSMContext):
     if done:
         await finalize_auth(msg, state)
 
-async def show_profile_with_restart_keyboard(msg: Message, state: FSMContext, user: User):
+async def show_profile_with_keyboard(msg: Message, state: FSMContext, user: User, keyboard: ReplyKeyboardMarkup):
     await state.set_state(MainMenu.profile)
-    keyboard = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="Заполнить профиль заново")],
-        [KeyboardButton(text="Готово")],
-    ], resize_keyboard=True)
+    
     await msg.answer("Так выглядит ваш профиль", reply_markup=keyboard)
     await show_profile(msg, user)
 
