@@ -68,12 +68,8 @@ class UsersApi(APIClient):
     async def edit_user(self, user_id: int, user: UserEdit):
         """Обновляет пользователя (только указанные поля)"""
         # Убираем поля со значением None
-        data = {k: v for k, v in asdict(user).items() if v is not None}
-        
-        if not data:
-            print("No fields to update")
-        
-        await self._request("PATCH", f"user/{user_id}", data=data, expected_status=200)
+        data = asdict(user)
+        await self._request("PUT", f"user/{user_id}", data=data, expected_status=200)
 
 _users_api = UsersApi()
 

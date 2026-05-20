@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -245,32 +246,6 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 	go c.updatePreferences(context.Background(), id, data.TenantDescription)
 }
 
-func (c HouseOffers) updatePreferences(ctx context.Context, offerId int64, text string) {
-	prefs, err := c.llmClient.ExtractOwnerPreferences(ctx, text)
-	if err != nil {
-		c.logger.Error("failed to extract preferences",
-			"offer_id", offerId,
-			"error", err,
-		)
-	}
-
-	err = c.houseOffersRepo.UpdateOfferPreferences(ctx, offerId, prefs)
-	if err != nil {
-		c.logger.Error("failed to update preferences",
-			"offer_id", offerId,
-			"error", err,
-		)
-		return
-	}
-
-	c.logger.Info("preferences updated successfully",
-		"offer_id", offerId,
-		"smoking", prefs.Smoking,
-		"children", prefs.Children,
-		"pets", prefs.Pets,
-	)
-}
-
 func (c HouseOffers) DeleteOffer(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
@@ -320,4 +295,35 @@ func (c HouseOffers) SetActiveOffer(ctx *gin.Context) {
 		StatusCode: http.StatusOK,
 		Message:    fmt.Sprintf("offer active = %t", isActive),
 	})
+}
+
+func (c HouseOffers) updatePreferences(ctx context.Context, offerId int64, text string) {
+	const maxExtractFlagsTime = 30 * time.Second // Даём 30 секунд на извлечение флагов
+
+	extractPrefsCtx, cancel := context.WithTimeout(ctx, maxExtractFlagsTime)
+	defer cancel()
+
+	prefs, err := c.llmClient.ExtractOwnerPreferences(extractPrefsCtx, text)
+	if err != nil {
+		c.logger.Error("failed to extract preferences",
+			"offer_id", offerId,
+			"error", err,
+		)
+	}
+
+	err = c.houseOffersRepo.UpdateOfferPreferences(ctx, offerId, prefs)
+	if err != nil {
+		c.logger.Error("failed to update preferences",
+			"offer_id", offerId,
+			"error", err,
+		)
+		return
+	}
+
+	c.logger.Info("preferences updated successfully",
+		"offer_id", offerId,
+		"smoking", prefs.Smoking,
+		"children", prefs.Children,
+		"pets", prefs.Pets,
+	)
 }

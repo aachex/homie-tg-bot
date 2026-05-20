@@ -69,7 +69,7 @@ func (c *Client) ExtractUserFlags(ctx context.Context, text string) (model.UserF
 	content := resp.Choices[0].Message.Content
 	content = cleanJSONResponse(content)
 
-	c.logger.Info("successfully fetched LLM reponse", "text", content)
+	c.logger.Info("successfully fetched LLM reponse")
 
 	var flags model.UserFlags
 	if err := json.Unmarshal([]byte(content), &flags); err != nil {
