@@ -122,12 +122,12 @@ func (c Users) EditUser(ctx *gin.Context) {
 
 // updateFlags извлекает флаги из описания юзера и обновляет их в БД.
 func (c Users) updateFlags(ctx context.Context, userId int64, text string) {
-	const maxUpdateFlagsTime = 10 * time.Second
+	const maxExtractFlagsTime = 30 * time.Second // Даём 30 секунд на извлечение флагов
 
-	ctx, cancel := context.WithTimeout(ctx, maxUpdateFlagsTime)
+	extractFlagsCtx, cancel := context.WithTimeout(ctx, maxExtractFlagsTime)
 	defer cancel()
 
-	flags, err := c.llmClient.ExtractUserFlags(ctx, text)
+	flags, err := c.llmClient.ExtractUserFlags(extractFlagsCtx, text)
 	if err != nil {
 		c.logger.Error("failed to extract user flags from description",
 			"user_id", userId,
