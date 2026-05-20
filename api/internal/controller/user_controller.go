@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -81,7 +82,8 @@ func (c Users) CreateUser(ctx *gin.Context) {
 		Message:    "user created successfully",
 	})
 
-	go c.updateFlags(user.Id, user.Name, user.Description)
+	text := fmt.Sprintf("\nМеня зовут %s. %s", user.Name, user.Description)
+	go c.updateFlags(context.Background(), user.Id, text)
 }
 
 func (c Users) EditUser(ctx *gin.Context) {
@@ -114,21 +116,29 @@ func (c Users) EditUser(ctx *gin.Context) {
 		Message:    "user data updated",
 	})
 
-	if patch.Name != nil && patch.Description != nil {
-		go c.updateFlags(userId, *patch.Name, *patch.Description)
+	if patch.Description != nil {
+		text := *patch.Description
+		if patch.Name != nil {
+			// Добавляем имя, чтобы более точно определить пол (если есть)
+			text = fmt.Sprintf("\nМеня зовут %s. %s", *patch.Name, *patch.Description)
+		}
+
+		go c.updateFlags(context.Background(), userId, text)
 	}
 }
 
 // updateFlags извлекает флаги из описания юзера и обновляет их в БД.
-func (c Users) updateFlags(userId int64, name string, description string) {
-	ctx := context.Background()
+func (c Users) updateFlags(ctx context.Context, userId int64, text string) {
+	const maxUpdateFlagsTime = 10 * time.Second
 
-	text := fmt.Sprintf("Меня зовут %s. %s", name, description)
+	ctx, cancel := context.WithTimeout(ctx, maxUpdateFlagsTime)
+	defer cancel()
+
 	flags, err := c.llmClient.ExtractUserFlags(ctx, text)
 	if err != nil {
 		c.logger.Error("failed to extract user flags from description",
 			"user_id", userId,
-			"description_length", len(description),
+			"description_length", len(text),
 			"error", err,
 		)
 		// Не заканчиваем выполнение при ошибке т.к. нужно,
