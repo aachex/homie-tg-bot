@@ -94,23 +94,19 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 	query := "UPDATE tg_user SET "
 	updates := []string{}
 
-	if patch.Name != nil {
-		updates = append(updates, "name = @name")
-		args["name"] = patch.Name
-	}
-	if patch.City != nil {
-		updates = append(updates, "city = @city")
-		args["city"] = patch.City
-	}
-	if patch.Description != nil {
-		updates = append(updates, "description = @description")
-		updates = append(updates, "flag_processing = TRUE") // Если обновилось описание, то значит нужно заново извлекать флаги
-		args["description"] = patch.Description
-	}
-	if patch.MediaFiles != nil {
-		updates = append(updates, "media_files = @media_files")
-		args["media_files"] = patch.MediaFiles
-	}
+	updates = append(updates, "name = @name")
+	args["name"] = patch.Name
+
+	updates = append(updates, "city = @city")
+	args["city"] = patch.City
+
+	updates = append(updates, "description = @description")
+	args["description"] = patch.Description
+
+	updates = append(updates, "media_files = @media_files")
+	args["media_files"] = patch.MediaFiles
+
+	updates = append(updates, "flag_processing = TRUE")
 
 	if len(updates) == 0 {
 		return nil

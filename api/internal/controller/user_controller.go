@@ -116,15 +116,8 @@ func (c Users) EditUser(ctx *gin.Context) {
 		Message:    "user data updated",
 	})
 
-	if patch.Description != nil {
-		text := *patch.Description
-		if patch.Name != nil {
-			// Добавляем имя, чтобы более точно определить пол (если есть)
-			text = fmt.Sprintf("\nМеня зовут %s. %s", *patch.Name, *patch.Description)
-		}
-
-		go c.updateFlags(context.Background(), userId, text)
-	}
+	text := fmt.Sprintf("\nМеня зовут %s. %s", patch.Name, patch.Description)
+	go c.updateFlags(context.Background(), userId, text)
 }
 
 // updateFlags извлекает флаги из описания юзера и обновляет их в БД.

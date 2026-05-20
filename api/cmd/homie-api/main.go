@@ -61,7 +61,7 @@ func main() {
 	// Routes
 	v1.GET("/user/:id", usersController.UserById)
 	v1.POST("/user", usersController.CreateUser)
-	v1.PATCH("/user/:id", usersController.EditUser)
+	v1.PUT("/user/:id", usersController.EditUser)
 	v1.GET("/user/:id/offers", offersController.UserOffers)
 
 	v1.GET("/offer/:id", offersController.OfferById)

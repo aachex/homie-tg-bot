@@ -35,8 +35,8 @@ type UserCreate struct {
 
 // UserEdit представляет данные пользователя, которые можно менять
 type UserEdit struct {
-	Name        *string  `json:"name,omitempty"`
-	City        *string  `json:"city,omitempty"`
-	Description *string  `json:"description,omitempty"`
-	MediaFiles  []string `json:"media_files,omitempty"`
+	Name        string   `json:"name"`
+	City        string   `json:"city"`
+	Description string   `json:"description"`
+	MediaFiles  []string `json:"media_files"`
 }
