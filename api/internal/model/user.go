@@ -1,22 +1,42 @@
 package model
 
-// User представляет все данные пользователя.
-type User struct {
-	Id          int64    `json:"id"`
-	Name        string   `json:"name"`
-	Age         uint8    `json:"age"`
-	Description string   `json:"description"`
-	City        string   `json:"city"`
-	MediaFiles  []string `json:"media_files"`
-	Details     Ruleset  `json:"details"`
+// UserFlags представляет флаги арендатора.
+type UserFlags struct {
+	Smoking        *bool         `json:"smoking,omitempty"`
+	Children       *ChildrenEnum `json:"children,omitempty"`
+	Pets           *PetsEnum     `json:"pets,omitempty"`
+	OccupantsCount *int          `json:"occupants_count,omitempty"`
+	NoiseLvl       *NoiseLvlEnum `json:"noise_lvl,omitempty"`
+	WorksFromHome  *bool         `json:"works_from_home,omitempty"`
+	Alcohol        *AlcoholEnum  `json:"alcohol,omitempty"`
+	AgeMin         *int          `json:"age_min,omitempty"`
+	AgeMax         *int          `json:"age_max,omitempty"`
+	Sex            *SexEnum      `json:"sex,omitempty"`
 }
 
-// UserEdit представляет все данные пользователя, которые можно менять.
-type UserEdit struct {
-	Name        *string  `json:"name"`
-	Age         *uint8   `json:"age"`
-	Description *string  `json:"description"`
-	City        *string  `json:"city"`
+// User представляет все данные пользователя
+type User struct {
+	Id             int64     `json:"id"`
+	Name           string    `json:"name"`
+	City           string    `json:"city"`
+	Description    string    `json:"description"`
+	MediaFiles     []string  `json:"media_files"`
+	FlagProcessing bool      `json:"flag_processing"`
+	Flags          UserFlags `json:"flags"`
+}
+
+type UserCreate struct {
+	Id          int64    `json:"id"`
+	Name        string   `json:"name"`
+	City        string   `json:"city"`
+	Description string   `json:"description"`
 	MediaFiles  []string `json:"media_files"`
-	Details     *Ruleset `json:"details"`
+}
+
+// UserEdit представляет данные пользователя, которые можно менять
+type UserEdit struct {
+	Name        string   `json:"name"`
+	City        string   `json:"city"`
+	Description string   `json:"description"`
+	MediaFiles  []string `json:"media_files"`
 }

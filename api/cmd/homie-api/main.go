@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"homie-api/internal/controller"
+	"homie-api/internal/llm"
 	"homie-api/internal/repository/postgres"
 	"homie-api/pkg/middleware"
 	"log"
@@ -38,9 +39,13 @@ func main() {
 	reportsRepo := postgres.NewReportsRepo(connPool)
 	statsRepo := postgres.NewStatsRepo(connPool)
 
+	// LLM
+	llmApiKey := os.Getenv("OPENROUTER_API_KEY")
+	llmClient := llm.NewClient(logger, llmApiKey, "openai/gpt-oss-120b:free")
+
 	// Контроллеры
-	usersController := controller.NewUsers(logger, usersRepo)
-	offersController := controller.NewHouseOffers(logger, offersRepo)
+	usersController := controller.NewUsers(logger, llmClient, usersRepo)
+	offersController := controller.NewHouseOffers(logger, llmClient, offersRepo)
 	reportsController := controller.NewReports(logger, reportsRepo)
 	statsController := controller.NewStats(logger, statsRepo)
 
@@ -56,11 +61,11 @@ func main() {
 	// Routes
 	v1.GET("/user/:id", usersController.UserById)
 	v1.POST("/user", usersController.CreateUser)
-	v1.PATCH("/user/:id", usersController.EditUser)
+	v1.PUT("/user/:id", usersController.EditUser)
 	v1.GET("/user/:id/offers", offersController.UserOffers)
 
 	v1.GET("/offer/:id", offersController.OfferById)
-	v1.GET("/offer/rand", offersController.RandOffer)
+	v1.POST("/offer/rand", offersController.RandOffer)
 	v1.POST("/offer", offersController.CreateOffer)
 	v1.DELETE("/offer/:id", offersController.DeleteOffer)
 	v1.PATCH("/offer/:id", offersController.SetActiveOffer)

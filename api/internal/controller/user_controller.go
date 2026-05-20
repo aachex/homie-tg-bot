@@ -4,28 +4,34 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"homie-api/internal/llm"
 	"homie-api/internal/model"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 type usersRepo interface {
 	GetById(ctx context.Context, id int64) (model.User, error)
-	CreateUser(ctx context.Context, userData model.User) error
+	CreateUser(ctx context.Context, userData model.UserCreate) error
+	UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error
 	EditUser(ctx context.Context, userId int64, patch model.UserEdit) error
 }
 
 type Users struct {
 	logger    *slog.Logger
+	llmClient *llm.Client
 	usersRepo usersRepo
 }
 
-func NewUsers(logger *slog.Logger, usersRepo usersRepo) *Users {
+func NewUsers(logger *slog.Logger, llmClient *llm.Client, usersRepo usersRepo) *Users {
 	return &Users{
 		logger:    logger,
+		llmClient: llmClient,
 		usersRepo: usersRepo,
 	}
 }
@@ -55,7 +61,7 @@ func (c Users) UserById(ctx *gin.Context) {
 }
 
 func (c Users) CreateUser(ctx *gin.Context) {
-	var user model.User
+	var user model.UserCreate
 	err := ctx.BindJSON(&user)
 	if err != nil {
 		c.logger.Error("create user: invalid JSON", "error", err)
@@ -72,9 +78,12 @@ func (c Users) CreateUser(ctx *gin.Context) {
 
 	c.logger.Info("user created successfully", "user_id", user.Id)
 	ctx.JSON(http.StatusCreated, defaultResp{
-		StatusCode: http.StatusCreated,
-		Message:    "user created",
+		StatusCode: http.StatusOK,
+		Message:    "user created successfully",
 	})
+
+	text := fmt.Sprintf("\nМеня зовут %s. %s", user.Name, user.Description)
+	go c.updateFlags(context.Background(), user.Id, text)
 }
 
 func (c Users) EditUser(ctx *gin.Context) {
@@ -106,4 +115,39 @@ func (c Users) EditUser(ctx *gin.Context) {
 		StatusCode: http.StatusOK,
 		Message:    "user data updated",
 	})
+
+	text := fmt.Sprintf("\nМеня зовут %s. %s", patch.Name, patch.Description)
+	go c.updateFlags(context.Background(), userId, text)
+}
+
+// updateFlags извлекает флаги из описания юзера и обновляет их в БД.
+func (c Users) updateFlags(ctx context.Context, userId int64, text string) {
+	const maxExtractFlagsTime = 30 * time.Second // Даём 30 секунд на извлечение флагов
+
+	extractFlagsCtx, cancel := context.WithTimeout(ctx, maxExtractFlagsTime)
+	defer cancel()
+
+	flags, err := c.llmClient.ExtractUserFlags(extractFlagsCtx, text)
+	if err != nil {
+		c.logger.Error("failed to extract user flags from description",
+			"user_id", userId,
+			"description_length", len(text),
+			"error", err,
+		)
+		// Не заканчиваем выполнение при ошибке т.к. нужно,
+		// чтобы выполнился c.usersRepo.UpdateFlags, который поставит flag_processing = FALSE
+	}
+
+	err = c.usersRepo.UpdateFlags(ctx, userId, flags)
+	if err != nil {
+		c.logger.Error("failed to update flags",
+			"user_id", userId,
+			"error", err,
+		)
+		return
+	}
+
+	c.logger.Info("successfully extracted flags",
+		"user_id", userId,
+	)
 }

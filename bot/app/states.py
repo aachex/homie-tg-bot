@@ -14,24 +14,15 @@ class Admin(StatesGroup):
     report_details = State()
 
 class Auth(StatesGroup):
-    ask_to_auth = State()
-
     name = State()
-    age = State()
     city = State()
-    smoking = State()
-    children = State()
-    pets = State()
     descr = State()
     media_files = State()
 
 class OfferCreate(StatesGroup):
-    type = State()
     city = State()
     district = State()
-    smoking = State()
-    children = State()
-    pets = State()
+    tenant = State()
     title = State()
     price = State()
     description = State()

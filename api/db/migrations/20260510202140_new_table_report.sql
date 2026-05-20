@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS report (
 
 CREATE INDEX idx_report_offer_id ON report(offer_id);
 CREATE INDEX idx_report_reporter_id ON report(reporter_id);
-CREATE INDEX idx_report_status ON report(status);
 CREATE INDEX idx_report_created_at ON report(created_at);
 -- +goose StatementEnd
 
@@ -19,7 +18,6 @@ CREATE INDEX idx_report_created_at ON report(created_at);
 -- +goose StatementBegin
 DROP INDEX IF EXISTS idx_report_offer_id;
 DROP INDEX IF EXISTS idx_report_reporter_id;
-DROP INDEX IF EXISTS idx_report_status;
 DROP INDEX IF EXISTS idx_report_created_at;
 
 DROP TABLE IF EXISTS report;

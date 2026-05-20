@@ -16,8 +16,8 @@ from ..util.shared import normalize_city
 from .main_menu import main_menu as show_main_menu
 
 from ..states import SearchOffers, MainMenu
-from ..model.ruleset import Ruleset
 from ..model.report import ReportCreate
+from ..model.user import UserFlags
 
 from ..keyboards import evaluate_keyboard
 
@@ -52,7 +52,7 @@ async def select_city(msg: Message, state: FSMContext):
 
     ruleset = None
     if "user" in data:
-        ruleset = Ruleset(**data["user"]["details"])
+        ruleset = UserFlags(**data["user"]["flags"])
     offer = await get_rand_offer(msg.from_user.id, city, ruleset)
     if offer is None:
         await state.set_state(SearchOffers.offer_not_found)
@@ -76,7 +76,7 @@ async def show_next_offer(msg: Message, state: FSMContext, id: int = 0):
         data = await state.get_data()
         ruleset = None
         if "user" in data:
-            ruleset = Ruleset(**data["user"]["details"])
+            ruleset = UserFlags(**data["user"]["flags"])
 
         city = _user_city[user_id]
         

@@ -4,18 +4,16 @@ from dataclasses import asdict
 
 from .base import APIClient
 from ..model.house_offer import *
-from ..model.ruleset import Ruleset
+from ..model.user import UserFlags
 
 
 class HouseOffersApi(APIClient):
     async def get_by_id(self, offer_id: int) -> HouseOffer | None:
         return await self.__get_offer(f"offer/{offer_id}")
     
-    async def get_rand(self, exclude_user_id: int, city: str, ruleset: Ruleset) -> HouseOffer | None:
-        if ruleset is None:
-            ruleset = Ruleset(smoking=False, children=False, pets=False)
-        
-        url = f"offer/rand?userId={exclude_user_id}&city={city}&smoking={ruleset.smoking}&children={ruleset.children}&pets={ruleset.pets}"
+    async def get_rand(self, exclude_user_id: int, city: str, user: UserFlags) -> HouseOffer | None:
+        # TODO: дописать
+        url = f"offer/rand"
         return await self.__get_offer(url)
     
     async def __get_offer(self, url: str) -> HouseOffer | None:
@@ -23,7 +21,22 @@ class HouseOffersApi(APIClient):
         if offer_json is None:
             return None
         
-        offer = HouseOffer(
+        prefs_json = offer_json.get("preferences", {})
+        
+        preferences = OwnerPreferences(
+            smoking=prefs_json.get("smoking"),
+            children=ChildrenEnum(prefs_json["children"]) if prefs_json.get("children") else None,
+            pets=PetsEnum(prefs_json["pets"]) if prefs_json.get("pets") else None,
+            occupants_count=prefs_json.get("occupants_count"),
+            noise_lvl=NoiseLvlEnum(prefs_json["noise_lvl"]) if prefs_json.get("noise_lvl") else None,
+            works_from_home=prefs_json.get("works_from_home"),
+            alcohol=AlcoholEnum(prefs_json["alcohol"]) if prefs_json.get("alcohol") else None,
+            age_min=prefs_json.get("age_min"),
+            age_max=prefs_json.get("age_max"),
+            sex=prefs_json.get("sex")
+        )
+        
+        return HouseOffer(
             id=int(offer_json.get("id", 0)),
             owner_id=int(offer_json.get("owner_id", 0)),
             is_active=bool(offer_json.get("is_active", False)),
@@ -33,13 +46,9 @@ class HouseOffersApi(APIClient):
             district=offer_json.get("district", ""),
             price=int(offer_json.get("price", 0)),
             media_files=list(offer_json.get("media_files", [])),
-            ruleset=Ruleset(
-                smoking=bool(offer_json["ruleset"]["smoking"]),
-                children=bool(offer_json["ruleset"]["children"]),
-                pets=bool(offer_json["ruleset"]["pets"])
-            )
+            flag_processing=offer_json.get("flag_processing", False),
+            preferences=preferences,
         )
-        return offer
 
     async def get_user_offers(self, user_id: int) -> list[HouseOfferPreview]:
         offers_json = await self._request("GET", f"user/{user_id}/offers")
@@ -87,8 +96,8 @@ _offers_api = HouseOffersApi()
 async def get_offer_by_id(offer_id: int) -> HouseOffer | None:
     return await _offers_api.get_by_id(offer_id)
 
-async def get_rand_offer(exclude_user_id: int, city: str, ruleset: Ruleset | None) -> HouseOffer | None:
-    return await _offers_api.get_rand(exclude_user_id, city, ruleset)
+async def get_rand_offer(exclude_user_id: int, city: str, user: UserFlags | None) -> HouseOffer | None:
+    return await _offers_api.get_rand(exclude_user_id, city, user)
 
 async def get_user_offers(user_id: int) -> list[HouseOfferPreview]:
     return await _offers_api.get_user_offers(user_id)
