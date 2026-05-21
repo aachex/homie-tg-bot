@@ -45,4 +45,5 @@ type SexEnum string
 const (
 	Male   SexEnum = "male"
 	Female SexEnum = "female"
+	Any    SexEnum = "any"
 )

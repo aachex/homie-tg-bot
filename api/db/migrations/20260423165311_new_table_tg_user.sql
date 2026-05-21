@@ -4,7 +4,7 @@ CREATE TYPE children_enum AS ENUM ('none', 'one', 'two+', 'planning');
 CREATE TYPE pets_enum AS ENUM ('none', 'cats', 'dogs', 'other', 'any');
 CREATE TYPE noiselvl_enum AS ENUM ('quiet', 'normal', 'loud');
 CREATE TYPE alcohol_enum AS ENUM ('never', 'rare', 'regular');
-CREATE TYPE sex_enum AS ENUM ('male', 'female');
+CREATE TYPE sex_enum AS ENUM ('male', 'female', 'any');
 
 CREATE TABLE IF NOT EXISTS tg_user (
     id BIGINT PRIMARY KEY NOT NULL,
