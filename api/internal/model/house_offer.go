@@ -56,3 +56,9 @@ type HouseOfferLike struct {
 	OfferId int64 `json:"offer_id"`
 	UserId  int64 `json:"user_id"`
 }
+
+type RelevantOffer struct {
+	RelevanceSum     int `json:"relevance_sum"`
+	RelevancePercent int `json:"relevance_percent"`
+	HouseOffer       `json:"offer"`
+}

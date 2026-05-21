@@ -139,8 +139,151 @@ func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64)
 	return nil
 }
 
-func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags) (offer model.HouseOffer, err error) {
+func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags) (offer model.RelevantOffer, err error) {
 	query := `
+		WITH user_flags AS (
+			SELECT 
+				$3::boolean AS smoking,
+				$4::sex_enum AS sex,
+				$5::children_enum AS children,
+				$6::pets_enum AS pets,
+				$7::int AS occupants_count,
+				$8::noiselvl_enum AS noise_lvl,
+				$9::boolean AS works_from_home,
+				$10::alcohol_enum AS alcohol,
+				$11::int AS age_min,
+				$12::int AS age_max
+		),
+		ranked_offers AS (
+			SELECT
+				o.*,
+				(
+					-- Smoking (max 20)
+					CASE
+						WHEN o.preferred_smoking IS NULL THEN 20
+						WHEN u.smoking IS TRUE AND o.preferred_smoking IS TRUE THEN 20
+						WHEN u.smoking IS FALSE AND o.preferred_smoking IS FALSE THEN 20
+						WHEN u.smoking IS FALSE AND o.preferred_smoking IS TRUE THEN 20
+						WHEN u.smoking IS TRUE AND o.preferred_smoking IS FALSE THEN 0
+						ELSE 0
+					END +
+					-- Sex (max 20)
+					CASE
+						WHEN o.preferred_sex IS NULL THEN 20
+						WHEN o.preferred_sex = u.sex THEN 20
+						ELSE 0
+					END +
+					-- Children (max 20)
+					CASE
+						WHEN o.preferred_children IS NULL THEN 20
+						WHEN o.preferred_children = 'none' AND (u.children IS NULL OR u.children = 'none'::children_enum) THEN 20
+						WHEN o.preferred_children = 'none' AND u.children = 'one'::children_enum THEN 0
+						WHEN o.preferred_children = 'none' AND u.children = 'two+'::children_enum THEN 0
+						WHEN o.preferred_children = 'none' AND u.children = 'planning'::children_enum THEN 10
+						WHEN o.preferred_children = 'one'::children_enum AND u.children = 'none'::children_enum THEN 20
+						WHEN o.preferred_children = 'one'::children_enum AND u.children = 'one'::children_enum THEN 20
+						WHEN o.preferred_children = 'one'::children_enum AND u.children = 'two+'::children_enum THEN 0
+						WHEN o.preferred_children = 'one'::children_enum AND u.children = 'planning'::children_enum THEN 10
+						WHEN o.preferred_children = 'two+'::children_enum AND u.children = 'none'::children_enum THEN 0
+						WHEN o.preferred_children = 'two+'::children_enum AND u.children = 'one'::children_enum THEN 0
+						WHEN o.preferred_children = 'two+'::children_enum AND u.children = 'two+'::children_enum THEN 20
+						WHEN o.preferred_children = 'two+'::children_enum AND u.children = 'planning'::children_enum THEN 0
+						WHEN o.preferred_children = 'planning'::children_enum AND u.children = 'none'::children_enum THEN 10
+						WHEN o.preferred_children = 'planning'::children_enum AND u.children = 'one'::children_enum THEN 20
+						WHEN o.preferred_children = 'planning'::children_enum AND u.children = 'two+'::children_enum THEN 20
+						WHEN o.preferred_children = 'planning'::children_enum AND u.children = 'planning'::children_enum THEN 20
+						ELSE 0
+					END +
+					-- Pets (max 20)
+					CASE
+						WHEN o.preferred_pets IS NULL THEN 20
+						WHEN o.preferred_pets = 'any'::pets_enum THEN 20
+						WHEN o.preferred_pets = 'none'::pets_enum AND (u.pets IS NULL OR u.pets = 'none'::pets_enum) THEN 20
+						WHEN o.preferred_pets = 'cats'::pets_enum AND u.pets = 'none'::pets_enum THEN 0
+						WHEN o.preferred_pets = 'cats'::pets_enum AND u.pets = 'cats'::pets_enum THEN 20
+						WHEN o.preferred_pets = 'cats'::pets_enum AND u.pets = 'dogs'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'cats'::pets_enum AND u.pets = 'other'::pets_enum THEN 5
+						WHEN o.preferred_pets = 'cats'::pets_enum AND u.pets = 'any'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'dogs'::pets_enum AND u.pets = 'none'::pets_enum THEN 0
+						WHEN o.preferred_pets = 'dogs'::pets_enum AND u.pets = 'cats'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'dogs'::pets_enum AND u.pets = 'dogs'::pets_enum THEN 20
+						WHEN o.preferred_pets = 'dogs'::pets_enum AND u.pets = 'other'::pets_enum THEN 5
+						WHEN o.preferred_pets = 'dogs'::pets_enum AND u.pets = 'any'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'other'::pets_enum AND u.pets = 'none'::pets_enum THEN 0
+						WHEN o.preferred_pets = 'other'::pets_enum AND u.pets = 'cats'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'other'::pets_enum AND u.pets = 'dogs'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'other'::pets_enum AND u.pets = 'other'::pets_enum THEN 20
+						WHEN o.preferred_pets = 'other'::pets_enum AND u.pets = 'any'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'any'::pets_enum AND u.pets = 'none'::pets_enum THEN 0
+						WHEN o.preferred_pets = 'any'::pets_enum AND u.pets = 'cats'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'any'::pets_enum AND u.pets = 'dogs'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'any'::pets_enum AND u.pets = 'other'::pets_enum THEN 10
+						WHEN o.preferred_pets = 'any'::pets_enum AND u.pets = 'any'::pets_enum THEN 20
+						ELSE 0
+					END +
+					-- Occupants count (max 20)
+					CASE
+						WHEN o.preferred_occupants_count IS NULL THEN 20
+						WHEN u.occupants_count = 1 THEN 20
+						WHEN u.occupants_count = 2 AND o.preferred_occupants_count = 2 THEN 15
+						WHEN u.occupants_count = 3 AND o.preferred_occupants_count = 2 THEN 0
+						ELSE 0
+					END +
+					-- Noise level (max 20)
+					CASE
+						WHEN o.preferred_noise_lvl IS NULL THEN 20
+						WHEN o.preferred_noise_lvl = 'quiet'::noiselvl_enum AND u.noise_lvl = 'quiet'::noiselvl_enum THEN 20
+						WHEN o.preferred_noise_lvl = 'quiet'::noiselvl_enum AND u.noise_lvl = 'normal'::noiselvl_enum THEN 20
+						WHEN o.preferred_noise_lvl = 'quiet'::noiselvl_enum AND u.noise_lvl = 'loud'::noiselvl_enum THEN 20
+						WHEN o.preferred_noise_lvl = 'normal'::noiselvl_enum AND u.noise_lvl = 'quiet'::noiselvl_enum THEN 10
+						WHEN o.preferred_noise_lvl = 'normal'::noiselvl_enum AND u.noise_lvl = 'normal'::noiselvl_enum THEN 20
+						WHEN o.preferred_noise_lvl = 'normal'::noiselvl_enum AND u.noise_lvl = 'loud'::noiselvl_enum THEN 20
+						WHEN o.preferred_noise_lvl = 'loud'::noiselvl_enum AND u.noise_lvl = 'quiet'::noiselvl_enum THEN 0
+						WHEN o.preferred_noise_lvl = 'loud'::noiselvl_enum AND u.noise_lvl = 'normal'::noiselvl_enum THEN 0
+						WHEN o.preferred_noise_lvl = 'loud'::noiselvl_enum AND u.noise_lvl = 'loud'::noiselvl_enum THEN 20
+						ELSE 0
+					END +
+					-- Works from home (max 20)
+					CASE
+						WHEN o.preferred_works_from_home IS NULL THEN 20
+						WHEN u.works_from_home = o.preferred_works_from_home THEN 20
+						ELSE 0
+					END +
+					-- Alcohol (max 20)
+					CASE
+						WHEN o.preferred_alcohol IS NULL THEN 20
+						WHEN o.preferred_alcohol = 'never'::alcohol_enum AND u.alcohol = 'never'::alcohol_enum THEN 20
+						WHEN o.preferred_alcohol = 'never'::alcohol_enum AND u.alcohol = 'rare'::alcohol_enum THEN 20
+						WHEN o.preferred_alcohol = 'never'::alcohol_enum AND u.alcohol = 'regular'::alcohol_enum THEN 20
+						WHEN o.preferred_alcohol = 'rare'::alcohol_enum AND u.alcohol = 'never'::alcohol_enum THEN 10
+						WHEN o.preferred_alcohol = 'rare'::alcohol_enum AND u.alcohol = 'rare'::alcohol_enum THEN 20
+						WHEN o.preferred_alcohol = 'rare'::alcohol_enum AND u.alcohol = 'regular'::alcohol_enum THEN 20
+						WHEN o.preferred_alcohol = 'regular'::alcohol_enum AND u.alcohol = 'never'::alcohol_enum THEN 0
+						WHEN o.preferred_alcohol = 'regular'::alcohol_enum AND u.alcohol = 'rare'::alcohol_enum THEN 0
+						WHEN o.preferred_alcohol = 'regular'::alcohol_enum AND u.alcohol = 'regular'::alcohol_enum THEN 20
+						ELSE 0
+					END +
+					-- Age min (max 20)
+					CASE
+						WHEN o.preferred_age_min IS NULL THEN 20
+						WHEN u.age_min >= o.preferred_age_min THEN 20
+						WHEN u.age_min < o.preferred_age_min THEN 10
+						ELSE 0
+					END +
+					-- Age max (max 20)
+					CASE
+						WHEN o.preferred_age_max IS NULL THEN 20
+						WHEN u.age_max <= o.preferred_age_max THEN 20
+						WHEN u.age_max > o.preferred_age_max THEN 0
+						ELSE 0
+					END
+				) AS relevance_sum
+			FROM tg_house_offer o
+			CROSS JOIN user_flags u
+			WHERE o.is_active = TRUE 
+			AND o.owner_id <> $1 
+			AND o.city = $2
+		)
 		SELECT 
 			id,
 			is_active,
@@ -160,82 +303,31 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, us
 			preferred_alcohol,
 			preferred_age_min,
 			preferred_age_max,
-			preferred_sex
-		FROM tg_house_offer 
-		WHERE is_active = TRUE AND owner_id <> $1 AND city = $2
+			preferred_sex,
+			relevance_sum,
+			((relevance_sum::float / 200.0) * 100)::int AS relevance_percent
+		FROM ranked_offers
+		WHERE relevance_sum >= $13
+		ORDER BY RANDOM()
+		LIMIT 1
 	`
 
-	args := []any{userId, city}
-	argCounter := 3
-
-	// Курение
-	if userFlags.Smoking != nil {
-		query += fmt.Sprintf(" AND (preferred_smoking = $%d OR preferred_smoking IS NULL)", argCounter)
-		args = append(args, *userFlags.Smoking)
-		argCounter++
+	minRelevance := 0
+	args := []any{
+		userId,                   // $1
+		city,                     // $2
+		userFlags.Smoking,        // $3
+		userFlags.Sex,            // $4
+		userFlags.Children,       // $5
+		userFlags.Pets,           // $6
+		userFlags.OccupantsCount, // $7
+		userFlags.NoiseLvl,       // $8
+		userFlags.WorksFromHome,  // $9
+		userFlags.Alcohol,        // $10
+		userFlags.AgeMin,         // $11
+		userFlags.AgeMax,         // $12
+		minRelevance,             // $13
 	}
-
-	// Дети
-	if userFlags.Children != nil {
-		query += fmt.Sprintf(" AND (preferred_children = $%d OR preferred_children IS NULL)", argCounter)
-		args = append(args, *userFlags.Children)
-		argCounter++
-	}
-
-	// Животные
-	if userFlags.Pets != nil {
-		query += fmt.Sprintf(" AND (preferred_pets = $%d OR preferred_pets IS NULL)", argCounter)
-		args = append(args, *userFlags.Pets)
-		argCounter++
-	}
-
-	// Количество проживающих
-	if userFlags.OccupantsCount != nil {
-		query += fmt.Sprintf(" AND (preferred_occupants_count >= $%d OR preferred_occupants_count IS NULL)", argCounter)
-		args = append(args, *userFlags.OccupantsCount)
-		argCounter++
-	}
-
-	// Уровень шума
-	if userFlags.NoiseLvl != nil {
-		query += fmt.Sprintf(" AND (preferred_noise_lvl = $%d OR preferred_noise_lvl IS NULL)", argCounter)
-		args = append(args, *userFlags.NoiseLvl)
-		argCounter++
-	}
-
-	// Работа из дома
-	if userFlags.WorksFromHome != nil {
-		query += fmt.Sprintf(" AND (preferred_works_from_home = $%d OR preferred_works_from_home IS NULL)", argCounter)
-		args = append(args, *userFlags.WorksFromHome)
-		argCounter++
-	}
-
-	// Алкоголь
-	if userFlags.Alcohol != nil {
-		query += fmt.Sprintf(" AND (preferred_alcohol = $%d OR preferred_alcohol IS NULL)", argCounter)
-		args = append(args, *userFlags.Alcohol)
-		argCounter++
-	}
-
-	// Возраст
-	if userFlags.AgeMin != nil {
-		query += fmt.Sprintf(" AND (preferred_age_max >= $%d OR preferred_age_max IS NULL)", argCounter)
-		args = append(args, *userFlags.AgeMin)
-		argCounter++
-	}
-	if userFlags.AgeMax != nil {
-		query += fmt.Sprintf(" AND (preferred_age_min <= $%d OR preferred_age_min IS NULL)", argCounter)
-		args = append(args, *userFlags.AgeMax)
-		argCounter++
-	}
-
-	if userFlags.Sex != nil {
-		query += fmt.Sprintf(" AND (sex == $%d OR sex IS NULL)", argCounter)
-		args = append(args, *userFlags.Sex)
-		argCounter++
-	}
-
-	query += " ORDER BY RANDOM() LIMIT 1"
 
 	row := r.connPool.QueryRow(ctx, query, args...)
 	err = row.Scan(
@@ -257,6 +349,9 @@ func (r OffersRepo) RandOffer(ctx context.Context, userId int64, city string, us
 		&offer.Preferences.Alcohol,
 		&offer.Preferences.AgeMin,
 		&offer.Preferences.AgeMax,
+		&offer.Preferences.Sex,
+		&offer.RelevanceSum,
+		&offer.RelevancePercent,
 	)
 	return offer, err
 }
