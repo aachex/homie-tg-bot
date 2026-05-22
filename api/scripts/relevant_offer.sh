@@ -6,7 +6,5 @@ curl -X POST http://127.0.0.1:8080/api/v1/offer/rand \
     "min_rel":70,
     "city": "Москва",
     "user_flags": {
-      "pets":"none",
-      "smoking":true
     }
   }'

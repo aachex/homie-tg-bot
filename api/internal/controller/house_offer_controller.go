@@ -160,13 +160,7 @@ func (c HouseOffers) DeleteLike(ctx *gin.Context) {
 }
 
 func (c HouseOffers) RandRelevantOffer(ctx *gin.Context) {
-	var req struct {
-		UserID              int64           `json:"user_id" binding:"required"`
-		MinRelevancePercent int             `json:"min_rel" binding:"required"`
-		City                string          `json:"city" binding:"required"`
-		UserFlags           model.UserFlags `json:"user_flags"`
-	}
-
+	var req model.RandRelevantOfferRequest
 	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
 		c.logger.Error("rand offer: invalid JSON", "error", err)
@@ -213,7 +207,6 @@ func (c HouseOffers) RandRelevantOffer(ctx *gin.Context) {
 func (c HouseOffers) GetOfferRelevance(ctx *gin.Context) {
 	var req struct {
 		OfferID   int64           `json:"offer_id" binding:"required"`
-		UserID    int64           `json:"user_id" binding:"required"`
 		UserFlags model.UserFlags `json:"user_flags"`
 	}
 
@@ -226,7 +219,6 @@ func (c HouseOffers) GetOfferRelevance(ctx *gin.Context) {
 
 	c.logger.Info("get offer relevance request",
 		"offer_id", req.OfferID,
-		"user_id", req.UserID,
 		"smoking", req.UserFlags.Smoking,
 		"children", req.UserFlags.Children,
 		"pets", req.UserFlags.Pets,
@@ -241,25 +233,23 @@ func (c HouseOffers) GetOfferRelevance(ctx *gin.Context) {
 
 	relevancePercent, err := c.houseOffersRepo.GetOfferRelevance(ctx, req.OfferID, req.UserFlags)
 	if errors.Is(err, sql.ErrNoRows) {
-		c.logger.Warn("offer not found for relevance calculation", "offer_id", req.OfferID, "user_id", req.UserID)
+		c.logger.Warn("offer not found for relevance calculation", "offer_id", req.OfferID)
 		controllerError(ctx, errors.New("offer not found"), http.StatusNotFound)
 		return
 	}
 	if err != nil {
-		c.logger.Error("failed to calculate offer relevance", "offer_id", req.OfferID, "user_id", req.UserID, "error", err)
+		c.logger.Error("failed to calculate offer relevance", "offer_id", req.OfferID, "error", err)
 		controllerError(ctx, errors.New("failed to calculate relevance"), http.StatusInternalServerError)
 		return
 	}
 
 	c.logger.Info("offer relevance calculated",
 		"offer_id", req.OfferID,
-		"user_id", req.UserID,
 		"relevance_percent", relevancePercent,
 	)
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"offer_id":          req.OfferID,
-		"user_id":           req.UserID,
 		"relevance_percent": relevancePercent,
 	})
 }

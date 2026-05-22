@@ -50,10 +50,10 @@ async def select_city(msg: Message, state: FSMContext):
     # Проверка что в указанном городе есть объявления
     data = await state.get_data()
 
-    ruleset = None
+    flags = None
     if "user" in data:
-        ruleset = UserFlags(**data["user"]["flags"])
-    offer = await get_rand_offer(msg.from_user.id, city, ruleset)
+        flags = UserFlags(**data["user"]["flags"])
+    offer = await get_rand_offer(msg.from_user.id, city, flags)
     if offer is None:
         await state.set_state(SearchOffers.offer_not_found)
         kb = ReplyKeyboardMarkup(keyboard=[
@@ -74,13 +74,14 @@ async def show_next_offer(msg: Message, state: FSMContext, id: int = 0):
     
     if id == 0 and user_id in _user_city:
         data = await state.get_data()
-        ruleset = None
+        flags = None
         if "user" in data:
-            ruleset = UserFlags(**data["user"]["flags"])
+            flags = UserFlags(**data["user"]["flags"])
 
         city = _user_city[user_id]
         
-        offer = await get_rand_offer(msg.from_user.id, city, ruleset)
+        offer = await get_rand_offer(msg.from_user.id, city, flags)
+        offer = offer.offer
     elif id != 0:
         offer = await get_offer_by_id(id)
     

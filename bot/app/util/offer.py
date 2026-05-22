@@ -31,7 +31,6 @@ async def show_offer(msg: Message, offer: HouseOffer):
             rules_lines.append("👨 Желательно мужчина")
         elif offer.preferences.sex == SexEnum.FEMALE:
             rules_lines.append("👩 Желательно женщина")
-        print(f"SEX: {offer.preferences.sex}")
         
         # Дети
         if offer.preferences.children == ChildrenEnum.NONE:
