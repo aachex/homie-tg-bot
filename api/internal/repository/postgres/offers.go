@@ -139,12 +139,12 @@ func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64)
 	return nil
 }
 
-func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags) (offer model.RelevantOffer, err error) {
+func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags, minRelPercent int) (offer model.RelevantOffer, err error) {
 	query := `
 		WITH user_flags AS (
 			SELECT 
 				COALESCE($3, FALSE)::boolean AS smoking,
-				COALESCE($4, 'any')::text AS sex,
+				$4::text AS sex,
 				COALESCE($5, 'none')::text AS children,
 				COALESCE($6, 'none')::text AS pets,
 				COALESCE($7, 1)::int AS occupants_count,
@@ -169,8 +169,9 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 					END +
 					-- Sex (max 20)
 					CASE
-						WHEN o.preferred_sex IS NULL THEN 20
-						WHEN o.preferred_sex::text = u.sex THEN 20
+						WHEN o.preferred_sex IS NULL OR u.sex IS NULL THEN 20
+						WHEN u.sex = 'male' AND o.preferred_sex::text = 'male' THEN 20
+						WHEN u.sex = 'female' AND o.preferred_sex::text = 'female' THEN 20
 						ELSE 0
 					END +
 					-- Children (max 20)
@@ -184,10 +185,10 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 						WHEN o.preferred_children::text = 'one' AND u.children = 'one' THEN 20
 						WHEN o.preferred_children::text = 'one' AND u.children = 'two+' THEN 0
 						WHEN o.preferred_children::text = 'one' AND u.children = 'planning' THEN 10
-						WHEN o.preferred_children::text = 'two+' AND u.children = 'none' THEN 0
-						WHEN o.preferred_children::text = 'two+' AND u.children = 'one' THEN 0
+						WHEN o.preferred_children::text = 'two+' AND u.children = 'none' THEN 20
+						WHEN o.preferred_children::text = 'two+' AND u.children = 'one' THEN 20
 						WHEN o.preferred_children::text = 'two+' AND u.children = 'two+' THEN 20
-						WHEN o.preferred_children::text = 'two+' AND u.children = 'planning' THEN 0
+						WHEN o.preferred_children::text = 'two+' AND u.children = 'planning' THEN 20
 						WHEN o.preferred_children::text = 'planning' AND u.children = 'none' THEN 10
 						WHEN o.preferred_children::text = 'planning' AND u.children = 'one' THEN 20
 						WHEN o.preferred_children::text = 'planning' AND u.children = 'two+' THEN 20
@@ -199,47 +200,40 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 						WHEN o.preferred_pets IS NULL THEN 20
 						WHEN o.preferred_pets::text = 'any' THEN 20
 						WHEN o.preferred_pets::text = 'none' AND (u.pets IS NULL OR u.pets = 'none') THEN 20
-						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'none' THEN 0
+						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'none' THEN 20
 						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'cats' THEN 20
 						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'dogs' THEN 10
-						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'other' THEN 5
+						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'other' THEN 20
 						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'any' THEN 10
-						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'none' THEN 0
+						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'none' THEN 20
 						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'cats' THEN 10
 						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'dogs' THEN 20
-						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'other' THEN 5
+						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'other' THEN 20
 						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'any' THEN 10
-						WHEN o.preferred_pets::text = 'other' AND u.pets = 'none' THEN 0
+						WHEN o.preferred_pets::text = 'other' AND u.pets = 'none' THEN 20
 						WHEN o.preferred_pets::text = 'other' AND u.pets = 'cats' THEN 10
 						WHEN o.preferred_pets::text = 'other' AND u.pets = 'dogs' THEN 10
 						WHEN o.preferred_pets::text = 'other' AND u.pets = 'other' THEN 20
 						WHEN o.preferred_pets::text = 'other' AND u.pets = 'any' THEN 10
-						WHEN o.preferred_pets::text = 'any' AND u.pets = 'none' THEN 0
-						WHEN o.preferred_pets::text = 'any' AND u.pets = 'cats' THEN 10
-						WHEN o.preferred_pets::text = 'any' AND u.pets = 'dogs' THEN 10
-						WHEN o.preferred_pets::text = 'any' AND u.pets = 'other' THEN 10
-						WHEN o.preferred_pets::text = 'any' AND u.pets = 'any' THEN 20
 						ELSE 0
 					END +
 					-- Occupants count (max 20)
 					CASE
 						WHEN o.preferred_occupants_count IS NULL THEN 20
-						WHEN u.occupants_count = 1 THEN 20
-						WHEN u.occupants_count = 2 AND o.preferred_occupants_count = 2 THEN 15
-						WHEN u.occupants_count = 3 AND o.preferred_occupants_count = 2 THEN 0
+						WHEN u.occupants_count <= o.preferred_occupants_count THEN 20
 						ELSE 0
 					END +
 					-- Noise level (max 20)
 					CASE
 						WHEN o.preferred_noise_lvl IS NULL THEN 20
 						WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'quiet' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'normal' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'loud' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'quiet' THEN 10
+						WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'normal' THEN 10
+						WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'loud' THEN 0
+						WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'quiet' THEN 20
 						WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'normal' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'loud' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'quiet' THEN 0
-						WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'normal' THEN 0
+						WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'loud' THEN 0
+						WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'quiet' THEN 20
+						WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'normal' THEN 20
 						WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'loud' THEN 20
 						ELSE 0
 					END +
@@ -253,13 +247,13 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 					CASE
 						WHEN o.preferred_alcohol IS NULL THEN 20
 						WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'never' THEN 20
-						WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'rare' THEN 20
-						WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'regular' THEN 20
-						WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'never' THEN 10
+						WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'rare' THEN 10
+						WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'regular' THEN 0
+						WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'never' THEN 20
 						WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'rare' THEN 20
-						WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'regular' THEN 20
-						WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'never' THEN 0
-						WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'rare' THEN 0
+						WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'regular' THEN 0
+						WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'never' THEN 20
+						WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'rare' THEN 20
 						WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'regular' THEN 20
 						ELSE 0
 					END +
@@ -274,7 +268,7 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 					CASE
 						WHEN o.preferred_age_max IS NULL THEN 20
 						WHEN u.age_max <= o.preferred_age_max THEN 20
-						WHEN u.age_max > o.preferred_age_max THEN 0
+						WHEN u.age_max > o.preferred_age_max THEN 10
 						ELSE 0
 					END
 				) AS relevance_sum
@@ -312,8 +306,9 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 		LIMIT 1
 	`
 
-	// Если minRelevance не передано, используем 0
-	minRelevance := 0
+	const maxRelevance = 200
+
+	minRelevance := minRelPercent * maxRelevance / 100
 	args := []any{
 		userId,                   // $1
 		city,                     // $2
@@ -359,24 +354,24 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 
 func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFlags model.UserFlags) (relevancePercent int, err error) {
 	query := `
-    WITH user_flags AS (
-        SELECT 
-            COALESCE($2, FALSE)::boolean AS smoking,
-            COALESCE($3, 'any')::text AS sex,
-            COALESCE($4, 'none')::text AS children,
-            COALESCE($5, 'none')::text AS pets,
-            COALESCE($6, 1)::int AS occupants_count,
-            COALESCE($7, 'quiet')::text AS noise_lvl,
-            COALESCE($8, FALSE)::boolean AS works_from_home,
-            COALESCE($9, 'never')::text AS alcohol,
-            COALESCE($10, 0)::int AS age_min,
-            COALESCE($11, 150)::int AS age_max
+		WITH user_flags AS (
+			SELECT 
+				COALESCE($2, FALSE)::boolean AS smoking,
+				$3::text AS sex,
+				COALESCE($4, 'none')::text AS children,
+				COALESCE($5, 'none')::text AS pets,
+				COALESCE($6, 1)::int AS occupants_count,
+				COALESCE($7, 'quiet')::text AS noise_lvl,
+				COALESCE($8, FALSE)::boolean AS works_from_home,
+				COALESCE($9, 'never')::text AS alcohol,
+				COALESCE($10, 0)::int AS age_min,
+				COALESCE($11, 150)::int AS age_max
 		)
 		SELECT
 			(
 				-- Smoking (max 20)
 				CASE
-					WHEN o.preferred_smoking IS NULL THEN 20
+					WHEN o.preferred_smoking IS NULL OR u.smoking IS NULL THEN 20
 					WHEN u.smoking IS TRUE AND o.preferred_smoking IS TRUE THEN 20
 					WHEN u.smoking IS FALSE AND o.preferred_smoking IS FALSE THEN 20
 					WHEN u.smoking IS FALSE AND o.preferred_smoking IS TRUE THEN 20
@@ -385,15 +380,14 @@ func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFl
 				END +
 				-- Sex (max 20)
 				CASE
-					WHEN o.preferred_sex IS NULL THEN 20
+					WHEN o.preferred_sex IS NULL OR u.sex IS NULL THEN 20
 					WHEN u.sex = 'male' AND o.preferred_sex::text = 'male' THEN 20
 					WHEN u.sex = 'female' AND o.preferred_sex::text = 'female' THEN 20
-					WHEN o.preferred_sex = 'any' THEN 20
 					ELSE 0
 				END +
 				-- Children (max 20)
 				CASE
-					WHEN o.preferred_children IS NULL THEN 20
+					WHEN o.preferred_children IS NULL OR u.children IS NULL THEN 20
 					WHEN o.preferred_children::text = 'none' AND (u.children IS NULL OR u.children = 'none') THEN 20
 					WHEN o.preferred_children::text = 'none' AND u.children = 'one' THEN 0
 					WHEN o.preferred_children::text = 'none' AND u.children = 'two+' THEN 0
@@ -414,7 +408,7 @@ func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFl
 				END +
 				-- Pets (max 20)
 				CASE
-					WHEN o.preferred_pets IS NULL THEN 20
+					WHEN o.preferred_pets IS NULL OR u.pets IS NULL THEN 20
 					WHEN o.preferred_pets::text = 'any' THEN 20
 					WHEN o.preferred_pets::text = 'none' AND (u.pets IS NULL OR u.pets = 'none') THEN 20
 					WHEN o.preferred_pets::text = 'cats' AND u.pets = 'none' THEN 20
@@ -436,13 +430,13 @@ func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFl
 				END +
 				-- Occupants count (max 20)
 				CASE
-					WHEN o.preferred_occupants_count IS NULL THEN 20
+					WHEN o.preferred_occupants_count IS NULL OR u.occupants_count IS NULL THEN 20
 					WHEN u.occupants_count <= o.preferred_occupants_count THEN 20
 					ELSE 0
 				END +
 				-- Noise level (max 20)
 				CASE
-					WHEN o.preferred_noise_lvl IS NULL THEN 20
+					WHEN o.preferred_noise_lvl IS NULL OR u.noise_lvl IS NULL THEN 20
 					WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'quiet' THEN 20
 					WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'normal' THEN 10
 					WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'loud' THEN 0
@@ -456,13 +450,13 @@ func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFl
 				END +
 				-- Works from home (max 20)
 				CASE
-					WHEN o.preferred_works_from_home IS NULL THEN 20
+					WHEN o.preferred_works_from_home IS NULL OR u.works_from_home IS NULL THEN 20
 					WHEN u.works_from_home = o.preferred_works_from_home THEN 20
 					ELSE 0
 				END +
 				-- Alcohol (max 20)
 				CASE
-					WHEN o.preferred_alcohol IS NULL THEN 20
+					WHEN o.preferred_alcohol IS NULL OR u.alcohol IS NULL THEN 20
 					WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'never' THEN 20
 					WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'rare' THEN 10
 					WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'regular' THEN 0
@@ -476,14 +470,14 @@ func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFl
 				END +
 				-- Age min (max 20)
 				CASE
-					WHEN o.preferred_age_min IS NULL THEN 20
+					WHEN o.preferred_age_min IS NULL OR u.age_min IS NULL THEN 20
 					WHEN u.age_min >= o.preferred_age_min THEN 20
 					WHEN u.age_min < o.preferred_age_min THEN 10
 					ELSE 0
 				END +
 				-- Age max (max 20)
 				CASE
-					WHEN o.preferred_age_max IS NULL THEN 20
+					WHEN o.preferred_age_max IS NULL OR u.age_max IS NULL THEN 20
 					WHEN u.age_max <= o.preferred_age_max THEN 20
 					WHEN u.age_max > o.preferred_age_max THEN 10
 					ELSE 0
@@ -507,7 +501,6 @@ func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFl
 		userFlags.AgeMin,         // $10
 		userFlags.AgeMax,         // $11
 	}
-	// ...
 
 	var relevanceSum int
 	err = r.connPool.QueryRow(ctx, query, args...).Scan(&relevanceSum)
