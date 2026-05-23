@@ -1,10 +1,10 @@
 from aiogram.types import Message
 from aiogram.utils.media_group import MediaGroupBuilder
 
-from ..api.offers import HouseOffer
+from ..api.offers import HouseOffer, RelevantOffer
 from ..model.enums import *
 
-async def show_offer(msg: Message, offer: HouseOffer):
+async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     """Отображает созданное объявление для подтверждения"""
     
     # ========== Форматирование цены ==========
@@ -93,6 +93,24 @@ async def show_offer(msg: Message, offer: HouseOffer):
         
         rules_text = "\n".join(rules_lines) if rules_lines else "⚪ Нет особых требований"
     
+    # ========== Форматирование релевантности ==========
+    relevance_text = ""
+    if relevance > 0:
+        if relevance >= 90:
+            emoji = "🔥"
+            label = "Отличное совпадение"
+        elif relevance >= 70:
+            emoji = "👍"
+            label = "Хорошее совпадение"
+        elif relevance >= 50:
+            emoji = "👌"
+            label = "Среднее совпадение"
+        else:
+            emoji = "⚠️"
+            label = "Низкое совпадение"
+        
+        relevance_text = f"\n\n<b>🎯 Совместимость:</b> {emoji} {label} ({relevance}%)"
+    
     # ========== Текстовое сообщение ==========
     district = f", {offer.district}" if offer.district else ""
     message_text = f"""
@@ -107,7 +125,7 @@ async def show_offer(msg: Message, offer: HouseOffer):
 <b>📸 Фотографий:</b> {len(offer.media_files)}
 
 <b>📋 Требования к арендатору:</b>
-{rules_text}
+{rules_text}{relevance_text}
 """
     
     # ========== Отправка созданного объявления ==========

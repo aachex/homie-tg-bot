@@ -116,9 +116,9 @@ async def show_profile(msg: Message, user: User):
     else:
         await msg.answer(caption, parse_mode="HTML")
 
-async def show_unauthorized(msg: Message, offer_id: int = 0):    
+async def show_unauthorized(msg: Message, offer_id: int = 0, relevance: int = 0):    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Заполнить профиль", callback_data=f"authorize:{offer_id}")]
+        [InlineKeyboardButton(text="Заполнить профиль", callback_data=f"authorize:{offer_id}:{relevance}")]
     ], resize_keyboard=True)
     txt = """💡 <b>Чтобы оценивать объявления, нужен профиль.</b>
 Создать объявление можно и без него.

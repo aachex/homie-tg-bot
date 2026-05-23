@@ -51,7 +51,7 @@ async def select_city(msg: Message, state: FSMContext):
     data = await state.get_data()
 
     flags = None
-    if "user" in data:
+    if "user" in data and "flags" in data["user"]:
         flags = UserFlags(**data["user"]["flags"])
     offer = await get_rand_offer(msg.from_user.id, city, flags)
     if offer is None:
@@ -68,19 +68,20 @@ async def select_city(msg: Message, state: FSMContext):
     await send_mag(msg)
     await show_next_offer(msg, state)
 
-async def show_next_offer(msg: Message, state: FSMContext, id: int = 0):
+async def show_next_offer(msg: Message, state: FSMContext, id: int = 0, relevance: int = 0):
     offer = None
     user_id = msg.from_user.id
     
     if id == 0 and user_id in _user_city:
         data = await state.get_data()
         flags = None
-        if "user" in data:
+        if "user" in data and "flags" in data["user"]:
             flags = UserFlags(**data["user"]["flags"])
 
         city = _user_city[user_id]
         
         offer = await get_rand_offer(msg.from_user.id, city, flags)
+        relevance = offer.relevance_percent
         offer = offer.offer
     elif id != 0:
         offer = await get_offer_by_id(id)
@@ -95,7 +96,8 @@ async def show_next_offer(msg: Message, state: FSMContext, id: int = 0):
         return
 
     await state.update_data(offer_id=offer.id)
-    await show_offer(msg, offer)
+    await state.update_data(offer_relevance=relevance)
+    await show_offer(msg, offer, relevance)
     await state.set_state(SearchOffers.choice)
 
 @router.message(SearchOffers.choice, F.text.in_({"❤️", "👎"}))
@@ -111,7 +113,8 @@ async def evaluate_offer(msg: Message, state: FSMContext):
 
         # Проверяем что пользователь зарегистрирован
         if "user" not in data:
-            await show_unauthorized(msg, offer_id)
+            offer_relevance = int(data["offer_relevance"])
+            await show_unauthorized(msg, offer_id, offer_relevance)
             return
         
         user_id = int(data["user"]["id"])

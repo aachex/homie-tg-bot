@@ -16,7 +16,7 @@ class HouseOffersApi(APIClient):
             "user_id": exclude_user_id,
             "min_rel": 70,
             "city": city,
-            "user_flags": asdict(user_flags),
+            "user_flags": asdict(user_flags) if user_flags else None,
         }
         
         resp_json = await self._request("POST", "offer/rand", data=data, expected_status=200)

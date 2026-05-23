@@ -56,10 +56,14 @@ async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.clear()
 
-    offer_id_str = callback.data.split(':')[1]
-    if offer_id_str != '0':
-        offer_id = int(offer_id_str)
+    callback_data = callback.data.split(':')
+    offer_id = int(callback_data[1])
+    if offer_id != 0:
         await state.update_data(offer_id=offer_id)
+
+    offer_relevance = int(callback_data[2])
+    if offer_relevance != 0:
+        await state.update_data(offer_relevance=offer_relevance)
 
     await auth_start(callback.message, state, callback.from_user.first_name)
 
@@ -201,11 +205,12 @@ async def show_profile_with_keyboard(msg: Message, state: FSMContext, user: User
 @router.message(MainMenu.profile, F.text == "Готово")
 async def profile_done(msg: Message, state: FSMContext):
     data = await state.get_data()
-    if "offer_id" not in data:
+    if "offer_id" not in data or "offer_relevance" not in data:
         await show_main_menu(msg, state)
         return
     
     await send_mag(msg)
 
     offer_id = int(data["offer_id"])
-    await show_next_offer(msg, state, offer_id)
+    offer_relevance = int(data["offer_relevance"])
+    await show_next_offer(msg, state, offer_id, offer_relevance)
