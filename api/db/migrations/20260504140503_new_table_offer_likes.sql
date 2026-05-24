@@ -3,7 +3,8 @@
 CREATE TABLE IF NOT EXISTS offer_like (
     id BIGSERIAL PRIMARY KEY NOT NULL,
     offer_id BIGINT NOT NULL REFERENCES tg_house_offer (id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES tg_user (id)
+    user_id BIGINT NOT NULL REFERENCES tg_user (id),
+    relevance INT NOT NULL CHECK (0 <= relevance AND relevance <= 100)
 );
 -- +goose StatementEnd
 

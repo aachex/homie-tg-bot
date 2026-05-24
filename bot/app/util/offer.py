@@ -1,10 +1,11 @@
 from aiogram.types import Message
 from aiogram.utils.media_group import MediaGroupBuilder
 
-from ..api.offers import HouseOffer
+from ..api.offers import HouseOffer, RelevantOffer
 from ..model.enums import *
+from .shared import get_relevance_emoji
 
-async def show_offer(msg: Message, offer: HouseOffer):
+async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     """Отображает созданное объявление для подтверждения"""
     
     # ========== Форматирование цены ==========
@@ -31,7 +32,6 @@ async def show_offer(msg: Message, offer: HouseOffer):
             rules_lines.append("👨 Желательно мужчина")
         elif offer.preferences.sex == SexEnum.FEMALE:
             rules_lines.append("👩 Желательно женщина")
-        print(f"SEX: {offer.preferences.sex}")
         
         # Дети
         if offer.preferences.children == ChildrenEnum.NONE:
@@ -94,6 +94,12 @@ async def show_offer(msg: Message, offer: HouseOffer):
         
         rules_text = "\n".join(rules_lines) if rules_lines else "⚪ Нет особых требований"
     
+    # ========== Форматирование релевантности ==========
+    relevance_text = ""
+    if relevance > 0:
+        emoji = get_relevance_emoji(relevance)
+        relevance_text = f"\n\n<b>{emoji} Совместимость:</b> {relevance}%"
+    
     # ========== Текстовое сообщение ==========
     district = f", {offer.district}" if offer.district else ""
     message_text = f"""
@@ -108,7 +114,7 @@ async def show_offer(msg: Message, offer: HouseOffer):
 <b>📸 Фотографий:</b> {len(offer.media_files)}
 
 <b>📋 Требования к арендатору:</b>
-{rules_text}
+{rules_text}{relevance_text}
 """
     
     # ========== Отправка созданного объявления ==========

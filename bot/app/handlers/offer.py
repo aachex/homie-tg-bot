@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 from aiogram import F, Router
 from aiogram.filters import StateFilter
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup
@@ -9,7 +11,7 @@ from .main_menu import main_menu as show_main_menu
 
 from ..util.offer import show_offer
 from ..util.auth import show_profile
-from ..util.shared import is_int, handle_media_upload, normalize_city
+from ..util.shared import handle_media_upload, normalize_city
 from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
 from ..api.users import get_user_by_id
@@ -294,12 +296,12 @@ async def show_next_like(msg: Message, state: FSMContext):
 
         offer_id = int(data["offer_id"])
         likes = await get_offer_likes(offer_id)
-        user_ids = [like.user_id for like in likes]
-        await state.update_data(user_ids=user_ids)
-        data["user_ids"] = user_ids
+        likes = [asdict(like) for like in likes]
+        await state.update_data(likes=likes)
+        data["likes"] = likes
     
-    user_ids = data["user_ids"]
-    if len(user_ids) == 0:
+    likes = data["likes"]
+    if len(likes) == 0:
         kb = ReplyKeyboardMarkup(keyboard=[
             [KeyboardButton(text="Мои объявления")],
             [KeyboardButton(text="Главное меню")]
@@ -307,9 +309,9 @@ async def show_next_like(msg: Message, state: FSMContext):
         await msg.answer("Просмотрены все интересующиеся", reply_markup=kb)
         return
 
-    user_id = user_ids[0]
-    user = await get_user_by_id(user_id)
-    await show_profile(msg, user)
+    like = likes[0]
+    user = await get_user_by_id(like["user_id"])
+    await show_profile(msg, user, relevance=like["relevance"])
 
     await state.set_state(Offer.view_likes)
 
@@ -324,10 +326,10 @@ async def evaluate_user(msg: Message, state: FSMContext):
         return
     
     data = await state.get_data()
-    user_ids = data["user_ids"]
+    likes = data["likes"]
 
     offer_id = int(data["offer_id"])
-    user_id = int(user_ids[0])
+    user_id = int(likes[0]["user_id"])
     await delete_like(offer_id, user_id)
 
     if msg.text == "❤️":
@@ -337,5 +339,5 @@ async def evaluate_user(msg: Message, state: FSMContext):
         txt = f"Владелец объявления <b>\"{title}\"</b> готов обсудить сделку! Пишите 👉 {owner_link}"
         await msg.bot.send_message(user_id, txt, parse_mode="HTML")
 
-    await state.update_data(user_ids=user_ids[1:])
+    await state.update_data(likes=likes[1:])
     await show_next_like(msg, state)
