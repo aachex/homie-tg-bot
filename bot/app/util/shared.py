@@ -78,9 +78,13 @@ def normalize_city(city: str) -> str:
     
     return result
 
-def is_int(n: str):
-    try:
-        int(n)
-        return True
-    except:
-        return False
+def get_relevance_emoji(relevance: int):
+    if relevance >= 90:
+        emoji = "🔥"
+    elif relevance >= 70:
+        emoji = "👍"
+    elif relevance >= 50:
+        emoji = "👌"
+    else:
+        emoji = "⚠️"
+    return emoji

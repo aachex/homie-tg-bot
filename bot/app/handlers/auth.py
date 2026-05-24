@@ -12,7 +12,7 @@ from .main_menu import main_menu as show_main_menu
 from .search_offers import show_next_offer, send_mag
 
 from ..util.auth import show_profile, show_unauthorized
-from ..util.shared import is_int, handle_media_upload, normalize_city
+from ..util.shared import handle_media_upload, normalize_city
 from ..api.users import get_user_by_id, create_user, edit_user, User, UserCreate, UserEdit, UserFlags
 
 from ..states import Auth, MainMenu

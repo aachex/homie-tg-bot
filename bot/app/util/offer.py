@@ -3,6 +3,7 @@ from aiogram.utils.media_group import MediaGroupBuilder
 
 from ..api.offers import HouseOffer, RelevantOffer
 from ..model.enums import *
+from .shared import get_relevance_emoji
 
 async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     """Отображает созданное объявление для подтверждения"""
@@ -96,20 +97,8 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     # ========== Форматирование релевантности ==========
     relevance_text = ""
     if relevance > 0:
-        if relevance >= 90:
-            emoji = "🔥"
-            label = "Отличное совпадение"
-        elif relevance >= 70:
-            emoji = "👍"
-            label = "Хорошее совпадение"
-        elif relevance >= 50:
-            emoji = "👌"
-            label = "Среднее совпадение"
-        else:
-            emoji = "⚠️"
-            label = "Низкое совпадение"
-        
-        relevance_text = f"\n\n<b>🎯 Совместимость:</b> {emoji} {label} ({relevance}%)"
+        emoji = get_relevance_emoji(relevance)
+        relevance_text = f"\n\n<b>{emoji} Совместимость:</b> {relevance}%"
     
     # ========== Текстовое сообщение ==========
     district = f", {offer.district}" if offer.district else ""

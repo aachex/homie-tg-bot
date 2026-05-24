@@ -11,7 +11,7 @@ from .main_menu import main_menu as show_main_menu
 
 from ..util.offer import show_offer
 from ..util.auth import show_profile
-from ..util.shared import is_int, handle_media_upload, normalize_city
+from ..util.shared import handle_media_upload, normalize_city
 from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
 from ..api.users import get_user_by_id
@@ -311,10 +311,7 @@ async def show_next_like(msg: Message, state: FSMContext):
 
     like = likes[0]
     user = await get_user_by_id(like["user_id"])
-    await show_profile(msg, user)
-    
-    relevance = int(like["relevance"])
-    await msg.answer(f"Совместимость: {relevance}%")
+    await show_profile(msg, user, relevance=like["relevance"])
 
     await state.set_state(Offer.view_likes)
 
