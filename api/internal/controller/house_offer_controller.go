@@ -19,7 +19,7 @@ import (
 type houseOffersRepo interface {
 	OfferById(ctx context.Context, id int64) (model.HouseOffer, error)
 	OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error)
-	AddLike(ctx context.Context, offerId int64, userId int64) error
+	AddLike(ctx context.Context, like model.AddLikeRequest) error
 	DeleteLike(ctx context.Context, offerId int64, userId int64) error
 	RandRelevantOffer(ctx context.Context, userId int64, city string, user model.UserFlags, minRelevancePercent int) (model.RelevantOffer, error)
 	GetOfferRelevance(ctx context.Context, offerId int64, userFlags model.UserFlags) (int, error)
@@ -88,38 +88,32 @@ func (c HouseOffers) OfferLikes(ctx *gin.Context) {
 }
 
 func (c HouseOffers) AddLike(ctx *gin.Context) {
-	offerId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	var like model.AddLikeRequest
+	err := ctx.ShouldBindJSON(&like)
 	if err != nil {
-		c.logger.Error("add like: invalid offer id", "error", err, "param", ctx.Param("id"))
-		controllerError(ctx, errors.New("invalid offer id"), http.StatusBadRequest)
+		c.logger.Error("add like: invalid JSON", "error", err)
+		controllerError(ctx, errors.New("invalid request body"), http.StatusBadRequest)
 		return
 	}
 
-	userId, err := strconv.ParseInt(ctx.Query("userId"), 10, 64)
-	if err != nil {
-		c.logger.Error("add like: invalid userId format", "error", err, "userId", ctx.Query("userId"))
-		controllerError(ctx, errors.New("invalid userId format"), http.StatusBadRequest)
-		return
-	}
-
-	err = c.houseOffersRepo.AddLike(ctx, offerId, userId)
+	err = c.houseOffersRepo.AddLike(ctx, like)
 	if err != nil {
 		code := http.StatusInternalServerError
 		if errors.Is(err, postgres.ErrLikeAlreadyExists) {
 			code = http.StatusConflict
-			c.logger.Warn("like already exists", "offer_id", offerId, "user_id", userId)
+			c.logger.Warn("like already exists", "offer_id", like.OfferId, "user_id", like.UserId)
 			controllerError(ctx, errors.New("like already exists"), code)
 		} else {
-			c.logger.Error("failed to add like", "offer_id", offerId, "user_id", userId, "error", err)
+			c.logger.Error("failed to add like", "offer_id", like.OfferId, "user_id", like.UserId, "error", err)
 			controllerError(ctx, errors.New("failed to like offer"), code)
 		}
 		return
 	}
 
-	c.logger.Info("like added successfully", "offer_id", offerId, "user_id", userId)
+	c.logger.Info("like added successfully", "offer_id", like.OfferId, "user_id", like.UserId)
 	ctx.JSON(http.StatusCreated, defaultResp{
 		StatusCode: http.StatusCreated,
-		Message:    fmt.Sprintf("added like to offer %d", offerId),
+		Message:    fmt.Sprintf("added like to offer %d", like.OfferId),
 	})
 }
 

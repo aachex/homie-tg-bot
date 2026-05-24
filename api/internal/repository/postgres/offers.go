@@ -85,7 +85,8 @@ func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []mode
 		SELECT
 			id,
 			offer_id,
-			user_id
+			user_id,
+			relevance
 		FROM offer_like
 		WHERE offer_id = $1`
 	rows, err := r.connPool.Query(ctx, query, offerId)
@@ -95,7 +96,7 @@ func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []mode
 
 	var like model.HouseOfferLike
 	for rows.Next() {
-		err = rows.Scan(&like.Id, &like.OfferId, &like.UserId)
+		err = rows.Scan(&like.Id, &like.OfferId, &like.UserId, &like.Relevance)
 		if err != nil {
 			return likes, err
 		}
@@ -106,13 +107,13 @@ func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []mode
 	return likes, err
 }
 
-func (r OffersRepo) AddLike(ctx context.Context, offerId int64, userId int64) error {
+func (r OffersRepo) AddLike(ctx context.Context, like model.AddLikeRequest) error {
 	query := `
-        INSERT INTO offer_like (offer_id, user_id)
-		SELECT $1, $2
+        INSERT INTO offer_like (offer_id, user_id, relevance)
+		SELECT $1, $2, $3
 		WHERE EXISTS (SELECT 1 FROM tg_house_offer WHERE id = $1)
 		ON CONFLICT (offer_id, user_id) DO NOTHING`
-	cmdTag, err := r.connPool.Exec(ctx, query, offerId, userId)
+	cmdTag, err := r.connPool.Exec(ctx, query, like.OfferId, like.UserId, like.Relevance)
 	if err != nil {
 		return fmt.Errorf("failed to insert like: %w", err)
 	}

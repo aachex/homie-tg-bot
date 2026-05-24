@@ -18,6 +18,7 @@ from .main_menu import main_menu as show_main_menu
 from ..states import SearchOffers, MainMenu
 from ..model.report import ReportCreate
 from ..model.user import UserFlags
+from ..model.house_offer import AddLikeRequest
 
 from ..keyboards import evaluate_keyboard
 
@@ -110,15 +111,21 @@ async def evaluate_offer(msg: Message, state: FSMContext):
     if msg.text == "❤️":
         data = await state.get_data()
         offer_id = int(data["offer_id"])
+        relevance = int(data["offer_relevance"])
 
         # Проверяем что пользователь зарегистрирован
         if "user" not in data:
-            offer_relevance = int(data["offer_relevance"])
-            await show_unauthorized(msg, offer_id, offer_relevance)
+            await show_unauthorized(msg, offer_id, relevance)
             return
         
         user_id = int(data["user"]["id"])
-        await add_like_to_offer(offer_id, user_id)
+        
+        like = AddLikeRequest(
+            offer_id=offer_id,
+            user_id=user_id,
+            relevance=relevance
+        )
+        await add_like_to_offer(like)
     
     await show_next_offer(msg, state)
 

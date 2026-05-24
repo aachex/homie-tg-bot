@@ -50,11 +50,18 @@ type HouseOfferPreview struct {
 	LikesCount int    `json:"likes_count"`
 }
 
+type AddLikeRequest struct {
+	OfferId   int64 `json:"offer_id"`
+	UserId    int64 `json:"user_id"`
+	Relevance int   `json:"relevance"`
+}
+
 // HouseOfferLike представляет данные о лайке объявления.
 type HouseOfferLike struct {
-	Id      int64 `json:"id"`
-	OfferId int64 `json:"offer_id"`
-	UserId  int64 `json:"user_id"`
+	Id        int64 `json:"id"`
+	OfferId   int64 `json:"offer_id"`
+	UserId    int64 `json:"user_id"`
+	Relevance int   `json:"relevance"`
 }
 
 type RandRelevantOfferRequest struct {
