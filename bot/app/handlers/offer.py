@@ -41,25 +41,30 @@ async def my_offers(msg: Message, state: FSMContext):
 
     offers = await get_user_offers(msg.from_user.id)
 
-    keyboard = InlineKeyboardBuilder()
-    keyboard.row(InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary"))
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary")]
+    ])
+
+    builder = InlineKeyboardBuilder()
 
     for offer in offers:
         btn_txt = offer.title
         if offer.likes_count > 0:
             likes_cnt = str(offer.likes_count) if offer.likes_count < 99 else "99+"
-            btn_txt += f" | {likes_cnt}❤️"
+            btn_txt = f"{likes_cnt}❤️ | {offer.title}"
 
         btn = InlineKeyboardButton(text=btn_txt, callback_data=f"show_offer:{offer.id}:{offer.likes_count}")
         if offer.is_active:
             btn.style = "success"
-        keyboard.add(btn)
+        builder.add(btn)
 
-    markup = keyboard.adjust(1).as_markup()
-    markup.resize_keyboard = True
+    markup = builder.adjust(2).as_markup()
+
+    keyboard.inline_keyboard.extend(markup.inline_keyboard)
+    keyboard.resize_keyboard = True
     await msg.answer(
         "👇 Нажмите на объявление, чтобы посмотреть детали:",
-        reply_markup=markup)
+        reply_markup=keyboard)
 
 @router.callback_query(MainMenu.my_offers, F.data.startswith("show_offer:"))
 async def show_house_offer(callback: CallbackQuery, state: FSMContext):
@@ -341,3 +346,11 @@ async def evaluate_user(msg: Message, state: FSMContext):
 
     await state.update_data(likes=likes[1:])
     await show_next_like(msg, state)
+
+
+def is_int(n):
+    try:
+        int(n)
+        return True
+    except:
+        return False
