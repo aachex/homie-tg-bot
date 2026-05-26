@@ -4,17 +4,18 @@ from aiogram.fsm.context import FSMContext
 
 from ..api.users import User
 from ..model.enums import *
+from .shared import get_relevance_emoji
 
-async def show_profile(msg: Message, user: User):
-    # Базовый заголовок
-    lines = [f"👤 <b>{user.name}</b>"]
-    
-    # Город
-    lines.append(f"📍 <b>Город:</b> {user.city}")
-    
-    # Количество фото
-    photos_count = len(user.media_files)
-    lines.append(f"📸 <b>Фото:</b> {photos_count}")
+async def show_profile(msg: Message, user: User, relevance: int = 0):
+    lines = []
+
+    # Совместимость
+    if relevance > 0:
+        emoji = get_relevance_emoji(relevance)
+        lines.append(f"<b>{emoji} Совместимость: {relevance}%</b>\n")
+
+    # Имя и город
+    lines.append(f"👤 {user.name}, {user.city}")
     
     # Флаги (user.flags)
     if user.flag_processing:
@@ -116,9 +117,9 @@ async def show_profile(msg: Message, user: User):
     else:
         await msg.answer(caption, parse_mode="HTML")
 
-async def show_unauthorized(msg: Message, offer_id: int = 0):    
+async def show_unauthorized(msg: Message, offer_id: int = 0, relevance: int = 0):    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Заполнить профиль", callback_data=f"authorize:{offer_id}")]
+        [InlineKeyboardButton(text="Заполнить профиль", callback_data=f"authorize:{offer_id}:{relevance}")]
     ], resize_keyboard=True)
     txt = """💡 <b>Чтобы оценивать объявления, нужен профиль.</b>
 Создать объявление можно и без него.

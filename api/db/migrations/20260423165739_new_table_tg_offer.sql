@@ -2,10 +2,13 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS tg_house_offer (
     id BIGSERIAL PRIMARY KEY NOT NULL,
+    owner_id BIGINT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    city TEXT NOT NULL,
+    district TEXT NOT NULL DEFAULT '',
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     price INTEGER NOT NULL,
-    owner_id BIGINT NOT NULL,
     media_files TEXT[] NOT NULL,
     flag_processing BOOL NOT NULL DEFAULT FALSE,
 

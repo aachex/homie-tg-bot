@@ -55,7 +55,21 @@ class HouseOfferPreview:
 
 
 @dataclass
+class AddLikeRequest:
+    offer_id: int = 0
+    user_id: int = 0
+    relevance: int = 0
+
+@dataclass
 class HouseOfferLike:
     id: int = 0
     offer_id: int = 0
     user_id: int = 0
+    relevance: int = 0
+
+
+@dataclass
+class RelevantOffer:
+    relevance_sum: int = 0
+    relevance_percent: int = 0
+    offer: HouseOffer = field(default_factory=HouseOffer)
