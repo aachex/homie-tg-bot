@@ -16,11 +16,13 @@ async def show_profile(msg: Message, user: User, relevance: int = 0):
 
     # Имя и город
     lines.append(f"👤 {user.name}, {user.city}")
+
+    # Описание
+    lines.append(f"\n{user.description}\n")
     
     # Флаги (user.flags)
     if user.flag_processing:
-        lines.append("\n📋 <b>Обо мне:</b>")
-        lines.append("⏳ Обрабатывается...")
+        lines.append("<blockquote>⏳ Обрабатывается...</blockquote>")
     elif user.flags:
         flag_lines = []
         
@@ -53,7 +55,7 @@ async def show_profile(msg: Message, user: User, relevance: int = 0):
                 "none": "🐾 Нет животных",
                 "cats": "🐱 Есть кошки",
                 "dogs": "🐶 Есть собаки",
-                "other": "🐾 Есть другие животные",
+                "other": "🐾 Есть небольшие животные",
                 "any": "🐾 Есть животные"
             }
             if user.flags.pets.value in pets_map:
@@ -102,7 +104,8 @@ async def show_profile(msg: Message, user: User, relevance: int = 0):
                 flag_lines.append(f"🎂 Возраст: {' '.join(age_parts)}")
 
         if flag_lines:
-            lines.append("\n📋 <b>Обо мне:</b>")
+            flag_lines[0] = "<blockquote expandable>" + flag_lines[0]
+            flag_lines[-1] += "</blockquote>"
             lines.extend(flag_lines)
     
     # Собираем итоговый caption
@@ -121,7 +124,7 @@ async def show_unauthorized(msg: Message, offer_id: int = 0, relevance: int = 0)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Заполнить профиль", callback_data=f"authorize:{offer_id}:{relevance}")]
     ], resize_keyboard=True)
-    txt = """💡 <b>Чтобы оценивать объявления, нужен профиль.</b>
-Создать объявление можно и без него.
-Создание профиля займёт меньше минуты и откроет вам полный функционал."""
+    txt = ("💡 <b>Чтобы оценивать объявления, нужен профиль.</b>\n\n"
+"Создать объявление можно и без него."
+"Создание профиля займёт меньше минуты и откроет вам полный функционал.")
     await msg.answer(txt, reply_markup=kb, parse_mode="HTML")
