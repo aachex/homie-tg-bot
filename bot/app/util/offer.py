@@ -10,10 +10,10 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     
     # ========== Форматирование цены ==========
     if offer.price == 0:
-        price_line = "💰 Цена: Не указана"
+        price_line = "💰 Цена не указана"
     else:
         price_str = f"{int(offer.price):,}".replace(',', ' ')
-        price_line = f"💰 Цена: {price_str} ₽/месяц"
+        price_line = f"💰 {price_str} ₽/месяц"
     
     # ========== Форматирование правил ==========
     if offer.flag_processing:
@@ -92,7 +92,12 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
         elif offer.preferences.age_max is not None:
             rules_lines.append(f"🎂 Возраст: до {offer.preferences.age_max}")
         
-        rules_text = "\n".join(rules_lines) if rules_lines else "⚪ Нет особых требований"
+        if rules_lines:
+            rules_lines[0] = "<blockquote expandable>" + rules_lines[0]
+            rules_lines[-1] += "</blockquote>"
+            rules_text = "\n".join(rules_lines)
+        else:
+            rules_text = "<blockquote>⚪ Нет особых требований</blockquote>"
     
     # ========== Форматирование релевантности ==========
     relevance_text = ""
@@ -105,13 +110,11 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     message_text = f"""
 <b>📋 {offer.title}</b>
 
-<b>📍 Город:</b> {offer.city}{district}
+📍 {offer.city}{district}
 {price_line}
 
 <b>📝 Описание:</b>
 {offer.description if offer.description else '<i>—</i>'}
-
-<b>📸 Фотографий:</b> {len(offer.media_files)}
 
 <b>📋 Требования к арендатору:</b>
 {rules_text}{relevance_text}
