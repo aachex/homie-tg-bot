@@ -160,16 +160,15 @@ async def finalize_auth(msg: Message, state: FSMContext):
         await edit_user(msg.from_user.id, user_edit)
     else:
         await create_user(user)
-
-    flag_processing = (user.description is not None)
     
     await state.update_data(user=asdict(user))
-    await state.update_data(flag_processing=flag_processing)
+    await state.update_data(flag_processing=True)
 
-    user2 = User(
+    user = User(
         id=user.id,
         name=user.name,
         city=user.city,
+        description=user.description,
         media_files=user.media_files,
         flag_processing=True
     )
@@ -177,7 +176,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Готово")],
     ], resize_keyboard=True)
-    await show_profile_with_keyboard(msg, state, user2, keyboard)
+    await show_profile_with_keyboard(msg, state, user, keyboard)
 
 @router.message(Auth.media_files)
 async def auth_media(msg: Message, state: FSMContext):
