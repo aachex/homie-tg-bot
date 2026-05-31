@@ -17,16 +17,16 @@ var (
 )
 
 type OffersRepo struct {
-	logger    *slog.Logger
-	connPool  *pgxpool.Pool
-	usersRepo *UsersRepo
+	logger      *slog.Logger
+	connPool    *pgxpool.Pool
+	premiumRepo *PremiumRepo
 }
 
-func NewOffersRepo(logger *slog.Logger, connPool *pgxpool.Pool, usersRepo *UsersRepo) *OffersRepo {
+func NewOffersRepo(logger *slog.Logger, connPool *pgxpool.Pool, premiumRepo *PremiumRepo) *OffersRepo {
 	return &OffersRepo{
-		logger:    logger,
-		connPool:  connPool,
-		usersRepo: usersRepo,
+		logger:      logger,
+		connPool:    connPool,
+		premiumRepo: premiumRepo,
 	}
 }
 
@@ -560,7 +560,7 @@ func (r OffersRepo) CreateOffer(ctx context.Context, offer model.HouseOfferCreat
 
 	err = r.transaction(ctx, func(tx pgx.Tx) error {
 		// Проверяем, есть ли у пользователя премиум, чтобы определить лимит объявлений
-		hasPremium, err := r.usersRepo.checkPremiumTx(ctx, tx, offer.OwnerId)
+		hasPremium, err := r.premiumRepo.checkPremiumTx(ctx, tx, offer.OwnerId)
 		if err != nil {
 			return err
 		}
