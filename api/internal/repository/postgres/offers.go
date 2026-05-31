@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"homie-api/internal/model"
+	"log/slog"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,12 +17,16 @@ var (
 )
 
 type OffersRepo struct {
-	connPool *pgxpool.Pool
+	logger    *slog.Logger
+	connPool  *pgxpool.Pool
+	usersRepo *UsersRepo
 }
 
-func NewOffersRepo(connPool *pgxpool.Pool) *OffersRepo {
+func NewOffersRepo(logger *slog.Logger, connPool *pgxpool.Pool, usersRepo *UsersRepo) *OffersRepo {
 	return &OffersRepo{
-		connPool: connPool,
+		logger:    logger,
+		connPool:  connPool,
+		usersRepo: usersRepo,
 	}
 }
 
@@ -548,33 +554,38 @@ func (r OffersRepo) UserOffers(ctx context.Context, userId int64) (offers []mode
 	return offers, rows.Err()
 }
 
-func (r OffersRepo) CreateOffer(ctx context.Context, data model.HouseOfferCreate) (id int64, err error) {
-	query := `
-		INSERT INTO tg_house_offer (
-			owner_id,
-			title,
-			description,
-			city,
-			district,
-			price,
-			media_files,
-			flag_processing
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
-		RETURNING id
-	`
+func (r OffersRepo) CreateOffer(ctx context.Context, offer model.HouseOfferCreate) (id int64, err error) {
+	const maxOffersCount = 1
+	const maxOffersCountPremium = 10
 
-	err = r.connPool.QueryRow(
-		ctx,
-		query,
-		data.OwnerId,
-		data.Title,
-		data.Description,
-		data.City,
-		data.District,
-		data.Price,
-		data.MediaFiles,
-	).Scan(&id)
+	err = r.transaction(ctx, func(tx pgx.Tx) error {
+		// Проверяем, есть ли у пользователя премиум, чтобы определить лимит объявлений
+		hasPremium, err := r.usersRepo.checkPremiumTx(ctx, tx, offer.OwnerId)
+		if err != nil {
+			return err
+		}
+
+		// Если есть премиум, то повышаем лимит объявлений до 10
+		offersLimit := maxOffersCount
+		if hasPremium {
+			offersLimit = maxOffersCountPremium
+		}
+
+		// Получаем текущее количество объявлений
+		offersCount, err := r.countOffersTx(ctx, tx, offer.OwnerId)
+		if err != nil {
+			return err
+		}
+
+		// Проверяем, не превысили ли лимит имеющихся объявлений
+		if offersCount == offersLimit {
+			return errors.New("failed to create offer: max offers count exceeded")
+		}
+
+		// Всё ок - создаём объявление
+		id, err = r.createOfferTx(ctx, tx, offer)
+		return err
+	})
 
 	return id, err
 }
@@ -627,4 +638,68 @@ func (r OffersRepo) UpdateOfferPreferences(ctx context.Context, offerId int64, p
 	)
 
 	return err
+}
+
+func (r OffersRepo) transaction(ctx context.Context, f func(tx pgx.Tx) error) error {
+	tx, err := r.connPool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Rollback
+	defer func() {
+		rbErr := tx.Rollback(ctx)
+		if rbErr != nil {
+			r.logger.Error("failed to rollback transaction", "error", rbErr)
+		}
+	}()
+
+	err = f(tx)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r OffersRepo) countOffersTx(ctx context.Context, tx pgx.Tx, userId int64) (count int, err error) {
+	query := `
+		SELECT COUNT(*)
+		FROM tg_house_offer
+		WHERE owner_id = $1
+	`
+	row := tx.QueryRow(ctx, query, userId)
+	err = row.Scan(&count)
+	return count, err
+}
+
+func (r OffersRepo) createOfferTx(ctx context.Context, tx pgx.Tx, offer model.HouseOfferCreate) (id int64, err error) {
+	query := `
+		INSERT INTO tg_house_offer (
+			owner_id,
+			title,
+			description,
+			city,
+			district,
+			price,
+			media_files,
+			flag_processing
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+		RETURNING id
+	`
+
+	err = tx.QueryRow(
+		ctx,
+		query,
+		offer.OwnerId,
+		offer.Title,
+		offer.Description,
+		offer.City,
+		offer.District,
+		offer.Price,
+		offer.MediaFiles,
+	).Scan(&id)
+
+	return id, err
 }

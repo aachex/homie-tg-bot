@@ -35,7 +35,7 @@ func main() {
 
 	// Репозитории
 	usersRepo := postgres.NewUsersRepo(connPool)
-	offersRepo := postgres.NewOffersRepo(connPool)
+	offersRepo := postgres.NewOffersRepo(logger, connPool, usersRepo)
 	reportsRepo := postgres.NewReportsRepo(connPool)
 	statsRepo := postgres.NewStatsRepo(connPool)
 
