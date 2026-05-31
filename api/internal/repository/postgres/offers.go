@@ -147,220 +147,253 @@ func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64)
 }
 
 func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags, minRelPercent int) (offer model.RelevantOffer, err error) {
-	query := `
-		WITH user_flags AS (
+	const maxRelevanceSum = 200
+
+	err = r.transaction(ctx, func(tx pgx.Tx) error {
+		query := `
+			WITH user_flags AS (
+				SELECT
+					COALESCE($3, FALSE)::boolean AS smoking,
+					$4::text AS sex,
+					COALESCE($5, 'none')::text AS children,
+					COALESCE($6, 'none')::text AS pets,
+					COALESCE($7, 1)::int AS occupants_count,
+					COALESCE($8, 'quiet')::text AS noise_lvl,
+					COALESCE($9, FALSE)::boolean AS works_from_home,
+					COALESCE($10, 'never')::text AS alcohol,
+					COALESCE($11, 0)::int AS age_min,
+					COALESCE($12, 150)::int AS age_max
+			),
+			ranked_offers AS (
+				SELECT
+					o.*,
+					(
+						-- Smoking (max 20)
+						CASE
+							WHEN o.preferred_smoking IS NULL THEN 20
+							WHEN u.smoking IS TRUE AND o.preferred_smoking IS TRUE THEN 20
+							WHEN u.smoking IS FALSE AND o.preferred_smoking IS FALSE THEN 20
+							WHEN u.smoking IS FALSE AND o.preferred_smoking IS TRUE THEN 20
+							WHEN u.smoking IS TRUE AND o.preferred_smoking IS FALSE THEN 0
+							ELSE 0
+						END +
+						-- Sex (max 20)
+						CASE
+							WHEN o.preferred_sex IS NULL OR u.sex IS NULL THEN 20
+							WHEN u.sex = 'male' AND o.preferred_sex::text = 'male' THEN 20
+							WHEN u.sex = 'female' AND o.preferred_sex::text = 'female' THEN 20
+							ELSE 0
+						END +
+						-- Children (max 20)
+						CASE
+							WHEN o.preferred_children IS NULL THEN 20
+							WHEN o.preferred_children::text = 'none' AND (u.children IS NULL OR u.children = 'none') THEN 20
+							WHEN o.preferred_children::text = 'none' AND u.children = 'one' THEN 0
+							WHEN o.preferred_children::text = 'none' AND u.children = 'two+' THEN 0
+							WHEN o.preferred_children::text = 'none' AND u.children = 'planning' THEN 10
+							WHEN o.preferred_children::text = 'one' AND u.children = 'none' THEN 20
+							WHEN o.preferred_children::text = 'one' AND u.children = 'one' THEN 20
+							WHEN o.preferred_children::text = 'one' AND u.children = 'two+' THEN 0
+							WHEN o.preferred_children::text = 'one' AND u.children = 'planning' THEN 10
+							WHEN o.preferred_children::text = 'two+' AND u.children = 'none' THEN 20
+							WHEN o.preferred_children::text = 'two+' AND u.children = 'one' THEN 20
+							WHEN o.preferred_children::text = 'two+' AND u.children = 'two+' THEN 20
+							WHEN o.preferred_children::text = 'two+' AND u.children = 'planning' THEN 20
+							WHEN o.preferred_children::text = 'planning' AND u.children = 'none' THEN 10
+							WHEN o.preferred_children::text = 'planning' AND u.children = 'one' THEN 20
+							WHEN o.preferred_children::text = 'planning' AND u.children = 'two+' THEN 20
+							WHEN o.preferred_children::text = 'planning' AND u.children = 'planning' THEN 20
+							ELSE 0
+						END +
+						-- Pets (max 20)
+						CASE
+							WHEN o.preferred_pets IS NULL THEN 20
+							WHEN o.preferred_pets::text = 'any' THEN 20
+							WHEN o.preferred_pets::text = 'none' AND (u.pets IS NULL OR u.pets = 'none') THEN 20
+							WHEN o.preferred_pets::text = 'cats' AND u.pets = 'none' THEN 20
+							WHEN o.preferred_pets::text = 'cats' AND u.pets = 'cats' THEN 20
+							WHEN o.preferred_pets::text = 'cats' AND u.pets = 'dogs' THEN 10
+							WHEN o.preferred_pets::text = 'cats' AND u.pets = 'other' THEN 20
+							WHEN o.preferred_pets::text = 'cats' AND u.pets = 'any' THEN 10
+							WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'none' THEN 20
+							WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'cats' THEN 10
+							WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'dogs' THEN 20
+							WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'other' THEN 20
+							WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'any' THEN 10
+							WHEN o.preferred_pets::text = 'other' AND u.pets = 'none' THEN 20
+							WHEN o.preferred_pets::text = 'other' AND u.pets = 'cats' THEN 10
+							WHEN o.preferred_pets::text = 'other' AND u.pets = 'dogs' THEN 10
+							WHEN o.preferred_pets::text = 'other' AND u.pets = 'other' THEN 20
+							WHEN o.preferred_pets::text = 'other' AND u.pets = 'any' THEN 10
+							ELSE 0
+						END +
+						-- Occupants count (max 20)
+						CASE
+							WHEN o.preferred_occupants_count IS NULL THEN 20
+							WHEN u.occupants_count <= o.preferred_occupants_count THEN 20
+							ELSE 0
+						END +
+						-- Noise level (max 20)
+						CASE
+							WHEN o.preferred_noise_lvl IS NULL THEN 20
+							WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'quiet' THEN 20
+							WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'normal' THEN 10
+							WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'loud' THEN 0
+							WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'quiet' THEN 20
+							WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'normal' THEN 20
+							WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'loud' THEN 0
+							WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'quiet' THEN 20
+							WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'normal' THEN 20
+							WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'loud' THEN 20
+							ELSE 0
+						END +
+						-- Works from home (max 20)
+						CASE
+							WHEN o.preferred_works_from_home IS NULL THEN 20
+							WHEN u.works_from_home = o.preferred_works_from_home THEN 20
+							ELSE 0
+						END +
+						-- Alcohol (max 20)
+						CASE
+							WHEN o.preferred_alcohol IS NULL THEN 20
+							WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'never' THEN 20
+							WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'rare' THEN 10
+							WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'regular' THEN 0
+							WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'never' THEN 20
+							WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'rare' THEN 20
+							WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'regular' THEN 0
+							WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'never' THEN 20
+							WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'rare' THEN 20
+							WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'regular' THEN 20
+							ELSE 0
+						END +
+						-- Age min (max 20)
+						CASE
+							WHEN o.preferred_age_min IS NULL THEN 20
+							WHEN u.age_min >= o.preferred_age_min THEN 20
+							WHEN u.age_min < o.preferred_age_min THEN 10
+							ELSE 0
+						END +
+						-- Age max (max 20)
+						CASE
+							WHEN o.preferred_age_max IS NULL THEN 20
+							WHEN u.age_max <= o.preferred_age_max THEN 20
+							WHEN u.age_max > o.preferred_age_max THEN 10
+							ELSE 0
+						END 
+					) AS relevance_sum,
+					 -- Бонусы за буст
+					(
+						-- Объявление создано настоящим человеком (не мок)
+						CASE
+							WHEN o.owner_id != 0 THEN 50
+							ELSE 0
+						END +
+						-- Владелец продвигал своё объявление
+						CASE
+							WHEN o.boosted_until IS NOT NULL AND NOW() < o.boosted_until THEN 200
+							ELSE 0
+						END +
+						-- Премиум-бонус для владельца (дополнительные очки)
+						CASE
+							WHEN p_owner.user_id IS NOT NULL THEN 100
+							ELSE 0
+						END
+					) AS boost_sum
+				)
+				FROM tg_house_offer o
+				CROSS JOIN user_flags u
+				LEFT JOIN premium p_owner ON p_owner.user_id = o.owner_id AND NOW() < p_owner.until
+				LEFT JOIN premium p_user ON p_user.user_id = $1 AND NOW() < p_user.until
+				WHERE o.is_active = TRUE 
+				AND o.owner_id <> $1 
+				AND o.city = $2
+				AND (
+					p_owner.user_id IS NOT NULL
+					OR p_user.user_id IS NOT NULL
+					OR (p_owner.user_id IS NULL AND p_user.user_id IS NULL AND o.created_at <= NOW() - INTERVAL '12 hours')
+				)
+			),
+			ranked_with_boost AS (
+				SELECT
+					*,
+					(relevance_sum + boost_sum) AS total_score
+				FROM ranked_offers
+			)
 			SELECT 
-				COALESCE($3, FALSE)::boolean AS smoking,
-				$4::text AS sex,
-				COALESCE($5, 'none')::text AS children,
-				COALESCE($6, 'none')::text AS pets,
-				COALESCE($7, 1)::int AS occupants_count,
-				COALESCE($8, 'quiet')::text AS noise_lvl,
-				COALESCE($9, FALSE)::boolean AS works_from_home,
-				COALESCE($10, 'never')::text AS alcohol,
-				COALESCE($11, 0)::int AS age_min,
-				COALESCE($12, 150)::int AS age_max
-		),
-		ranked_offers AS (
-			SELECT
-				o.*,
-				(
-					-- Smoking (max 20)
-					CASE
-						WHEN o.preferred_smoking IS NULL THEN 20
-						WHEN u.smoking IS TRUE AND o.preferred_smoking IS TRUE THEN 20
-						WHEN u.smoking IS FALSE AND o.preferred_smoking IS FALSE THEN 20
-						WHEN u.smoking IS FALSE AND o.preferred_smoking IS TRUE THEN 20
-						WHEN u.smoking IS TRUE AND o.preferred_smoking IS FALSE THEN 0
-						ELSE 0
-					END +
-					-- Sex (max 20)
-					CASE
-						WHEN o.preferred_sex IS NULL OR u.sex IS NULL THEN 20
-						WHEN u.sex = 'male' AND o.preferred_sex::text = 'male' THEN 20
-						WHEN u.sex = 'female' AND o.preferred_sex::text = 'female' THEN 20
-						ELSE 0
-					END +
-					-- Children (max 20)
-					CASE
-						WHEN o.preferred_children IS NULL THEN 20
-						WHEN o.preferred_children::text = 'none' AND (u.children IS NULL OR u.children = 'none') THEN 20
-						WHEN o.preferred_children::text = 'none' AND u.children = 'one' THEN 0
-						WHEN o.preferred_children::text = 'none' AND u.children = 'two+' THEN 0
-						WHEN o.preferred_children::text = 'none' AND u.children = 'planning' THEN 10
-						WHEN o.preferred_children::text = 'one' AND u.children = 'none' THEN 20
-						WHEN o.preferred_children::text = 'one' AND u.children = 'one' THEN 20
-						WHEN o.preferred_children::text = 'one' AND u.children = 'two+' THEN 0
-						WHEN o.preferred_children::text = 'one' AND u.children = 'planning' THEN 10
-						WHEN o.preferred_children::text = 'two+' AND u.children = 'none' THEN 20
-						WHEN o.preferred_children::text = 'two+' AND u.children = 'one' THEN 20
-						WHEN o.preferred_children::text = 'two+' AND u.children = 'two+' THEN 20
-						WHEN o.preferred_children::text = 'two+' AND u.children = 'planning' THEN 20
-						WHEN o.preferred_children::text = 'planning' AND u.children = 'none' THEN 10
-						WHEN o.preferred_children::text = 'planning' AND u.children = 'one' THEN 20
-						WHEN o.preferred_children::text = 'planning' AND u.children = 'two+' THEN 20
-						WHEN o.preferred_children::text = 'planning' AND u.children = 'planning' THEN 20
-						ELSE 0
-					END +
-					-- Pets (max 20)
-					CASE
-						WHEN o.preferred_pets IS NULL THEN 20
-						WHEN o.preferred_pets::text = 'any' THEN 20
-						WHEN o.preferred_pets::text = 'none' AND (u.pets IS NULL OR u.pets = 'none') THEN 20
-						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'none' THEN 20
-						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'cats' THEN 20
-						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'dogs' THEN 10
-						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'other' THEN 20
-						WHEN o.preferred_pets::text = 'cats' AND u.pets = 'any' THEN 10
-						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'none' THEN 20
-						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'cats' THEN 10
-						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'dogs' THEN 20
-						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'other' THEN 20
-						WHEN o.preferred_pets::text = 'dogs' AND u.pets = 'any' THEN 10
-						WHEN o.preferred_pets::text = 'other' AND u.pets = 'none' THEN 20
-						WHEN o.preferred_pets::text = 'other' AND u.pets = 'cats' THEN 10
-						WHEN o.preferred_pets::text = 'other' AND u.pets = 'dogs' THEN 10
-						WHEN o.preferred_pets::text = 'other' AND u.pets = 'other' THEN 20
-						WHEN o.preferred_pets::text = 'other' AND u.pets = 'any' THEN 10
-						ELSE 0
-					END +
-					-- Occupants count (max 20)
-					CASE
-						WHEN o.preferred_occupants_count IS NULL THEN 20
-						WHEN u.occupants_count <= o.preferred_occupants_count THEN 20
-						ELSE 0
-					END +
-					-- Noise level (max 20)
-					CASE
-						WHEN o.preferred_noise_lvl IS NULL THEN 20
-						WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'quiet' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'normal' THEN 10
-						WHEN o.preferred_noise_lvl::text = 'quiet' AND u.noise_lvl = 'loud' THEN 0
-						WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'quiet' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'normal' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'normal' AND u.noise_lvl = 'loud' THEN 0
-						WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'quiet' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'normal' THEN 20
-						WHEN o.preferred_noise_lvl::text = 'loud' AND u.noise_lvl = 'loud' THEN 20
-						ELSE 0
-					END +
-					-- Works from home (max 20)
-					CASE
-						WHEN o.preferred_works_from_home IS NULL THEN 20
-						WHEN u.works_from_home = o.preferred_works_from_home THEN 20
-						ELSE 0
-					END +
-					-- Alcohol (max 20)
-					CASE
-						WHEN o.preferred_alcohol IS NULL THEN 20
-						WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'never' THEN 20
-						WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'rare' THEN 10
-						WHEN o.preferred_alcohol::text = 'never' AND u.alcohol = 'regular' THEN 0
-						WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'never' THEN 20
-						WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'rare' THEN 20
-						WHEN o.preferred_alcohol::text = 'rare' AND u.alcohol = 'regular' THEN 0
-						WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'never' THEN 20
-						WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'rare' THEN 20
-						WHEN o.preferred_alcohol::text = 'regular' AND u.alcohol = 'regular' THEN 20
-						ELSE 0
-					END +
-					-- Age min (max 20)
-					CASE
-						WHEN o.preferred_age_min IS NULL THEN 20
-						WHEN u.age_min >= o.preferred_age_min THEN 20
-						WHEN u.age_min < o.preferred_age_min THEN 10
-						ELSE 0
-					END +
-					-- Age max (max 20)
-					CASE
-						WHEN o.preferred_age_max IS NULL THEN 20
-						WHEN u.age_max <= o.preferred_age_max THEN 20
-						WHEN u.age_max > o.preferred_age_max THEN 10
-						ELSE 0
-					END +
-					CASE
-        				WHEN o.owner_id != 0 THEN 50  -- реальные получают +50 баллов
-        				ELSE 0                        -- моки без бонуса
-    				END
-				) AS relevance_sum
-			FROM tg_house_offer o
-			CROSS JOIN user_flags u
-			WHERE o.is_active = TRUE 
-			AND o.owner_id <> $1 
-			AND o.city = $2
+				id,
+				is_active,
+				owner_id,
+				title,
+				description,
+				city,
+				district,
+				price,
+				media_files,
+				preferred_smoking,
+				preferred_children,
+				preferred_pets,
+				preferred_occupants_count,
+				preferred_noise_lvl,
+				preferred_works_from_home,
+				preferred_alcohol,
+				preferred_age_min,
+				preferred_age_max,
+				preferred_sex,
+				relevance_sum,
+				((relevance_sum::float / $14) * 100)::int AS relevance_percent
+			FROM ranked_with_boost
+			WHERE relevance_sum >= $13
+			ORDER BY total_score DESC, RANDOM()
+			LIMIT 1
+		`
+
+		minRelevanceSum := minRelPercent * maxRelevanceSum / 100
+		args := []any{
+			userId,                   // $1
+			city,                     // $2
+			userFlags.Smoking,        // $3
+			userFlags.Sex,            // $4
+			userFlags.Children,       // $5
+			userFlags.Pets,           // $6
+			userFlags.OccupantsCount, // $7
+			userFlags.NoiseLvl,       // $8
+			userFlags.WorksFromHome,  // $9
+			userFlags.Alcohol,        // $10
+			userFlags.AgeMin,         // $11
+			userFlags.AgeMax,         // $12
+			minRelevanceSum,          // $13
+			maxRelevanceSum,          // $14
+		}
+
+		row := tx.QueryRow(ctx, query, args...)
+		err = row.Scan(
+			&offer.Id,
+			&offer.IsActive,
+			&offer.OwnerId,
+			&offer.Title,
+			&offer.Description,
+			&offer.City,
+			&offer.District,
+			&offer.Price,
+			&offer.MediaFiles,
+			&offer.Preferences.Smoking,
+			&offer.Preferences.Children,
+			&offer.Preferences.Pets,
+			&offer.Preferences.OccupantsCount,
+			&offer.Preferences.NoiseLvl,
+			&offer.Preferences.WorksFromHome,
+			&offer.Preferences.Alcohol,
+			&offer.Preferences.AgeMin,
+			&offer.Preferences.AgeMax,
+			&offer.Preferences.Sex,
+			&offer.RelevanceSum,
+			&offer.RelevancePercent,
 		)
-		SELECT 
-			id,
-			is_active,
-			owner_id,
-			title,
-			description,
-			city,
-			district,
-			price,
-			media_files,
-			preferred_smoking,
-			preferred_children,
-			preferred_pets,
-			preferred_occupants_count,
-			preferred_noise_lvl,
-			preferred_works_from_home,
-			preferred_alcohol,
-			preferred_age_min,
-			preferred_age_max,
-			preferred_sex,
-			relevance_sum,
-			((relevance_sum::float / $14) * 100)::int AS relevance_percent
-		FROM ranked_offers
-		WHERE relevance_sum >= $13
-		ORDER BY RANDOM()
-		LIMIT 1
-	`
 
-	const maxRelevanceSum = 250
+		return err
+	})
 
-	minRelevanceSum := minRelPercent * maxRelevanceSum / 100
-	args := []any{
-		userId,                   // $1
-		city,                     // $2
-		userFlags.Smoking,        // $3
-		userFlags.Sex,            // $4
-		userFlags.Children,       // $5
-		userFlags.Pets,           // $6
-		userFlags.OccupantsCount, // $7
-		userFlags.NoiseLvl,       // $8
-		userFlags.WorksFromHome,  // $9
-		userFlags.Alcohol,        // $10
-		userFlags.AgeMin,         // $11
-		userFlags.AgeMax,         // $12
-		minRelevanceSum,          // $13
-		maxRelevanceSum,          // $14
-	}
-
-	row := r.connPool.QueryRow(ctx, query, args...)
-	err = row.Scan(
-		&offer.Id,
-		&offer.IsActive,
-		&offer.OwnerId,
-		&offer.Title,
-		&offer.Description,
-		&offer.City,
-		&offer.District,
-		&offer.Price,
-		&offer.MediaFiles,
-		&offer.Preferences.Smoking,
-		&offer.Preferences.Children,
-		&offer.Preferences.Pets,
-		&offer.Preferences.OccupantsCount,
-		&offer.Preferences.NoiseLvl,
-		&offer.Preferences.WorksFromHome,
-		&offer.Preferences.Alcohol,
-		&offer.Preferences.AgeMin,
-		&offer.Preferences.AgeMax,
-		&offer.Preferences.Sex,
-		&offer.RelevanceSum,
-		&offer.RelevancePercent,
-	)
 	return offer, err
 }
 

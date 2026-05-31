@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS tg_house_offer (
     description TEXT NOT NULL DEFAULT '',
     price INTEGER NOT NULL,
     media_files TEXT[] NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    boosted_until TIMESTAMP NOT NULL DEFAULT NOW(),
     flag_processing BOOL NOT NULL DEFAULT FALSE,
 
     -- Флаги предпочтений арендодателя (что он хочет от арендатора)
