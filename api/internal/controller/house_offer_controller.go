@@ -21,7 +21,7 @@ type houseOffersRepo interface {
 	OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error)
 	AddLike(ctx context.Context, like model.AddLikeRequest) error
 	DeleteLike(ctx context.Context, offerId int64, userId int64) error
-	RandRelevantOffer(ctx context.Context, userId int64, city string, user model.UserFlags, minRelevancePercent int) (model.RelevantOffer, error)
+	RelevantOffers(ctx context.Context, userId int64, city string, user model.UserFlags, minRelevancePercent int, limit int) ([]model.RelevantOffer, error)
 	GetOfferRelevance(ctx context.Context, offerId int64, userFlags model.UserFlags) (int, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
@@ -153,7 +153,7 @@ func (c HouseOffers) DeleteLike(ctx *gin.Context) {
 	})
 }
 
-func (c HouseOffers) RandRelevantOffer(ctx *gin.Context) {
+func (c HouseOffers) RelevantOffers(ctx *gin.Context) {
 	var req model.RandRelevantOfferRequest
 	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
@@ -177,7 +177,7 @@ func (c HouseOffers) RandRelevantOffer(ctx *gin.Context) {
 		"sex", req.UserFlags.Sex,
 	)
 
-	offer, err := c.houseOffersRepo.RandRelevantOffer(ctx, req.UserID, req.City, req.UserFlags, req.MinRelevancePercent)
+	offers, err := c.houseOffersRepo.RelevantOffers(ctx, req.UserID, req.City, req.UserFlags, req.MinRelevancePercent, req.Limit)
 	if errors.Is(err, sql.ErrNoRows) {
 		c.logger.Warn("no random offer found", "user_id", req.UserID, "city", req.City)
 		controllerError(ctx, errors.New("no offers found"), http.StatusNotFound)
@@ -190,12 +190,10 @@ func (c HouseOffers) RandRelevantOffer(ctx *gin.Context) {
 	}
 
 	c.logger.Info(
-		"random offer selected",
+		"offers retrieved",
 		"user_id", req.UserID,
-		"offer_id", offer.Id,
-		"relevance_percent", offer.RelevancePercent,
 	)
-	ctx.JSON(http.StatusOK, offer)
+	ctx.JSON(http.StatusOK, offers)
 }
 
 func (c HouseOffers) GetOfferRelevance(ctx *gin.Context) {

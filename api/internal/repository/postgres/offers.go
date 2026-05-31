@@ -146,7 +146,7 @@ func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64)
 	return nil
 }
 
-func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags, minRelPercent int) (offer model.RelevantOffer, err error) {
+func (r OffersRepo) RelevantOffers(ctx context.Context, userId int64, city string, userFlags model.UserFlags, minRelPercent int, limit int) (offers []model.RelevantOffer, err error) {
 	const maxRelevanceSum = 200
 
 	err = r.transaction(ctx, func(tx pgx.Tx) error {
@@ -300,7 +300,6 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 							ELSE 0
 						END
 					) AS boost_sum
-				)
 				FROM tg_house_offer o
 				CROSS JOIN user_flags u
 				LEFT JOIN premium p_owner ON p_owner.user_id = o.owner_id AND NOW() < p_owner.until
@@ -344,8 +343,8 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 				((relevance_sum::float / $14) * 100)::int AS relevance_percent
 			FROM ranked_with_boost
 			WHERE relevance_sum >= $13
-			ORDER BY total_score DESC, RANDOM()
-			LIMIT 1
+			ORDER BY boost_sum DESC, RANDOM()
+			LIMIT $15
 		`
 
 		minRelevanceSum := minRelPercent * maxRelevanceSum / 100
@@ -364,37 +363,51 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 			userFlags.AgeMax,         // $12
 			minRelevanceSum,          // $13
 			maxRelevanceSum,          // $14
+			limit,                    // $15
 		}
 
-		row := tx.QueryRow(ctx, query, args...)
-		err = row.Scan(
-			&offer.Id,
-			&offer.IsActive,
-			&offer.OwnerId,
-			&offer.Title,
-			&offer.Description,
-			&offer.City,
-			&offer.District,
-			&offer.Price,
-			&offer.MediaFiles,
-			&offer.Preferences.Smoking,
-			&offer.Preferences.Children,
-			&offer.Preferences.Pets,
-			&offer.Preferences.OccupantsCount,
-			&offer.Preferences.NoiseLvl,
-			&offer.Preferences.WorksFromHome,
-			&offer.Preferences.Alcohol,
-			&offer.Preferences.AgeMin,
-			&offer.Preferences.AgeMax,
-			&offer.Preferences.Sex,
-			&offer.RelevanceSum,
-			&offer.RelevancePercent,
-		)
+		rows, err := tx.Query(ctx, query, args...)
+		if err != nil {
+			return err
+		}
+
+		var offer model.RelevantOffer
+		for rows.Next() {
+			err = rows.Scan(
+				&offer.Id,
+				&offer.IsActive,
+				&offer.OwnerId,
+				&offer.Title,
+				&offer.Description,
+				&offer.City,
+				&offer.District,
+				&offer.Price,
+				&offer.MediaFiles,
+				&offer.Preferences.Smoking,
+				&offer.Preferences.Children,
+				&offer.Preferences.Pets,
+				&offer.Preferences.OccupantsCount,
+				&offer.Preferences.NoiseLvl,
+				&offer.Preferences.WorksFromHome,
+				&offer.Preferences.Alcohol,
+				&offer.Preferences.AgeMin,
+				&offer.Preferences.AgeMax,
+				&offer.Preferences.Sex,
+				&offer.RelevanceSum,
+				&offer.RelevancePercent,
+			)
+
+			if err != nil {
+				return err
+			}
+
+			offers = append(offers, offer)
+		}
 
 		return err
 	})
 
-	return offer, err
+	return offers, err
 }
 
 func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFlags model.UserFlags) (relevancePercent int, err error) {

@@ -66,7 +66,7 @@ func main() {
 	v1.GET("/user/:id/offers", offersController.UserOffers)
 
 	v1.GET("/offer/:id", offersController.OfferById)
-	v1.POST("/offer/rand", offersController.RandRelevantOffer)
+	v1.POST("/offer/rand", offersController.RelevantOffers)
 	v1.POST("/offer/relevance", offersController.GetOfferRelevance)
 	v1.POST("/offer", offersController.CreateOffer)
 	v1.DELETE("/offer/:id", offersController.DeleteOffer)
