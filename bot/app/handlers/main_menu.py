@@ -21,7 +21,7 @@ async def main_menu(msg: Message, state: FSMContext):
     await state.set_state(MainMenu.main_menu)
 
     kb = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="🏡 Найти квартиру/дом")],
+        [KeyboardButton(text="🏡 Найти жильё")],
         [KeyboardButton(text="Мой профиль")],
         [KeyboardButton(text="Мои объявления")],
     ], resize_keyboard=True)
@@ -31,7 +31,7 @@ async def main_menu(msg: Message, state: FSMContext):
 
     msg_text = (
         "🏠 <b>Homie</b>\n"
-        "<blockquote>ИИ-ассистент для подбора лучших объявлений</blockquote>\n\n"
+        "<blockquote>ИИ-ассистент для поиска жилья</blockquote>\n\n"
         "Главное меню:\n"
         "🔍 <b>Найти жильё</b> — подбор квартир и домов\n"
         "👤 <b>Профиль</b> — ваша анкета для владельцев\n"

@@ -54,27 +54,37 @@ def normalize_city(city: str) -> str:
     city = city.strip().lower()
     
     # Список слов, которые всегда должны быть с маленькой буквы
-    lowercase_exceptions = ['и', 'на', 'в', 'под', 'над', 'за', 'при', 'без', 'до', 'из']
+    lowercase_exceptions = {'и', 'на', 'в', 'под', 'над', 'за', 'при', 'без', 'до', 'из'}
     
-    # Список слов, которые должны быть с большой буквы
+    # Слова, которые нужно капитализировать особым образом
     uppercase_exceptions = {
-        'санкт': 'Санкт-',
+        'санкт': 'Санкт',
         'рост': 'Рост',
         'великий': 'Великий',
         'нижний': 'Нижний'
     }
     
-    # Разбиваем на части (по пробелам и дефисам)
-    parts = []
-    for part in city.replace('-', ' - ').split():
-        if part in lowercase_exceptions:
-            parts.append(part)
-        elif part in uppercase_exceptions:
-            parts.append(uppercase_exceptions[part])
-        else:
-            parts.append(part.capitalize())
+    # Разбиваем по дефисам сначала
+    hyphen_parts = city.split('-')
+    normalized_hyphen_parts = []
     
-    result = ' '.join(parts).replace(' - ', '-')
+    for hyphen_part in hyphen_parts:
+        # Разбиваем на слова внутри части
+        words = hyphen_part.split()
+        normalized_words = []
+        
+        for word in words:
+            if word in lowercase_exceptions:
+                normalized_words.append(word)
+            elif word in uppercase_exceptions:
+                normalized_words.append(uppercase_exceptions[word])
+            else:
+                normalized_words.append(word.capitalize())
+        
+        normalized_hyphen_parts.append(' '.join(normalized_words))
+    
+    # Склеиваем обратно через дефис
+    result = '-'.join(normalized_hyphen_parts)
     
     return result
 

@@ -63,6 +63,8 @@ services:
       - config/dev/bot.env
     networks:
       - homie_net
+    volumes:
+      - ./file_ids.txt:/app/file_ids.txt
     depends_on:
       homie_api:
         condition: service_healthy

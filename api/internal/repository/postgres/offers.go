@@ -271,7 +271,11 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 						WHEN u.age_max <= o.preferred_age_max THEN 20
 						WHEN u.age_max > o.preferred_age_max THEN 10
 						ELSE 0
-					END
+					END +
+					CASE
+        				WHEN o.owner_id != 0 THEN 50  -- реальные получают +50 баллов
+        				ELSE 0                        -- моки без бонуса
+    				END
 				) AS relevance_sum
 			FROM tg_house_offer o
 			CROSS JOIN user_flags u
@@ -300,16 +304,16 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 			preferred_age_max,
 			preferred_sex,
 			relevance_sum,
-			((relevance_sum::float / 200.0) * 100)::int AS relevance_percent
+			((relevance_sum::float / $14) * 100)::int AS relevance_percent
 		FROM ranked_offers
 		WHERE relevance_sum >= $13
 		ORDER BY RANDOM()
 		LIMIT 1
 	`
 
-	const maxRelevance = 200
+	const maxRelevanceSum = 250
 
-	minRelevance := minRelPercent * maxRelevance / 100
+	minRelevanceSum := minRelPercent * maxRelevanceSum / 100
 	args := []any{
 		userId,                   // $1
 		city,                     // $2
@@ -323,7 +327,8 @@ func (r OffersRepo) RandRelevantOffer(ctx context.Context, userId int64, city st
 		userFlags.Alcohol,        // $10
 		userFlags.AgeMin,         // $11
 		userFlags.AgeMax,         // $12
-		minRelevance,             // $13
+		minRelevanceSum,          // $13
+		maxRelevanceSum,          // $14
 	}
 
 	row := r.connPool.QueryRow(ctx, query, args...)

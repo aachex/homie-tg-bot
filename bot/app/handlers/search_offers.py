@@ -26,7 +26,7 @@ router = Router()
 
 _user_city: dict[int, str] = {}
 
-@router.message(MainMenu.main_menu, F.text == "🏡 Найти квартиру/дом")
+@router.message(MainMenu.main_menu, F.text == "🏡 Найти жильё")
 @router.message(SearchOffers.offer_not_found, F.text == "Указать город повторно")
 async def search_start(msg: Message, state: FSMContext):
     await state.clear()
