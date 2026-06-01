@@ -151,7 +151,7 @@ func (r *Repository) DeleteLike(ctx context.Context, offerId int64, userId int64
 
 func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags) (offer model.RelevantOffer, err error) {
 	const maxRelevanceSum = 200
-	const maxBoostSum = 350
+	const maxBoostSum = 400
 
 	err = r.transaction(ctx, func(tx pgx.Tx) error {
 		query := `
@@ -337,7 +337,7 @@ func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city strin
 						(CASE WHEN u.age_min IS NOT NULL AND o.preferred_age_min IS NOT NULL THEN 1 ELSE 0 END) +
 						(CASE WHEN u.age_max IS NOT NULL AND o.preferred_age_max IS NOT NULL THEN 1 ELSE 0 END)
 					) * 20 AS max_rel_sum,
-					 -- Бонусы за буст
+					-- Бонусы за буст
 					(
 						-- Объявление создано настоящим человеком (не мок)
 						CASE
@@ -353,7 +353,9 @@ func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city strin
 						CASE
 							WHEN p_owner.user_id IS NOT NULL THEN 100
 							ELSE 0
-						END
+						END +
+						-- Случайный вес для рандомизации (0-50)
+						FLOOR(RANDOM() * 51)::int
 					) AS boost_sum
 				FROM tg_house_offer o
 				CROSS JOIN user_flags u
