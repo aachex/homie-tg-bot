@@ -21,7 +21,7 @@ type Repository struct {
 	logger      *slog.Logger
 	connPool    *pgxpool.Pool
 	premiumRepo *premium.Repository
-	recent      recentOffersCache
+	recent      *recentOffersCache
 }
 
 func NewRepository(logger *slog.Logger, connPool *pgxpool.Pool, premiumRepo *premium.Repository) *Repository {
@@ -29,10 +29,7 @@ func NewRepository(logger *slog.Logger, connPool *pgxpool.Pool, premiumRepo *pre
 		logger:      logger,
 		connPool:    connPool,
 		premiumRepo: premiumRepo,
-		recent: recentOffersCache{
-			recent: map[int64][]int64{},
-			limit:  100,
-		},
+		recent:      newRecentOffersCache(logger, 100, 0),
 	}
 }
 
@@ -352,7 +349,7 @@ func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city strin
 			WHERE
 				relevance_sum >= 140 AND
 				id != ALL($14)
-			ORDER BY boost_sum DESC, RANDOM()
+			ORDER BY RANDOM() * (1 + total_score::float / ($15+$13)) DESC
 			LIMIT 1
 		`
 
@@ -372,6 +369,7 @@ func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city strin
 			userFlags.AgeMax,         // $12
 			maxRelevanceSum,          // $13
 			recentOffers,             // $14
+			maxBoostSum,              // $15
 		}
 
 		row := tx.QueryRow(ctx, query, args...)
