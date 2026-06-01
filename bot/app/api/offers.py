@@ -19,7 +19,7 @@ class HouseOffersApi(APIClient):
             "user_flags": asdict(user_flags) if user_flags else None,
         }
         
-        resp_json = await self._request("POST", "offer/rand", data=data, expected_status=200)
+        resp_json = await self._request("POST", "offer/relevant", data=data, expected_status=200)
         if resp_json is None:
             return None
 

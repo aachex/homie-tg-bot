@@ -65,10 +65,9 @@ type HouseOfferLike struct {
 }
 
 type RandRelevantOfferRequest struct {
-	UserID              int64     `json:"user_id" binding:"required"`
-	MinRelevancePercent int       `json:"min_rel" binding:"required"`
-	City                string    `json:"city" binding:"required"`
-	UserFlags           UserFlags `json:"user_flags"`
+	UserID    int64     `json:"user_id" binding:"required"`
+	City      string    `json:"city" binding:"required"`
+	UserFlags UserFlags `json:"user_flags"`
 }
 
 type RelevantOffer struct {

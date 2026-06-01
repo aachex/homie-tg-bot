@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"homie-api/internal/llm"
 	"homie-api/internal/model"
-	"homie-api/internal/repository/postgres"
+	"homie-api/internal/repository/postgres/offers"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -21,7 +21,7 @@ type houseOffersRepo interface {
 	OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error)
 	AddLike(ctx context.Context, like model.AddLikeRequest) error
 	DeleteLike(ctx context.Context, offerId int64, userId int64) error
-	RelevantOffers(ctx context.Context, limit, offset int, userId int64, city string, user model.UserFlags, minRelevancePercent int) ([]model.RelevantOffer, error)
+	RelevantOffer(ctx context.Context, userId int64, city string, user model.UserFlags) (model.RelevantOffer, error)
 	GetOfferRelevance(ctx context.Context, offerId int64, userFlags model.UserFlags) (int, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
@@ -99,7 +99,7 @@ func (c HouseOffers) AddLike(ctx *gin.Context) {
 	err = c.houseOffersRepo.AddLike(ctx, like)
 	if err != nil {
 		code := http.StatusInternalServerError
-		if errors.Is(err, postgres.ErrLikeAlreadyExists) {
+		if errors.Is(err, offers.ErrLikeAlreadyExists) {
 			code = http.StatusConflict
 			c.logger.Warn("like already exists", "offer_id", like.OfferId, "user_id", like.UserId)
 			controllerError(ctx, errors.New("like already exists"), code)
@@ -135,7 +135,7 @@ func (c HouseOffers) DeleteLike(ctx *gin.Context) {
 	err = c.houseOffersRepo.DeleteLike(ctx, offerID, userID)
 	if err != nil {
 		code := http.StatusInternalServerError
-		if errors.Is(err, postgres.ErrLikeNotFound) {
+		if errors.Is(err, offers.ErrLikeNotFound) {
 			code = http.StatusNotFound
 			c.logger.Warn("like not found for deletion", "offer_id", offerID, "user_id", userID)
 			controllerError(ctx, errors.New("like not found"), code)
@@ -153,18 +153,9 @@ func (c HouseOffers) DeleteLike(ctx *gin.Context) {
 	})
 }
 
-func (c HouseOffers) RelevantOffers(ctx *gin.Context) {
-	// Получение limit и offset
-	offset, err := strconv.Atoi(ctx.Query("offset"))
-	limit, err2 := strconv.Atoi(ctx.Query("limit"))
-	if err != nil || err2 != nil {
-		c.logger.Error("invalid limit or offset values", "message", err.Error())
-		controllerError(ctx, errors.New("invalid limit or offset values"), http.StatusBadRequest)
-		return
-	}
-
+func (c HouseOffers) RelevantOffer(ctx *gin.Context) {
 	var req model.RandRelevantOfferRequest
-	err = ctx.ShouldBindJSON(&req)
+	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
 		c.logger.Error("rand offer: invalid JSON", "error", err)
 		controllerError(ctx, errors.New("invalid request body"), http.StatusBadRequest)
@@ -186,7 +177,7 @@ func (c HouseOffers) RelevantOffers(ctx *gin.Context) {
 		"sex", req.UserFlags.Sex,
 	)
 
-	offers, err := c.houseOffersRepo.RelevantOffers(ctx, limit, offset, req.UserID, req.City, req.UserFlags, req.MinRelevancePercent)
+	offer, err := c.houseOffersRepo.RelevantOffer(ctx, req.UserID, req.City, req.UserFlags)
 	if errors.Is(err, sql.ErrNoRows) {
 		c.logger.Warn("no random offer found", "user_id", req.UserID, "city", req.City)
 		controllerError(ctx, errors.New("no offers found"), http.StatusNotFound)
@@ -199,10 +190,12 @@ func (c HouseOffers) RelevantOffers(ctx *gin.Context) {
 	}
 
 	c.logger.Info(
-		"offers retrieved",
+		"offer retrieved",
 		"user_id", req.UserID,
+		"offer_id", offer.Id,
+		"relevance", offer.RelevancePercent,
 	)
-	ctx.JSON(http.StatusOK, offers)
+	ctx.JSON(http.StatusOK, offer)
 }
 
 func (c HouseOffers) GetOfferRelevance(ctx *gin.Context) {

@@ -1,4 +1,4 @@
-package postgres
+package users
 
 import (
 	"context"
@@ -10,17 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type UsersRepo struct {
+type Repository struct {
 	connPool *pgxpool.Pool
 }
 
-func NewUsersRepo(connPool *pgxpool.Pool) *UsersRepo {
-	return &UsersRepo{
+func NewRepository(connPool *pgxpool.Pool) *Repository {
+	return &Repository{
 		connPool: connPool,
 	}
 }
 
-func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err error) {
+func (r Repository) GetById(ctx context.Context, id int64) (user model.User, err error) {
 	query := `
 		SELECT
 			id,
@@ -62,7 +62,7 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 	return user, err
 }
 
-func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) error {
+func (r Repository) CreateUser(ctx context.Context, userData model.UserCreate) error {
 	query := `
 		INSERT INTO tg_user (
 			id,
@@ -88,7 +88,7 @@ func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) er
 	return err
 }
 
-func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserEdit) error {
+func (r Repository) EditUser(ctx context.Context, userId int64, patch model.UserEdit) error {
 	args := pgx.NamedArgs{}
 
 	query := "UPDATE tg_user SET "
@@ -121,7 +121,7 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 	return err
 }
 
-func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error {
+func (r Repository) UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error {
 	query := `
 		UPDATE tg_user SET
             smoking = $1,

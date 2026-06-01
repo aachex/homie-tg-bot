@@ -1,10 +1,11 @@
-package postgres
+package offers
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"homie-api/internal/model"
+	"homie-api/internal/repository/postgres/premium"
 	"log/slog"
 
 	"github.com/jackc/pgx/v5"
@@ -16,21 +17,26 @@ var (
 	ErrLikeNotFound      = errors.New("like not found")
 )
 
-type OffersRepo struct {
+type Repository struct {
 	logger      *slog.Logger
 	connPool    *pgxpool.Pool
-	premiumRepo *PremiumRepo
+	premiumRepo *premium.Repository
+	recent      recentOffersCache
 }
 
-func NewOffersRepo(logger *slog.Logger, connPool *pgxpool.Pool, premiumRepo *PremiumRepo) *OffersRepo {
-	return &OffersRepo{
+func NewRepository(logger *slog.Logger, connPool *pgxpool.Pool, premiumRepo *premium.Repository) *Repository {
+	return &Repository{
 		logger:      logger,
 		connPool:    connPool,
 		premiumRepo: premiumRepo,
+		recent: recentOffersCache{
+			recent: map[int64][]int64{},
+			limit:  100,
+		},
 	}
 }
 
-func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseOffer, err error) {
+func (r *Repository) OfferById(ctx context.Context, id int64) (offer model.HouseOffer, err error) {
 	query := `
 		SELECT 
 			id,
@@ -84,7 +90,7 @@ func (r OffersRepo) OfferById(ctx context.Context, id int64) (offer model.HouseO
 	return offer, err
 }
 
-func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error) {
+func (r *Repository) OfferLikes(ctx context.Context, offerId int64) (likes []model.HouseOfferLike, err error) {
 	likes = []model.HouseOfferLike{}
 
 	query := `
@@ -113,7 +119,7 @@ func (r OffersRepo) OfferLikes(ctx context.Context, offerId int64) (likes []mode
 	return likes, err
 }
 
-func (r OffersRepo) AddLike(ctx context.Context, like model.AddLikeRequest) error {
+func (r *Repository) AddLike(ctx context.Context, like model.AddLikeRequest) error {
 	query := `
         INSERT INTO offer_like (offer_id, user_id, relevance)
 		SELECT $1, $2, $3
@@ -130,7 +136,7 @@ func (r OffersRepo) AddLike(ctx context.Context, like model.AddLikeRequest) erro
 	return nil
 }
 
-func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64) error {
+func (r *Repository) DeleteLike(ctx context.Context, offerId int64, userId int64) error {
 	query := `
         DELETE FROM offer_like
         WHERE offer_id = $1 AND user_id = $2
@@ -146,8 +152,9 @@ func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64)
 	return nil
 }
 
-func (r OffersRepo) RelevantOffers(ctx context.Context, limit, offset int, userId int64, city string, userFlags model.UserFlags, minRelPercent int) (offers []model.RelevantOffer, err error) {
+func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags) (offer model.RelevantOffer, err error) {
 	const maxRelevanceSum = 200
+	const maxBoostSum = 350
 
 	err = r.transaction(ctx, func(tx pgx.Tx) error {
 		query := `
@@ -340,14 +347,16 @@ func (r OffersRepo) RelevantOffers(ctx context.Context, limit, offset int, userI
 				preferred_age_max,
 				preferred_sex,
 				relevance_sum,
-				((relevance_sum::float / $14) * 100)::int AS relevance_percent
+				((relevance_sum::float / $13) * 100)::int AS relevance_percent
 			FROM ranked_with_boost
-			WHERE relevance_sum >= $13
+			WHERE
+				relevance_sum >= 140 AND
+				id != ALL($14)
 			ORDER BY boost_sum DESC, RANDOM()
-			OFFSET $15 LIMIT $16
+			LIMIT 1
 		`
 
-		minRelevanceSum := minRelPercent * maxRelevanceSum / 100
+		recentOffers := r.recent.Get(userId)
 		args := []any{
 			userId,                   // $1
 			city,                     // $2
@@ -361,57 +370,48 @@ func (r OffersRepo) RelevantOffers(ctx context.Context, limit, offset int, userI
 			userFlags.Alcohol,        // $10
 			userFlags.AgeMin,         // $11
 			userFlags.AgeMax,         // $12
-			minRelevanceSum,          // $13
-			maxRelevanceSum,          // $14
-			offset,                   // $15
-			limit,                    // $16
+			maxRelevanceSum,          // $13
+			recentOffers,             // $14
 		}
 
-		rows, err := tx.Query(ctx, query, args...)
+		row := tx.QueryRow(ctx, query, args...)
+
+		err = row.Scan(
+			&offer.Id,
+			&offer.IsActive,
+			&offer.OwnerId,
+			&offer.Title,
+			&offer.Description,
+			&offer.City,
+			&offer.District,
+			&offer.Price,
+			&offer.MediaFiles,
+			&offer.Preferences.Smoking,
+			&offer.Preferences.Children,
+			&offer.Preferences.Pets,
+			&offer.Preferences.OccupantsCount,
+			&offer.Preferences.NoiseLvl,
+			&offer.Preferences.WorksFromHome,
+			&offer.Preferences.Alcohol,
+			&offer.Preferences.AgeMin,
+			&offer.Preferences.AgeMax,
+			&offer.Preferences.Sex,
+			&offer.RelevanceSum,
+			&offer.RelevancePercent,
+		)
 		if err != nil {
 			return err
 		}
 
-		var offer model.RelevantOffer
-		for rows.Next() {
-			err = rows.Scan(
-				&offer.Id,
-				&offer.IsActive,
-				&offer.OwnerId,
-				&offer.Title,
-				&offer.Description,
-				&offer.City,
-				&offer.District,
-				&offer.Price,
-				&offer.MediaFiles,
-				&offer.Preferences.Smoking,
-				&offer.Preferences.Children,
-				&offer.Preferences.Pets,
-				&offer.Preferences.OccupantsCount,
-				&offer.Preferences.NoiseLvl,
-				&offer.Preferences.WorksFromHome,
-				&offer.Preferences.Alcohol,
-				&offer.Preferences.AgeMin,
-				&offer.Preferences.AgeMax,
-				&offer.Preferences.Sex,
-				&offer.RelevanceSum,
-				&offer.RelevancePercent,
-			)
+		r.recent.Add(userId, offer.Id)
 
-			if err != nil {
-				return err
-			}
-
-			offers = append(offers, offer)
-		}
-
-		return err
+		return nil
 	})
 
-	return offers, err
+	return offer, err
 }
 
-func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFlags model.UserFlags) (relevancePercent int, err error) {
+func (r *Repository) GetOfferRelevance(ctx context.Context, offerId int64, userFlags model.UserFlags) (relevancePercent int, err error) {
 	query := `
 		WITH user_flags AS (
 			SELECT 
@@ -571,7 +571,7 @@ func (r OffersRepo) GetOfferRelevance(ctx context.Context, offerId int64, userFl
 	return relevancePercent, nil
 }
 
-func (r OffersRepo) UserOffers(ctx context.Context, userId int64) (offers []model.HouseOfferPreview, err error) {
+func (r *Repository) UserOffers(ctx context.Context, userId int64) (offers []model.HouseOfferPreview, err error) {
 	offers = []model.HouseOfferPreview{}
 
 	query := `
@@ -601,13 +601,13 @@ func (r OffersRepo) UserOffers(ctx context.Context, userId int64) (offers []mode
 	return offers, rows.Err()
 }
 
-func (r OffersRepo) CreateOffer(ctx context.Context, offer model.HouseOfferCreate) (id int64, err error) {
+func (r *Repository) CreateOffer(ctx context.Context, offer model.HouseOfferCreate) (id int64, err error) {
 	const maxOffersCount = 1
 	const maxOffersCountPremium = 10
 
 	err = r.transaction(ctx, func(tx pgx.Tx) error {
 		// Проверяем, есть ли у пользователя премиум, чтобы определить лимит объявлений
-		hasPremium, err := r.premiumRepo.checkPremiumTx(ctx, tx, offer.OwnerId)
+		hasPremium, err := r.premiumRepo.CheckPremiumTx(ctx, tx, offer.OwnerId)
 		if err != nil {
 			return err
 		}
@@ -637,13 +637,13 @@ func (r OffersRepo) CreateOffer(ctx context.Context, offer model.HouseOfferCreat
 	return id, err
 }
 
-func (r OffersRepo) DeleteOffer(ctx context.Context, id int64) error {
+func (r *Repository) DeleteOffer(ctx context.Context, id int64) error {
 	query := `DELETE FROM tg_house_offer WHERE id = $1`
 	_, err := r.connPool.Exec(ctx, query, id)
 	return err
 }
 
-func (r OffersRepo) SetActive(ctx context.Context, id int64, active bool) error {
+func (r *Repository) SetActive(ctx context.Context, id int64, active bool) error {
 	query := `
 		UPDATE tg_house_offer
 		SET is_active = $1
@@ -653,7 +653,7 @@ func (r OffersRepo) SetActive(ctx context.Context, id int64, active bool) error 
 }
 
 // UpdateOfferPreferences обновляет предпочтения арендодателя (флаги)
-func (r OffersRepo) UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OwnerPreferences) error {
+func (r *Repository) UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OwnerPreferences) error {
 	query := `
 		UPDATE tg_house_offer SET
 			preferred_smoking = $1,
@@ -687,7 +687,7 @@ func (r OffersRepo) UpdateOfferPreferences(ctx context.Context, offerId int64, p
 	return err
 }
 
-func (r OffersRepo) transaction(ctx context.Context, f func(tx pgx.Tx) error) error {
+func (r *Repository) transaction(ctx context.Context, f func(tx pgx.Tx) error) error {
 	tx, err := r.connPool.Begin(ctx)
 	if err != nil {
 		return err
@@ -696,7 +696,7 @@ func (r OffersRepo) transaction(ctx context.Context, f func(tx pgx.Tx) error) er
 	// Rollback
 	defer func() {
 		rbErr := tx.Rollback(ctx)
-		if rbErr != nil {
+		if rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
 			r.logger.Error("failed to rollback transaction", "error", rbErr)
 		}
 	}()
@@ -709,7 +709,7 @@ func (r OffersRepo) transaction(ctx context.Context, f func(tx pgx.Tx) error) er
 	return tx.Commit(ctx)
 }
 
-func (r OffersRepo) countOffersTx(ctx context.Context, tx pgx.Tx, userId int64) (count int, err error) {
+func (r *Repository) countOffersTx(ctx context.Context, tx pgx.Tx, userId int64) (count int, err error) {
 	query := `
 		SELECT COUNT(*)
 		FROM tg_house_offer
@@ -720,7 +720,7 @@ func (r OffersRepo) countOffersTx(ctx context.Context, tx pgx.Tx, userId int64) 
 	return count, err
 }
 
-func (r OffersRepo) createOfferTx(ctx context.Context, tx pgx.Tx, offer model.HouseOfferCreate) (id int64, err error) {
+func (r *Repository) createOfferTx(ctx context.Context, tx pgx.Tx, offer model.HouseOfferCreate) (id int64, err error) {
 	query := `
 		INSERT INTO tg_house_offer (
 			owner_id,

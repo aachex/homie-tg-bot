@@ -1,4 +1,4 @@
-package postgres
+package premium
 
 import (
 	"context"
@@ -7,17 +7,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type PremiumRepo struct {
+type Repository struct {
 	connPool *pgxpool.Pool
 }
 
-func NewPremiumRepo(connPool *pgxpool.Pool) *PremiumRepo {
-	return &PremiumRepo{
+func NewRepository(connPool *pgxpool.Pool) *Repository {
+	return &Repository{
 		connPool: connPool,
 	}
 }
 
-func (r PremiumRepo) checkPremiumTx(ctx context.Context, tx pgx.Tx, userId int64) (hasPremium bool, err error) {
+func (r Repository) CheckPremiumTx(ctx context.Context, tx pgx.Tx, userId int64) (hasPremium bool, err error) {
 	query := `
 		SELECT EXISTS (
 			SELECT until
