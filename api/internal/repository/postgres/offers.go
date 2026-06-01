@@ -146,7 +146,7 @@ func (r OffersRepo) DeleteLike(ctx context.Context, offerId int64, userId int64)
 	return nil
 }
 
-func (r OffersRepo) RelevantOffers(ctx context.Context, userId int64, city string, userFlags model.UserFlags, minRelPercent int, limit int) (offers []model.RelevantOffer, err error) {
+func (r OffersRepo) RelevantOffers(ctx context.Context, limit, offset int, userId int64, city string, userFlags model.UserFlags, minRelPercent int) (offers []model.RelevantOffer, err error) {
 	const maxRelevanceSum = 200
 
 	err = r.transaction(ctx, func(tx pgx.Tx) error {
@@ -344,7 +344,7 @@ func (r OffersRepo) RelevantOffers(ctx context.Context, userId int64, city strin
 			FROM ranked_with_boost
 			WHERE relevance_sum >= $13
 			ORDER BY boost_sum DESC, RANDOM()
-			LIMIT $15
+			OFFSET $15 LIMIT $16
 		`
 
 		minRelevanceSum := minRelPercent * maxRelevanceSum / 100
@@ -363,7 +363,8 @@ func (r OffersRepo) RelevantOffers(ctx context.Context, userId int64, city strin
 			userFlags.AgeMax,         // $12
 			minRelevanceSum,          // $13
 			maxRelevanceSum,          // $14
-			limit,                    // $15
+			offset,                   // $15
+			limit,                    // $16
 		}
 
 		rows, err := tx.Query(ctx, query, args...)
