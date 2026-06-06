@@ -39,11 +39,11 @@ func (r *Repository) OfferById(ctx context.Context, id int64) (offer model.House
 			id,
 			is_active,
 			owner_id,
-			title,
 			description,
 			city,
 			district,
 			price,
+			rooms_count,
 			media_files,
 			flag_processing,
 			preferred_smoking,
@@ -65,23 +65,23 @@ func (r *Repository) OfferById(ctx context.Context, id int64) (offer model.House
 		&offer.Id,
 		&offer.IsActive,
 		&offer.OwnerId,
-		&offer.Title,
 		&offer.Description,
 		&offer.City,
 		&offer.District,
 		&offer.Price,
+		&offer.RoomsCount,
 		&offer.MediaFiles,
 		&offer.FlagProcessing,
-		&offer.Preferences.Smoking,
-		&offer.Preferences.Children,
-		&offer.Preferences.Pets,
-		&offer.Preferences.OccupantsCount,
-		&offer.Preferences.NoiseLvl,
-		&offer.Preferences.WorksFromHome,
-		&offer.Preferences.Alcohol,
-		&offer.Preferences.AgeMin,
-		&offer.Preferences.AgeMax,
-		&offer.Preferences.Sex,
+		&offer.Smoking,
+		&offer.Children,
+		&offer.Pets,
+		&offer.OccupantsCount,
+		&offer.NoiseLvl,
+		&offer.WorksFromHome,
+		&offer.Alcohol,
+		&offer.AgeMin,
+		&offer.AgeMax,
+		&offer.Sex,
 	)
 
 	return offer, err
@@ -381,7 +381,6 @@ func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city strin
 				id,
 				is_active,
 				owner_id,
-				title,
 				description,
 				city,
 				district,
@@ -431,22 +430,21 @@ func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city strin
 			&offer.Id,
 			&offer.IsActive,
 			&offer.OwnerId,
-			&offer.Title,
 			&offer.Description,
 			&offer.City,
 			&offer.District,
 			&offer.Price,
 			&offer.MediaFiles,
-			&offer.Preferences.Smoking,
-			&offer.Preferences.Children,
-			&offer.Preferences.Pets,
-			&offer.Preferences.OccupantsCount,
-			&offer.Preferences.NoiseLvl,
-			&offer.Preferences.WorksFromHome,
-			&offer.Preferences.Alcohol,
-			&offer.Preferences.AgeMin,
-			&offer.Preferences.AgeMax,
-			&offer.Preferences.Sex,
+			&offer.Smoking,
+			&offer.Children,
+			&offer.Pets,
+			&offer.OccupantsCount,
+			&offer.NoiseLvl,
+			&offer.WorksFromHome,
+			&offer.Alcohol,
+			&offer.AgeMin,
+			&offer.AgeMax,
+			&offer.Sex,
 			&offer.RelevanceSum,
 			&offer.RelevancePercent,
 		)
@@ -703,8 +701,8 @@ func (r *Repository) SetActive(ctx context.Context, id int64, active bool) error
 	return err
 }
 
-// UpdateOfferPreferences обновляет предпочтения арендодателя (флаги)
-func (r *Repository) UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OwnerPreferences) error {
+// UpdateOfferPreferences обновляет флаги объявления
+func (r *Repository) UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OfferFlags) error {
 	query := `
 		UPDATE tg_house_offer SET
 			preferred_smoking = $1,
@@ -775,15 +773,12 @@ func (r *Repository) createOfferTx(ctx context.Context, tx pgx.Tx, offer model.H
 	query := `
 		INSERT INTO tg_house_offer (
 			owner_id,
-			title,
 			description,
 			city,
-			district,
-			price,
 			media_files,
 			flag_processing
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+		VALUES ($1, $2, $3, $4, TRUE)
 		RETURNING id
 	`
 
@@ -791,11 +786,8 @@ func (r *Repository) createOfferTx(ctx context.Context, tx pgx.Tx, offer model.H
 		ctx,
 		query,
 		offer.OwnerId,
-		offer.Title,
 		offer.Description,
 		offer.City,
-		offer.District,
-		offer.Price,
 		offer.MediaFiles,
 	).Scan(&id)
 

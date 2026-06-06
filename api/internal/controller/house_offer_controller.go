@@ -27,7 +27,7 @@ type houseOffersRepo interface {
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
 	SetActive(ctx context.Context, id int64, active bool) error
-	UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OwnerPreferences) error
+	UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OfferFlags) error
 }
 
 type HouseOffers struct {
@@ -278,18 +278,18 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 
 	id, err := c.houseOffersRepo.CreateOffer(ctx, data)
 	if err != nil {
-		c.logger.Error("failed to create offer", "owner_id", data.OwnerId, "title", data.Title, "error", err)
+		c.logger.Error("failed to create offer", "owner_id", data.OwnerId, "error", err)
 		controllerError(ctx, errors.New("failed to create offer"), http.StatusInternalServerError)
 		return
 	}
 
-	c.logger.Info("offer created successfully", "offer_id", id, "owner_id", data.OwnerId, "title", data.Title)
+	c.logger.Info("offer created successfully", "offer_id", id, "owner_id", data.OwnerId)
 	ctx.JSON(http.StatusCreated, defaultResp{
 		StatusCode: http.StatusCreated,
 		Message:    "offer created successfully",
 	})
 
-	go c.updatePreferences(context.Background(), id, data.TenantDescription)
+	go c.updatePreferences(context.Background(), id, data.Description)
 }
 
 func (c HouseOffers) DeleteOffer(ctx *gin.Context) {
@@ -349,7 +349,7 @@ func (c HouseOffers) updatePreferences(ctx context.Context, offerId int64, text 
 	extractPrefsCtx, cancel := context.WithTimeout(ctx, maxExtractFlagsTime)
 	defer cancel()
 
-	prefs, err := c.llmClient.ExtractOwnerPreferences(extractPrefsCtx, text)
+	prefs, err := c.llmClient.ExtractOfferFlags(extractPrefsCtx, text)
 	if err != nil {
 		c.logger.Error("failed to extract preferences",
 			"offer_id", offerId,
