@@ -24,6 +24,8 @@ func (r Repository) UserLimits(ctx context.Context, userId int64) (limits model.
 		return model.UserLimits{}, err
 	}
 
+	limits.IsPremium = hasPrem
+
 	// Максимальное количество объявлений
 	limits.MaxOffersCount = 1
 	if hasPrem {

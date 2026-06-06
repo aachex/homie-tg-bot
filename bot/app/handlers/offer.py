@@ -14,7 +14,7 @@ from ..util.auth import show_profile
 from ..util.shared import handle_media_upload, normalize_city
 from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
-from ..api.users import get_user_by_id
+from ..api.users import get_user_by_id, get_user_limits
 from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, get_offer_likes, delete_like, HouseOfferCreate, HouseOffer
 
 from ..states import OfferCreate, Offer, MainMenu
@@ -26,6 +26,7 @@ router = Router()
 @router.message(
     StateFilter(
         MainMenu.main_menu,
+        MainMenu.my_offers,
         OfferCreate.finalize,
         *Offer.__states__),
     F.text == "Мои объявления"
@@ -40,9 +41,19 @@ async def my_offers(msg: Message, state: FSMContext):
         reply_markup=kb)
 
     offers = await get_user_offers(msg.from_user.id)
+    await state.update_data(offers_count=len(offers))
+
+    create_offer_button = InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary")
+    limits = await get_user_limits(msg.from_user.id)
+    if len(offers) >= limits.max_offers:
+        create_offer_button.text = "🔒 Создать объявление"
+        create_offer_button.callback_data = "offers_limit_exceeded"
+        create_offer_button.style = None
+        await state.update_data(has_premium=limits.is_premium)
+        await state.update_data(offers_limit_reached=True)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary")]
+        [create_offer_button]
     ])
 
     builder = InlineKeyboardBuilder()
@@ -165,9 +176,30 @@ async def del_offer(msg: Message, state: FSMContext):
 
 # ========== Создание объявления ==========
 
+@router.callback_query(F.data == "offers_limit_exceeded")
+async def offers_limit_reached(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    has_premium = data.get("has_premium", False)
+
+    text = f"Достигнут лимит объявлений."
+    if not has_premium:
+        text += " Приобретите премиум, чтобы увеличить лимиты."
+
+    await callback.answer(
+        text=text,
+        show_alert=True
+    )
+
+
 @router.callback_query(MainMenu.my_offers, F.data == "create_offer")
 async def create_start(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
+
+    data = await state.get_data()
+    offers_limit_reached = data.get("offers_limit_reached", False)
+    if offers_limit_reached:
+        return
+
     await state.clear()
 
     keyboard = ReplyKeyboardRemove()
@@ -187,7 +219,7 @@ async def select_city(msg: Message, state: FSMContext):
         return
     
     await state.update_data(city=normalize_city(msg.text))
-    await msg.answer("Опишите свободным языком ваше предложение: сколько комнат, стоимость, залог и так далее", reply_markup=skip_keyboard)
+    await msg.answer("Опишите свободным языком ваше предложение: сколько комнат, стоимость, залог и так далее", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.description)
 
 @router.message(OfferCreate.description)
@@ -195,8 +227,8 @@ async def enter_descr(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Нужно ввести текст")
         return
-    if msg.text != "Пропустить":
-        await state.update_data(descr=msg.text)
+
+    await state.update_data(descr=msg.text)
     
     await msg.answer("Теперь нужно отправить фотографии вашей недвижимости. Чем больше — тем лучше", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.media)
@@ -209,7 +241,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
 
     offer_create = HouseOfferCreate(
         owner_id=msg.from_user.id,
-        description=data.get("descr", ""),
+        description=data["descr"],
         city=data["city"],
         media_files=data["media_files"],
     )
