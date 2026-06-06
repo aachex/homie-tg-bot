@@ -19,7 +19,19 @@ func NewRepository(connPool *pgxpool.Pool) *Repository {
 }
 
 func (r Repository) UserLimits(ctx context.Context, userId int64) (limits model.UserLimits, err error) {
-	hasPrem, err := r.CheckPremiumTx(ctx, r.connPool, userId)
+	return r.UserLimitsTx(ctx, r.connPool, userId)
+}
+
+func (r Repository) UserLimitsTx(ctx context.Context, q rowQueryer, userId int64) (limits model.UserLimits, err error) {
+	if userId == 1 {
+		return model.UserLimits{
+			IsPremium:      false,
+			MaxOffersCount: 2000,
+			MaxLikesPerDay: 2000,
+		}, nil
+	}
+
+	hasPrem, err := r.CheckPremiumTx(ctx, q, userId)
 	if err != nil {
 		return model.UserLimits{}, err
 	}

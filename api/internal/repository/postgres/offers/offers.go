@@ -659,30 +659,15 @@ func (r *Repository) UserOffers(ctx context.Context, userId int64) (offers []mod
 }
 
 func (r *Repository) CreateOffer(ctx context.Context, offer model.HouseOfferCreate) (id int64, err error) {
-	const maxOffersCount = 1
-	const maxOffersCountPremium = 10
-
 	err = r.transaction(ctx, func(tx pgx.Tx) error {
-		// Проверяем, есть ли у пользователя премиум, чтобы определить лимит объявлений
-		hasPremium, err := r.premiumRepo.CheckPremiumTx(ctx, tx, offer.OwnerId)
-		if err != nil {
-			return err
-		}
-
-		// Если есть премиум, то повышаем лимит объявлений до 10
-		offersLimit := maxOffersCount
-		if hasPremium {
-			offersLimit = maxOffersCountPremium
-		}
-
-		// Получаем текущее количество объявлений
-		offersCount, err := r.countOffersTx(ctx, tx, offer.OwnerId)
-		if err != nil {
-			return err
+		limits, err := r.premiumRepo.UserLimitsTx(ctx, tx, offer.OwnerId)
+		offersCount, err2 := r.countOffersTx(ctx, tx, offer.OwnerId)
+		if err != nil || err2 != nil {
+			return errors.Join(err, err2)
 		}
 
 		// Проверяем, не превысили ли лимит имеющихся объявлений
-		if offersCount == offersLimit {
+		if offersCount >= limits.MaxOffersCount {
 			return ErrOffersLimitExceeded
 		}
 
