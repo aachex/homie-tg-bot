@@ -33,10 +33,10 @@ type HouseOffer struct {
 
 // HouseOfferCreate представляет данные, необходимые для создания объявления.
 type HouseOfferCreate struct {
-	OwnerId     int64    `json:"owner_id"`
-	Description string   `json:"description"`
-	City        string   `json:"city"`
-	MediaFiles  []string `json:"media_files"`
+	OwnerId     int64    `json:"owner_id" binding:"required"`
+	Description string   `json:"description" binding:"required"`
+	City        string   `json:"city" binding:"required"`
+	MediaFiles  []string `json:"media_files" binding:"required"`
 }
 
 // HouseOfferPreview представляет поверхностные данные, которые видит владелец своих объявлений.

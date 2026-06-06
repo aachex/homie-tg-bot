@@ -8,11 +8,13 @@ from .shared import get_relevance_emoji
 async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     """Отображает созданное объявление для подтверждения"""
     
+    descr = f"<blockquote expandable>{offer.description}</blockquote>"
+
     if offer.flag_processing:
         # Отправляем медиагруппу с базовой информацией
-        caption = f"📍 {offer.city}\n\n<b>📝 Описание:</b>\n{offer.description if offer.description else '—'}"
+        caption = f"📍 {offer.city}\n\n<b>📝 Описание:</b>\n{descr}"
         
-        media_group = MediaGroupBuilder(caption=caption, parse_mode="HTML")
+        media_group = MediaGroupBuilder(caption=caption)
         for photo_id in offer.media_files[:10]:
             media_group.add_photo(media=photo_id, parse_mode="HTML")
         await msg.answer_media_group(media=media_group.build())
@@ -116,8 +118,12 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     district = f", {offer.flags.district}" if offer.flags.district else ""
     
     # Заголовок с количеством комнат (если известно)
-    rooms_text = f"{offer.flags.rooms_count}-комнатная" if offer.flags.rooms_count else ""
-    title = f"{rooms_text} квартира" if rooms_text else "Квартира"
+    if offer.flags.rooms_count == 0:
+        title = "Студия"
+    elif offer.flags.rooms_count:
+        title = f"{offer.flags.rooms_count}-комнатная квартира"
+    else:
+        title = f"Предложение #{offer.id}"
     
     message_text = f"""
 <b>📋 {title}</b>
@@ -126,7 +132,7 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
 {price_line}
 
 <b>📝 Описание:</b>
-{offer.description if offer.description else '<i>—</i>'}
+{descr}
 
 <b>📋 Требования к арендатору:</b>
 {rules_text}{relevance_text}
