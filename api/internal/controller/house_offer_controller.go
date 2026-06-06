@@ -289,7 +289,7 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 		Message:    "offer created successfully",
 	})
 
-	go c.updatePreferences(context.Background(), id, data.Description)
+	go c.updateOfferFlags(context.Background(), id, data.Description)
 }
 
 func (c HouseOffers) DeleteOffer(ctx *gin.Context) {
@@ -343,7 +343,7 @@ func (c HouseOffers) SetActiveOffer(ctx *gin.Context) {
 	})
 }
 
-func (c HouseOffers) updatePreferences(ctx context.Context, offerId int64, text string) {
+func (c HouseOffers) updateOfferFlags(ctx context.Context, offerId int64, text string) {
 	const maxExtractFlagsTime = 30 * time.Second // Даём 30 секунд на извлечение флагов
 
 	extractPrefsCtx, cancel := context.WithTimeout(ctx, maxExtractFlagsTime)
@@ -367,11 +367,6 @@ func (c HouseOffers) updatePreferences(ctx context.Context, offerId int64, text 
 	}
 
 	if errExtract == nil {
-		c.logger.Info("preferences updated successfully",
-			"offer_id", offerId,
-			"smoking", flags.Smoking,
-			"children", flags.Children,
-			"pets", flags.Pets,
-		)
+		c.logger.Info("flags updated successfully", "offer_id", offerId)
 	}
 }
