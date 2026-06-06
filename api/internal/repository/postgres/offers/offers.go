@@ -701,35 +701,41 @@ func (r *Repository) SetActive(ctx context.Context, id int64, active bool) error
 	return err
 }
 
-// UpdateOfferPreferences обновляет флаги объявления
-func (r *Repository) UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OfferFlags) error {
+// UpdateOfferFlags обновляет флаги объявления
+func (r *Repository) UpdateOfferFlags(ctx context.Context, offerId int64, flags model.OfferFlags) error {
 	query := `
 		UPDATE tg_house_offer SET
-			preferred_smoking = $1,
-			preferred_children = $2,
-			preferred_pets = $3,
-			preferred_occupants_count = $4,
-			preferred_noise_lvl = $5,
-			preferred_works_from_home = $6,
-			preferred_alcohol = $7,
-			preferred_age_min = $8,
-			preferred_age_max = $9,
-			preferred_sex = $10,
+			price = $1,
+			rooms_count = $2,
+			district = $3,
+			preferred_smoking = $4,
+			preferred_children = $5,
+			preferred_pets = $6,
+			preferred_occupants_count = $7,
+			preferred_noise_lvl = $8,
+			preferred_works_from_home = $9,
+			preferred_alcohol = $10,
+			preferred_age_min = $11,
+			preferred_age_max = $12,
+			preferred_sex = $13,
 			flag_processing = FALSE
-		WHERE id = $11
+		WHERE id = $14
 	`
 
 	_, err := r.connPool.Exec(ctx, query,
-		prefs.Smoking,
-		prefs.Children,
-		prefs.Pets,
-		prefs.OccupantsCount,
-		prefs.NoiseLvl,
-		prefs.WorksFromHome,
-		prefs.Alcohol,
-		prefs.AgeMin,
-		prefs.AgeMax,
-		prefs.Sex,
+		flags.Price,
+		flags.RoomsCount,
+		flags.District,
+		flags.Smoking,
+		flags.Children,
+		flags.Pets,
+		flags.OccupantsCount,
+		flags.NoiseLvl,
+		flags.WorksFromHome,
+		flags.Alcohol,
+		flags.AgeMin,
+		flags.AgeMax,
+		flags.Sex,
 		offerId,
 	)
 

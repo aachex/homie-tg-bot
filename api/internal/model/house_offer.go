@@ -2,9 +2,9 @@ package model
 
 // OfferFlags представляет предпочтения арендодателя (кого он хочет)
 type OfferFlags struct {
-	Price      int    `json:"price"`
-	RoomsCount int    `json:"rooms_count"`
-	District   string `json:"district"`
+	Price      *int    `json:"price"`
+	RoomsCount *int    `json:"rooms_count"`
+	District   *string `json:"district"`
 
 	Smoking        *bool         `json:"smoking,omitempty"`
 	Children       *ChildrenEnum `json:"children,omitempty"`

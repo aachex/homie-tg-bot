@@ -27,7 +27,7 @@ type houseOffersRepo interface {
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
 	SetActive(ctx context.Context, id int64, active bool) error
-	UpdateOfferPreferences(ctx context.Context, offerId int64, prefs model.OfferFlags) error
+	UpdateOfferFlags(ctx context.Context, offerId int64, prefs model.OfferFlags) error
 }
 
 type HouseOffers struct {
@@ -349,15 +349,15 @@ func (c HouseOffers) updatePreferences(ctx context.Context, offerId int64, text 
 	extractPrefsCtx, cancel := context.WithTimeout(ctx, maxExtractFlagsTime)
 	defer cancel()
 
-	prefs, err := c.llmClient.ExtractOfferFlags(extractPrefsCtx, text)
-	if err != nil {
+	flags, errExtract := c.llmClient.ExtractOfferFlags(extractPrefsCtx, text)
+	if errExtract != nil {
 		c.logger.Error("failed to extract preferences",
 			"offer_id", offerId,
-			"error", err,
+			"error", errExtract,
 		)
 	}
 
-	err = c.houseOffersRepo.UpdateOfferPreferences(ctx, offerId, prefs)
+	err := c.houseOffersRepo.UpdateOfferFlags(ctx, offerId, flags)
 	if err != nil {
 		c.logger.Error("failed to update preferences",
 			"offer_id", offerId,
@@ -366,10 +366,12 @@ func (c HouseOffers) updatePreferences(ctx context.Context, offerId int64, text 
 		return
 	}
 
-	c.logger.Info("preferences updated successfully",
-		"offer_id", offerId,
-		"smoking", prefs.Smoking,
-		"children", prefs.Children,
-		"pets", prefs.Pets,
-	)
+	if errExtract == nil {
+		c.logger.Info("preferences updated successfully",
+			"offer_id", offerId,
+			"smoking", flags.Smoking,
+			"children", flags.Children,
+			"pets", flags.Pets,
+		)
+	}
 }
