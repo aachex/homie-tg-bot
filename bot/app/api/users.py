@@ -71,6 +71,15 @@ class UsersApi(APIClient):
         data = asdict(user)
         await self._request("PUT", f"user/{user_id}", data=data, expected_status=200)
 
+    async def get_limits(self, user_id: int) -> UserLimits:
+        """Получает лимиты пользователя"""
+        result = await self._request("GET", f"user/{user_id}/limits", expected_status=200)
+        return UserLimits(
+            is_premium=result.get("is_premium"),
+            max_offers=result.get("max_offers_count"),
+            max_likes_per_day=result.get("max_likes_per_day")
+        )
+
 _users_api = UsersApi()
 
 async def get_user_by_id(user_id: int) -> Optional[User]:
@@ -82,6 +91,5 @@ async def create_user(u: UserCreate):
 async def edit_user(id: int, u: UserEdit):
     await _users_api.edit_user(id, u)
 
-async def user_exists(user_id: int) -> bool:
-    user = await _users_api.get_user_by_id(user_id)
-    return user != None
+async def get_user_limits(id: int) -> UserLimits:
+    return await _users_api.get_limits(id)

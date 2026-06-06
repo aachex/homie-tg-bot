@@ -22,17 +22,23 @@ type usersRepo interface {
 	EditUser(ctx context.Context, userId int64, patch model.UserEdit) error
 }
 
-type Users struct {
-	logger    *slog.Logger
-	llmClient *llm.Client
-	usersRepo usersRepo
+type premiumRepo interface {
+	UserLimits(ctx context.Context, userId int64) (model.UserLimits, error)
 }
 
-func NewUsers(logger *slog.Logger, llmClient *llm.Client, usersRepo usersRepo) *Users {
+type Users struct {
+	logger      *slog.Logger
+	llmClient   *llm.Client
+	usersRepo   usersRepo
+	premiumRepo premiumRepo
+}
+
+func NewUsers(logger *slog.Logger, llmClient *llm.Client, usersRepo usersRepo, premiumRepo premiumRepo) *Users {
 	return &Users{
-		logger:    logger,
-		llmClient: llmClient,
-		usersRepo: usersRepo,
+		logger:      logger,
+		llmClient:   llmClient,
+		usersRepo:   usersRepo,
+		premiumRepo: premiumRepo,
 	}
 }
 
@@ -118,6 +124,35 @@ func (c Users) EditUser(ctx *gin.Context) {
 
 	text := fmt.Sprintf("\nМеня зовут %s. %s", patch.Name, patch.Description)
 	go c.updateFlags(context.Background(), userId, text)
+}
+
+func (c Users) Limits(ctx *gin.Context) {
+	// Получаем user_id из path параметра
+	userIDStr := ctx.Param("id")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		c.logger.Error("limits: invalid user id", "error", err, "user_id", userIDStr)
+		controllerError(ctx, errors.New("invalid user id"), http.StatusBadRequest)
+		return
+	}
+
+	c.logger.Info("getting user limits", "user_id", userID)
+
+	limits, err := c.premiumRepo.UserLimits(ctx, userID)
+	if err != nil {
+		c.logger.Error("failed to get user limits", "user_id", userID, "error", err)
+		controllerError(ctx, errors.New("failed to get user limits"), http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("user limits retrieved",
+		"user_id", userID,
+		"is_premium", limits.IsPremium,
+		"max_offers", limits.MaxOffersCount,
+		"max_likes", limits.MaxLikesPerDay,
+	)
+
+	ctx.JSON(http.StatusOK, limits)
 }
 
 // updateFlags извлекает флаги из описания юзера и обновляет их в БД.

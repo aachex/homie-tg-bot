@@ -1,4 +1,4 @@
-package postgres
+package reports
 
 import (
 	"context"
@@ -8,18 +8,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type ReportsRepo struct {
+type Repository struct {
 	connPool *pgxpool.Pool
 }
 
-func NewReportsRepo(connPool *pgxpool.Pool) *ReportsRepo {
-	return &ReportsRepo{
+func NewRepository(connPool *pgxpool.Pool) *Repository {
+	return &Repository{
 		connPool: connPool,
 	}
 }
 
 // Возвращает только ID (для списка)
-func (r *ReportsRepo) PendingReportIDs(ctx context.Context, offset, limit int) ([]int64, error) {
+func (r *Repository) PendingReportIDs(ctx context.Context, offset, limit int) ([]int64, error) {
 	query := `
 		SELECT id
 		FROM report
@@ -46,7 +46,7 @@ func (r *ReportsRepo) PendingReportIDs(ctx context.Context, offset, limit int) (
 }
 
 // Возвращает полные данные (для детального просмотра)
-func (r *ReportsRepo) ByID(ctx context.Context, id int64) (*model.Report, error) {
+func (r *Repository) ByID(ctx context.Context, id int64) (*model.Report, error) {
 	query := `
 		SELECT 
 			id,
@@ -73,7 +73,7 @@ func (r *ReportsRepo) ByID(ctx context.Context, id int64) (*model.Report, error)
 	return &report, nil
 }
 
-func (r *ReportsRepo) Count(ctx context.Context) (int, error) {
+func (r *Repository) Count(ctx context.Context) (int, error) {
 	query := `SELECT COUNT(*) FROM report`
 
 	var count int
@@ -84,7 +84,7 @@ func (r *ReportsRepo) Count(ctx context.Context) (int, error) {
 
 	return count, nil
 }
-func (r *ReportsRepo) Create(ctx context.Context, data model.ReportCreate) (id int64, err error) {
+func (r *Repository) Create(ctx context.Context, data model.ReportCreate) (id int64, err error) {
 	query := `
 		INSERT INTO report (
 			offer_id,
@@ -100,7 +100,7 @@ func (r *ReportsRepo) Create(ctx context.Context, data model.ReportCreate) (id i
 	return id, err
 }
 
-func (r *ReportsRepo) Delete(ctx context.Context, id int64) error {
+func (r *Repository) Delete(ctx context.Context, id int64) error {
 	query := `DELETE FROM report WHERE id = $1`
 	_, err := r.connPool.Exec(ctx, query, id)
 	return err

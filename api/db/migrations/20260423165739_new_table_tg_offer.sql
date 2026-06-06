@@ -5,14 +5,17 @@ CREATE TABLE IF NOT EXISTS tg_house_offer (
     owner_id BIGINT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     city TEXT NOT NULL,
-    district TEXT NOT NULL DEFAULT '',
-    title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    price INTEGER NOT NULL,
     media_files TEXT[] NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    boosted_until TIMESTAMP NOT NULL DEFAULT NOW(),
     flag_processing BOOL NOT NULL DEFAULT FALSE,
 
-    -- Флаги предпочтений арендодателя (что он хочет от арендатора)
+    -- Поля, которые извлекаются из описания (description)
+    price INTEGER,
+    rooms_count INTEGER,
+    district TEXT,
+
     preferred_smoking BOOL,
     preferred_children children_enum,
     preferred_pets pets_enum,

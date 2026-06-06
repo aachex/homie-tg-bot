@@ -1,7 +1,11 @@
 package model
 
-// OwnerPreferences представляет предпочтения арендодателя (кого он хочет)
-type OwnerPreferences struct {
+// OfferFlags представляет предпочтения арендодателя (кого он хочет)
+type OfferFlags struct {
+	Price      *int    `json:"price"`
+	RoomsCount *int    `json:"rooms_count"`
+	District   *string `json:"district"`
+
 	Smoking        *bool         `json:"smoking,omitempty"`
 	Children       *ChildrenEnum `json:"children,omitempty"`
 	Pets           *PetsEnum     `json:"pets,omitempty"`
@@ -18,28 +22,21 @@ type HouseOffer struct {
 	Id             int64    `json:"id"`
 	IsActive       bool     `json:"is_active"`
 	OwnerId        int64    `json:"owner_id"`
-	Title          string   `json:"title"`
 	Description    string   `json:"description"`
 	City           string   `json:"city"`
-	District       string   `json:"district"`
-	Price          int      `json:"price"`
 	MediaFiles     []string `json:"media_files"`
 	FlagProcessing bool     `json:"flag_processing"`
 
-	// Предпочтения арендодателя
-	Preferences OwnerPreferences `json:"preferences"`
+	// Флаги объявления
+	OfferFlags `json:"flags"`
 }
 
 // HouseOfferCreate представляет данные, необходимые для создания объявления.
 type HouseOfferCreate struct {
-	OwnerId           int64    `json:"owner_id"`
-	Title             string   `json:"title"`
-	Description       string   `json:"description"`
-	City              string   `json:"city"`
-	District          string   `json:"district"`
-	Price             int      `json:"price"`
-	MediaFiles        []string `json:"media_files"`
-	TenantDescription string   `json:"tenant_description"`
+	OwnerId     int64    `json:"owner_id" binding:"required"`
+	Description string   `json:"description" binding:"required"`
+	City        string   `json:"city" binding:"required"`
+	MediaFiles  []string `json:"media_files" binding:"required"`
 }
 
 // HouseOfferPreview представляет поверхностные данные, которые видит владелец своих объявлений.
@@ -65,10 +62,9 @@ type HouseOfferLike struct {
 }
 
 type RandRelevantOfferRequest struct {
-	UserID              int64     `json:"user_id" binding:"required"`
-	MinRelevancePercent int       `json:"min_rel" binding:"required"`
-	City                string    `json:"city" binding:"required"`
-	UserFlags           UserFlags `json:"user_flags"`
+	UserID    int64     `json:"user_id" binding:"required"`
+	City      string    `json:"city" binding:"required"`
+	UserFlags UserFlags `json:"user_flags"`
 }
 
 type RelevantOffer struct {

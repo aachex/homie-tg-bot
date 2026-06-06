@@ -46,3 +46,15 @@ class UserEdit:
     city: str | None = None
     description: str | None = None
     media_files: list[str] = field(default_factory=list)
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
+
+
+@dataclass
+class UserLimits:
+    """Лимиты пользователя (обычный или премиум)"""
+    is_premium: bool
+    max_offers: int
+    max_likes_per_day: int

@@ -40,3 +40,10 @@ type UserEdit struct {
 	Description string   `json:"description"`
 	MediaFiles  []string `json:"media_files"`
 }
+
+// UserLimits какие лимиты есть у пользователя.
+type UserLimits struct {
+	IsPremium      bool `json:"is_premium"`
+	MaxOffersCount int  `json:"max_offers_count"`
+	MaxLikesPerDay int  `json:"max_likes_per_day"`
+}

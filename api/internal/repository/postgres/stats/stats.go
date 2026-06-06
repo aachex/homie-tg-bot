@@ -1,4 +1,4 @@
-package postgres
+package stats
 
 import (
 	"context"
@@ -8,17 +8,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type StatsRepo struct {
+type Repository struct {
 	connPool *pgxpool.Pool
 }
 
-func NewStatsRepo(connPool *pgxpool.Pool) *StatsRepo {
-	return &StatsRepo{
+func NewRepository(connPool *pgxpool.Pool) *Repository {
+	return &Repository{
 		connPool: connPool,
 	}
 }
 
-func (r *StatsRepo) DAU(ctx context.Context, fromDate time.Time, toDate time.Time) (dau []model.DailyStat, err error) {
+func (r *Repository) DAU(ctx context.Context, fromDate time.Time, toDate time.Time) (dau []model.DailyStat, err error) {
 	query := `
 		SELECT 
 			DATE(time) as day,
@@ -47,7 +47,7 @@ func (r *StatsRepo) DAU(ctx context.Context, fromDate time.Time, toDate time.Tim
 	return dau, err
 }
 
-func (r *StatsRepo) CreateUserActivity(ctx context.Context, userId int64, action string, action_data map[string]any) (id int64, err error) {
+func (r *Repository) CreateUserActivity(ctx context.Context, userId int64, action string, action_data map[string]any) (id int64, err error) {
 	query := `
 		INSERT INTO user_activities (
 			user_id,

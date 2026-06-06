@@ -2,8 +2,12 @@ from dataclasses import dataclass, field
 from .enums import *
 
 @dataclass
-class OwnerPreferences:
-    """Флаги арендатора"""
+class OfferFlags:
+    """Флаги объявления"""
+    price: int | None = 0
+    rooms_count: int | None = 0
+    district: str | None = ""
+
     smoking: bool | None = None
     children: ChildrenEnum | None = None
     pets: PetsEnum | None = None
@@ -22,27 +26,20 @@ class HouseOffer:
     id: int = 0
     owner_id: int = 0
     is_active: bool = False
-    title: str = ""
     description: str = ""
     city: str = ""
-    district: str = ""
-    price: int = 0
     media_files: list[str] = field(default_factory=list)
     flag_processing: bool = False
-    preferences: OwnerPreferences = field(default_factory=OwnerPreferences)
+    flags: OfferFlags = field(default_factory=OfferFlags)
 
 
 @dataclass
 class HouseOfferCreate:
     """Данные, необходимые для создания объявления."""
     owner_id: int = 0
-    title: str = ""
     description: str = ""
     city: str = ""
-    district: str = ""
-    price: int = 0
     media_files: list[str] = field(default_factory=list)
-    tenant_description: str = ""
 
 
 @dataclass

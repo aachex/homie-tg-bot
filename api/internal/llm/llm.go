@@ -81,16 +81,16 @@ func (c *Client) ExtractUserFlags(ctx context.Context, text string) (model.UserF
 	return flags, nil
 }
 
-// ExtractOwnerPreferences извлекает предпочтения арендодателя из текста
-func (c *Client) ExtractOwnerPreferences(ctx context.Context, text string) (model.OwnerPreferences, error) {
+// ExtractOfferFlags извлекает предпочтения арендодателя из текста
+func (c *Client) ExtractOfferFlags(ctx context.Context, text string) (model.OfferFlags, error) {
 	if text == "" {
 		c.logger.Warn("empty text provided for owner preferences extraction")
-		return model.OwnerPreferences{}, nil
+		return model.OfferFlags{}, nil
 	}
 
 	systemPrompt, err := readFile("internal/llm/owner_prompt.txt")
 	if err != nil {
-		return model.OwnerPreferences{}, err
+		return model.OfferFlags{}, err
 	}
 
 	userPrompt := "Текст арендодателя: " + text
@@ -108,11 +108,11 @@ func (c *Client) ExtractOwnerPreferences(ctx context.Context, text string) (mode
 	})
 	if err != nil {
 		c.logger.Error("LLM request failed for owner preferences", "error", err)
-		return model.OwnerPreferences{}, err
+		return model.OfferFlags{}, err
 	}
 
 	if len(resp.Choices) == 0 {
-		return model.OwnerPreferences{}, fmt.Errorf("no choices in response")
+		return model.OfferFlags{}, fmt.Errorf("no choices in response")
 	}
 
 	content := resp.Choices[0].Message.Content
@@ -120,10 +120,10 @@ func (c *Client) ExtractOwnerPreferences(ctx context.Context, text string) (mode
 
 	c.logger.Info("successfully fetched LLM response for owner", "text", content)
 
-	var prefs model.OwnerPreferences
+	var prefs model.OfferFlags
 	if err := json.Unmarshal([]byte(content), &prefs); err != nil {
 		c.logger.Error("failed to parse owner preferences JSON", "content", content, "error", err)
-		return model.OwnerPreferences{}, err
+		return model.OfferFlags{}, err
 	}
 
 	c.logger.Info("owner preferences extracted", "prefs", prefs)
