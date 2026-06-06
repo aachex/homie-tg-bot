@@ -15,6 +15,8 @@ import (
 var (
 	ErrLikeAlreadyExists = errors.New("like already exists")
 	ErrLikeNotFound      = errors.New("like not found")
+
+	ErrOffersLimitExceeded = errors.New("failed to create offer: max offers count exceeded")
 )
 
 type Repository struct {
@@ -681,7 +683,7 @@ func (r *Repository) CreateOffer(ctx context.Context, offer model.HouseOfferCrea
 
 		// Проверяем, не превысили ли лимит имеющихся объявлений
 		if offersCount == offersLimit {
-			return errors.New("failed to create offer: max offers count exceeded")
+			return ErrOffersLimitExceeded
 		}
 
 		// Всё ок - создаём объявление

@@ -49,7 +49,7 @@ func main() {
 	llmClient := llm.NewClient(logger, llmApiKey, "openai/gpt-oss-120b:free")
 
 	// Контроллеры
-	usersController := controller.NewUsers(logger, llmClient, usersRepo)
+	usersController := controller.NewUsers(logger, llmClient, usersRepo, premRepo)
 	offersController := controller.NewHouseOffers(logger, llmClient, offersRepo)
 	reportsController := controller.NewReports(logger, reportsRepo)
 	statsController := controller.NewStats(logger, statsRepo)
@@ -68,6 +68,7 @@ func main() {
 	v1.POST("/user", usersController.CreateUser)
 	v1.PUT("/user/:id", usersController.EditUser)
 	v1.GET("/user/:id/offers", offersController.UserOffers)
+	v1.GET("/user/:id/limits", usersController.Limits)
 
 	v1.GET("/offer/:id", offersController.OfferById)
 	v1.POST("/offer/relevant", offersController.RelevantOffer)

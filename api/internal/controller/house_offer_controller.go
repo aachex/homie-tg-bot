@@ -277,6 +277,12 @@ func (c HouseOffers) CreateOffer(ctx *gin.Context) {
 	}
 
 	id, err := c.houseOffersRepo.CreateOffer(ctx, data)
+	if errors.Is(err, offers.ErrOffersLimitExceeded) {
+		c.logger.Error("failed to create offer", "owner_id", data.OwnerId, "error", err)
+		controllerError(ctx, errors.New("failed to create offer: limit exceeded"), http.StatusForbidden)
+		return
+	}
+
 	if err != nil {
 		c.logger.Error("failed to create offer", "owner_id", data.OwnerId, "error", err)
 		controllerError(ctx, errors.New("failed to create offer"), http.StatusInternalServerError)
