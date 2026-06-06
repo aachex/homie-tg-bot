@@ -113,7 +113,7 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     relevance_text = ""
     if relevance > 0:
         emoji = get_relevance_emoji(relevance)
-        relevance_text = f"\n\n<b>{emoji} Совместимость:</b> {relevance}%"
+        relevance_text = f"<b>{emoji} Совместимость:</b> {relevance}%"
     
     district = f", {offer.flags.district}" if offer.flags.district else ""
     
@@ -135,11 +135,14 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
 {descr}
 
 <b>📋 Требования к арендатору:</b>
-{rules_text}{relevance_text}
+{rules_text}
+
+{relevance_text}
 """
     
     # ========== Отправка созданного объявления ==========
-    media_group = MediaGroupBuilder(caption=message_text)
+    media_group = MediaGroupBuilder()
     for photo_id in offer.media_files[:10]:
-        media_group.add_photo(media=photo_id, parse_mode="HTML")
+        media_group.add_photo(media=photo_id)
     await msg.answer_media_group(media=media_group.build())
+    await msg.answer(message_text, parse_mode="HTML")
