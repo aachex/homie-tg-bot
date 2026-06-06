@@ -188,51 +188,7 @@ async def select_city(msg: Message, state: FSMContext):
         return
     
     await state.update_data(city=normalize_city(msg.text))
-    await msg.answer("Где находится объект? Укажите район или улицу", reply_markup=skip_keyboard)
-    await state.set_state(OfferCreate.district)
-
-@router.message(OfferCreate.district)
-async def enter_district(msg: Message, state: FSMContext):
-    if msg.text != "Пропустить":
-        await state.update_data(district=msg.text)
-        
-    await msg.answer("Какого жильца вы хотите видеть? Опишите свободным языком", reply_markup=ReplyKeyboardRemove())
-    await state.set_state(OfferCreate.tenant)
-
-@router.message(OfferCreate.tenant)
-async def enter_tenant_descr(msg: Message, state: FSMContext):
-    if not msg.text:
-        await msg.answer("Опишите, каких жильцов хотите видеть")
-        return
-    await state.update_data(tenant=msg.text)
-
-    txt = "<b>Дайте короткое название вашему объявлению</b>\n\nПример: Комната в общежитии в центре"
-    await msg.answer(txt, parse_mode="HTML")
-    await state.set_state(OfferCreate.title)
-
-@router.message(OfferCreate.title)
-async def enter_title(msg: Message, state: FSMContext):
-    if not msg.text:
-        await msg.answer("Нужно написать название")
-        return
-    
-    await state.update_data(title=msg.text)
-
-    txt = "Укажите, сколько рублей в месяц стоит аренда вашей недвижимости. Этот этап можно пропустить"
-    await msg.answer(txt, reply_markup=skip_keyboard)
-    await state.set_state(OfferCreate.price)
-
-@router.message(OfferCreate.price)
-async def enter_price(msg: Message, state: FSMContext):
-    if msg.text != "Пропустить":
-        price_str = msg.text.replace(' ', '') # Удаление пробелов
-        if not is_int(price_str):
-            await msg.answer("Укажите целое число")
-            return
-        await state.update_data(price=price_str)
-
-    txt = "Напишите подробное описание вашего объявления. Так Вы повысите вероятность найти арендатора"
-    await msg.answer(txt, reply_markup=skip_keyboard)
+    await msg.answer("Опишите свободным языком ваше предложение: сколько комнат, стоимость, залог и так далее", reply_markup=skip_keyboard)
     await state.set_state(OfferCreate.description)
 
 @router.message(OfferCreate.description)
@@ -254,24 +210,17 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
 
     offer_create = HouseOfferCreate(
         owner_id=msg.from_user.id,
-        title=data["title"],
         description=data.get("descr", ""),
         city=data["city"],
-        district=data.get("district", ""),
-        price=int(data.get("price", 0)),
         media_files=data["media_files"],
-        tenant_description=data["tenant"]
     )
     await create_offer(offer_create)  # Отправляем на создание в API
 
     # Конвертируем в HouseOffer для отображения
     offer = HouseOffer(
         owner_id=offer_create.owner_id,
-        title=offer_create.title,
         description=offer_create.description,
         city=offer_create.city,
-        district=offer_create.district,
-        price=offer_create.price,
         media_files=offer_create.media_files,
         flag_processing=True,  # пока флаги не обработаны
     )

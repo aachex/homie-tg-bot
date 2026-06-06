@@ -627,11 +627,17 @@ func (r *Repository) UserOffers(ctx context.Context, userId int64) (offers []mod
 		SELECT
 			tg_house_offer.id,
 			tg_house_offer.is_active,
-			tg_house_offer.title,
+			CASE 
+				WHEN LENGTH(tg_house_offer.description) > 30 
+				THEN LEFT(tg_house_offer.description, 30) || '...'
+				ELSE tg_house_offer.description
+			END as title,
 			COUNT(offer_like.offer_id) as likes_count
-		FROM tg_house_offer LEFT JOIN offer_like ON tg_house_offer.id = offer_like.offer_id
+		FROM tg_house_offer 
+		LEFT JOIN offer_like ON tg_house_offer.id = offer_like.offer_id
 		WHERE owner_id = $1
-		GROUP BY tg_house_offer.id, tg_house_offer.is_active, tg_house_offer.title`
+		GROUP BY tg_house_offer.id, tg_house_offer.is_active, tg_house_offer.description
+		ORDER BY tg_house_offer.created_at DESC`
 
 	rows, err := r.connPool.Query(ctx, query, userId)
 	if err != nil {

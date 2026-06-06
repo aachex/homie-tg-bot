@@ -8,107 +8,119 @@ from .shared import get_relevance_emoji
 async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     """Отображает созданное объявление для подтверждения"""
     
+    if offer.flag_processing:
+        # Отправляем медиагруппу с базовой информацией
+        caption = f"📍 {offer.city}\n\n<b>📝 Описание:</b>\n{offer.description if offer.description else '—'}"
+        
+        media_group = MediaGroupBuilder(caption=caption, parse_mode="HTML")
+        for photo_id in offer.media_files[:10]:
+            media_group.add_photo(media=photo_id, parse_mode="HTML")
+        await msg.answer_media_group(media=media_group.build())
+        return
+    
     # ========== Форматирование цены ==========
-    if offer.price == 0:
-        price_line = "💰 Цена не указана"
-    else:
-        price_str = f"{int(offer.price):,}".replace(',', ' ')
+    if offer.flags.price and offer.flags.price > 0:
+        price_str = f"{int(offer.flags.price):,}".replace(',', ' ')
         price_line = f"💰 {price_str} ₽/месяц"
+    else:
+        price_line = "💰 Цена не указана"
     
     # ========== Форматирование правил ==========
-    if offer.flag_processing:
-        rules_text = "⏳ Обрабатывается..."
-    else:
-        rules_lines = []
-        
-        # Курение
-        if offer.preferences.smoking is True:
-            rules_lines.append("✅ Курить разрешено")
-        elif offer.preferences.smoking is False:
-            rules_lines.append("❌ Курить запрещено")
-        
-        # Пол арендатора
-        if offer.preferences.sex == SexEnum.MALE:
-            rules_lines.append("👨 Желательно мужчина")
-        elif offer.preferences.sex == SexEnum.FEMALE:
-            rules_lines.append("👩 Желательно женщина")
-        
-        # Дети
-        if offer.preferences.children == ChildrenEnum.NONE:
-            rules_lines.append("❌ Без детей")
-        elif offer.preferences.children == ChildrenEnum.ONE:
-            rules_lines.append("✅ Можно с одним ребёнком")
-        elif offer.preferences.children == ChildrenEnum.TWO_PLUS:
-            rules_lines.append("✅ Можно с детьми")
-        elif offer.preferences.children == ChildrenEnum.PLANNING:
-            rules_lines.append("✅ Можно планирующим ребёнка")
-        
-        # Животные
-        if offer.preferences.pets == PetsEnum.NONE:
-            rules_lines.append("❌ Без животных")
-        elif offer.preferences.pets == PetsEnum.CATS:
-            rules_lines.append("✅ Можно с кошками")
-        elif offer.preferences.pets == PetsEnum.DOGS:
-            rules_lines.append("✅ Можно с собаками")
-        elif offer.preferences.pets == PetsEnum.OTHER:
-            rules_lines.append("✅ Можно с другими животными")
-        elif offer.preferences.pets == PetsEnum.ANY:
-            rules_lines.append("🐾 Можно с любыми животными")
-        
-        # Количество проживающих
-        if offer.preferences.occupants_count is not None:
-            rules_lines.append(f"👥 Максимум {offer.preferences.occupants_count} чел.")
-        
-        # Уровень шума
-        if offer.preferences.noise_lvl == NoiseLvlEnum.QUIET:
-            rules_lines.append("🔇 Только тихие")
-        elif offer.preferences.noise_lvl == NoiseLvlEnum.NORMAL:
-            rules_lines.append("🔊 Обычный уровень шума")
-        elif offer.preferences.noise_lvl == NoiseLvlEnum.LOUD:
-            rules_lines.append("📢 Можно шумные")
-        
-        # Работа из дома
-        if offer.preferences.works_from_home is True:
-            rules_lines.append("💻 Желательно работа из дома")
-        elif offer.preferences.works_from_home is False:
-            rules_lines.append("🏢 Желательно работа в офисе")
-        
-        # Алкоголь
-        if offer.preferences.alcohol == AlcoholEnum.NEVER:
-            rules_lines.append("🍷 Только непьющие")
-        elif offer.preferences.alcohol == AlcoholEnum.RARE:
-            rules_lines.append("🍷 Редко пьющие допустимы")
-        elif offer.preferences.alcohol == AlcoholEnum.REGULAR:
-            rules_lines.append("🍷 Алкоголь разрешён")
-        
-        # Возраст
-        if offer.preferences.age_min is not None and offer.preferences.age_max is not None:
-            if offer.preferences.age_min == offer.preferences.age_max:
-                rules_lines.append(f"🎂 Возраст: {offer.preferences.age_min}")
-            else:
-                rules_lines.append(f"🎂 Возраст: {offer.preferences.age_min}–{offer.preferences.age_max}")
-        elif offer.preferences.age_min is not None:
-            rules_lines.append(f"🎂 Возраст: от {offer.preferences.age_min}")
-        elif offer.preferences.age_max is not None:
-            rules_lines.append(f"🎂 Возраст: до {offer.preferences.age_max}")
-        
-        if rules_lines:
-            rules_lines[0] = "<blockquote expandable>" + rules_lines[0]
-            rules_lines[-1] += "</blockquote>"
-            rules_text = "\n".join(rules_lines)
-        else:
-            rules_text = "<blockquote>⚪ Нет особых требований</blockquote>"
+    rules_lines = []
     
-    # ========== Форматирование релевантности ==========
+    # Курение
+    if offer.flags.smoking is True:
+        rules_lines.append("✅ Курить разрешено")
+    elif offer.flags.smoking is False:
+        rules_lines.append("❌ Курить запрещено")
+    
+    # Пол арендатора
+    if offer.flags.sex == SexEnum.MALE:
+        rules_lines.append("👨 Желательно мужчина")
+    elif offer.flags.sex == SexEnum.FEMALE:
+        rules_lines.append("👩 Желательно женщина")
+    
+    # Дети
+    if offer.flags.children == ChildrenEnum.NONE:
+        rules_lines.append("❌ Без детей")
+    elif offer.flags.children == ChildrenEnum.ONE:
+        rules_lines.append("✅ Можно с одним ребёнком")
+    elif offer.flags.children == ChildrenEnum.TWO_PLUS:
+        rules_lines.append("✅ Можно с детьми")
+    elif offer.flags.children == ChildrenEnum.PLANNING:
+        rules_lines.append("✅ Можно планирующим ребёнка")
+    
+    # Животные
+    if offer.flags.pets == PetsEnum.NONE:
+        rules_lines.append("❌ Без животных")
+    elif offer.flags.pets == PetsEnum.CATS:
+        rules_lines.append("✅ Можно с кошками")
+    elif offer.flags.pets == PetsEnum.DOGS:
+        rules_lines.append("✅ Можно с собаками")
+    elif offer.flags.pets == PetsEnum.OTHER:
+        rules_lines.append("✅ Можно с другими животными")
+    elif offer.flags.pets == PetsEnum.ANY:
+        rules_lines.append("🐾 Можно с любыми животными")
+    
+    # Количество проживающих
+    if offer.flags.occupants_count is not None:
+        rules_lines.append(f"👥 Максимум {offer.flags.occupants_count} чел.")
+    
+    # Уровень шума
+    if offer.flags.noise_lvl == NoiseLvlEnum.QUIET:
+        rules_lines.append("🔇 Только тихие")
+    elif offer.flags.noise_lvl == NoiseLvlEnum.NORMAL:
+        rules_lines.append("🔊 Обычный уровень шума")
+    elif offer.flags.noise_lvl == NoiseLvlEnum.LOUD:
+        rules_lines.append("📢 Можно шумные")
+    
+    # Работа из дома
+    if offer.flags.works_from_home is True:
+        rules_lines.append("💻 Желательно работа из дома")
+    elif offer.flags.works_from_home is False:
+        rules_lines.append("🏢 Желательно работа в офисе")
+    
+    # Алкоголь
+    if offer.flags.alcohol == AlcoholEnum.NEVER:
+        rules_lines.append("🍷 Только непьющие")
+    elif offer.flags.alcohol == AlcoholEnum.RARE:
+        rules_lines.append("🍷 Редко пьющие допустимы")
+    elif offer.flags.alcohol == AlcoholEnum.REGULAR:
+        rules_lines.append("🍷 Алкоголь разрешён")
+    
+    # Возраст
+    if offer.flags.age_min is not None and offer.flags.age_max is not None:
+        if offer.flags.age_min == offer.flags.age_max:
+            rules_lines.append(f"🎂 Возраст: {offer.flags.age_min}")
+        else:
+            rules_lines.append(f"🎂 Возраст: {offer.flags.age_min}–{offer.flags.age_max}")
+    elif offer.flags.age_min is not None:
+        rules_lines.append(f"🎂 Возраст: от {offer.flags.age_min}")
+    elif offer.flags.age_max is not None:
+        rules_lines.append(f"🎂 Возраст: до {offer.flags.age_max}")
+    
+    # Формируем итоговый текст
+    if rules_lines:
+        rules_lines[0] = "<blockquote expandable>" + rules_lines[0]
+        rules_lines[-1] += "</blockquote>"
+        rules_text = "\n".join(rules_lines)
+    else:
+        rules_text = "<blockquote>⚪ Нет особых требований</blockquote>"
+    
+    # Формирование релевантности
     relevance_text = ""
     if relevance > 0:
         emoji = get_relevance_emoji(relevance)
         relevance_text = f"\n\n<b>{emoji} Совместимость:</b> {relevance}%"
     
-    # ========== Текстовое сообщение ==========
-    district = f", {offer.district}" if offer.district else ""
+    district = f", {offer.flags.district}" if offer.flags.district else ""
+    
+    # Заголовок с количеством комнат (если известно)
+    rooms_text = f"{offer.flags.rooms_count}-комнатная" if offer.flags.rooms_count else ""
+    title = f"{rooms_text} квартира" if rooms_text else "Квартира"
+    
     message_text = f"""
-<b>📋 {offer.title}</b>
+<b>📋 {title}</b>
 
 📍 {offer.city}{district}
 {price_line}
@@ -121,10 +133,7 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
 """
     
     # ========== Отправка созданного объявления ==========
-    if offer.media_files:
-        media_group = MediaGroupBuilder(caption=message_text)
-        for photo_id in offer.media_files[:10]:
-            media_group.add_photo(media=photo_id, parse_mode="HTML")
-        await msg.answer_media_group(media=media_group.build())
-    else:
-        await msg.answer(message_text, parse_mode="HTML")
+    media_group = MediaGroupBuilder(caption=message_text)
+    for photo_id in offer.media_files[:10]:
+        media_group.add_photo(media=photo_id, parse_mode="HTML")
+    await msg.answer_media_group(media=media_group.build())
