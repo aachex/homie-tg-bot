@@ -22,6 +22,24 @@ func (r Repository) UserLimits(ctx context.Context, userId int64) (limits model.
 	return r.UserLimitsTx(ctx, r.connPool, userId)
 }
 
+func (r *Repository) RenewPremium(ctx context.Context, userId int64, daysCount int) error {
+	query := `
+		INSERT INTO premium (user_id, until)
+		VALUES ($1, NOW() + $2 * INTERVAL '1 day')
+		ON CONFLICT (user_id) DO
+		UPDATE SET
+			until = until + $2 * INTERVAL '1 day'
+		WHERE user_id = $1
+	`
+
+	_, err := r.connPool.Exec(ctx, query, userId, daysCount)
+	return err
+}
+
+type rowQueryer interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func (r Repository) UserLimitsTx(ctx context.Context, q rowQueryer, userId int64) (limits model.UserLimits, err error) {
 	if userId == 1 {
 		return model.UserLimits{
@@ -51,10 +69,6 @@ func (r Repository) UserLimitsTx(ctx context.Context, q rowQueryer, userId int64
 	}
 
 	return limits, nil
-}
-
-type rowQueryer interface {
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 func (r Repository) CheckPremiumTx(ctx context.Context, tx rowQueryer, userId int64) (hasPremium bool, err error) {

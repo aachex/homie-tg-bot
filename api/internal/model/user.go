@@ -41,9 +41,15 @@ type UserEdit struct {
 	MediaFiles  []string `json:"media_files"`
 }
 
-// UserLimits какие лимиты есть у пользователя.
+// UserLimits показывает какие лимиты есть у пользователя.
 type UserLimits struct {
 	IsPremium      bool `json:"is_premium"`
 	MaxOffersCount int  `json:"max_offers_count"`
 	MaxLikesPerDay int  `json:"max_likes_per_day"`
+}
+
+// RenewPremiumRequest представляет запрос на активацию премиума.
+type RenewPremiumRequest struct {
+	UserId    int64 `json:"user_id"`
+	DaysCount int   `json:"days"`
 }

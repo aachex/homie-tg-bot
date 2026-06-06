@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional
 from dataclasses import asdict
 
@@ -79,6 +80,13 @@ class UsersApi(APIClient):
             max_offers=result.get("max_offers_count"),
             max_likes_per_day=result.get("max_likes_per_day")
         )
+    
+    async def renew_premium(self, user_id: int, days: int):
+        data = {
+            "user_id": user_id,
+            "days": days,
+        }
+        await self._request("POST", "user/renew-premium", data=data)
 
 _users_api = UsersApi()
 
@@ -93,3 +101,6 @@ async def edit_user(id: int, u: UserEdit):
 
 async def get_user_limits(id: int) -> UserLimits:
     return await _users_api.get_limits(id)
+
+async def renew_premium(user_id: int, days: int):
+    return await _users_api.renew_premium(user_id, days)
