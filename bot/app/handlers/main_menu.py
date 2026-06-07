@@ -22,8 +22,8 @@ async def main_menu(msg: Message, state: FSMContext):
 
     kb = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="🏡 Найти жильё")],
-        [KeyboardButton(text="Мой профиль")],
-        [KeyboardButton(text="Мои объявления")],
+        [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Мои объявления")],
+        [KeyboardButton(text="🌟 Премиум")]
     ], resize_keyboard=True)
 
     if msg.from_user.id in ADMIN_IDS:

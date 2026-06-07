@@ -10,20 +10,28 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     
     descr = f"<blockquote expandable>{offer.description}</blockquote>"
 
+    # Данные ещё не извлечены
     if offer.flag_processing:
         # Отправляем медиагруппу с базовой информацией
-        caption = f"📍 {offer.city}\n\n<b>📝 Описание:</b>\n{descr}"
-        
-        media_group = MediaGroupBuilder(caption=caption)
+        media_group = MediaGroupBuilder(caption="⌛ Обрабатывается...")
         for photo_id in offer.media_files[:10]:
-            media_group.add_photo(media=photo_id, parse_mode="HTML")
+            media_group.add_photo(media=photo_id)
         await msg.answer_media_group(media=media_group.build())
         return
     
-    # ========== Форматирование цены ==========
+    # ========== Форматирование цены и залога ==========
+    price_parts = []
+
     if offer.flags.price and offer.flags.price > 0:
         price_str = f"{int(offer.flags.price):,}".replace(',', ' ')
-        price_line = f"💰 {price_str} ₽/месяц"
+        price_parts.append(f"💰 {price_str} ₽/месяц")
+
+    if offer.flags.deposit and offer.flags.deposit > 0:
+        deposit_str = f"{int(offer.flags.deposit):,}".replace(',', ' ')
+        price_parts.append(f"🔒 Залог: {deposit_str} ₽")
+
+    if price_parts:
+        price_line = " | ".join(price_parts)
     else:
         price_line = "💰 Цена не указана"
     

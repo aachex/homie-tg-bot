@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS tg_house_offer (
 
     -- Поля, которые извлекаются из описания (description)
     price INTEGER,
+    deposit INTEGER,
     rooms_count INTEGER,
     district TEXT,
 

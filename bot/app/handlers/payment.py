@@ -4,10 +4,15 @@ from aiogram import Bot, Router, F
 from aiogram.types import Message, LabeledPrice
 from aiogram.types import PreCheckoutQuery
 
+from states import MainMenu
 from model.enums import PremiumTariff
 from api.users import renew_premium
 
 router = Router()
+
+@router.message(MainMenu.main_menu, F.text == "🌟 Премиум")
+async def premium(msg: Message):
+    await msg.answer("Преимущества премиум подписки")
 
 PRICE_PER_DAY = 70
 PRICE_BY_TARIFF = [
@@ -34,7 +39,7 @@ async def on_successful_payment(msg: Message):
     if payload[0] != "premium":
         return
 
-    tariff = PremiumTariff(payload[1])
+    tariff = PremiumTariff[payload[1]]
 
     user_id = msg.from_user.id
     days = DURATION_DAYS[tariff]
