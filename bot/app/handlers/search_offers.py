@@ -82,8 +82,9 @@ async def show_next_offer(msg: Message, state: FSMContext, id: int = 0, relevanc
         city = _user_city[user_id]
         
         offer = await get_rand_offer(msg.from_user.id, city, flags)
-        relevance = offer.relevance_percent
-        offer = offer.offer
+        if offer is not None:
+            relevance = offer.relevance_percent
+            offer = offer.offer
     elif id != 0:
         offer = await get_offer_by_id(id)
     

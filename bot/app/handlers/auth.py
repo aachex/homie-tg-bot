@@ -1,4 +1,5 @@
 import os
+import asyncio
 from dataclasses import asdict
 
 from aiogram import F, Router
@@ -130,11 +131,65 @@ async def auth_descr(msg: Message, state: FSMContext):
     await msg.answer("Пожалуйста, отправьте фотографию с вашим лицом. Профилям без лица меньше доверяют", reply_markup=kb)
     await state.set_state(Auth.media_files)
 
-@router.message(Auth.media_files, F.text == "Завершить")
-async def finalize_auth_handler(msg: Message, state: FSMContext):
+@router.message(Auth.media_files, F.text == "Пропустить")
+async def skip_media(msg: Message, state: FSMContext):
+    await state.update_data(media_files=[os.getenv("NO_PHOTO_FILE_ID")])
+    await finalize_auth(msg, state)
+
+@router.message(Auth.media_files, F.text == "Оставить текущие фотографии")
+async def leave_previous_media(msg: Message, state: FSMContext):
     data = await state.get_data()
-    if "media_files" not in data:
+    if "user" not in data:
         return
+
+    previous_media_files = data["user"]["media_files"]
+    await state.update_data(media_files=previous_media_files)
+    await finalize_auth(msg, state)
+
+# Хранилище для временного сбора альбомов
+temp_albums: dict[str, list[Message]] = {}
+
+@router.message(Auth.media_files, F.media_group_id)
+async def handle_album(msg: Message, state: FSMContext):
+    """
+    Обработчик медиагруппы (альбома) — собирает все file_id из всех фото
+    """
+    album_key = f"{msg.chat.id}_{msg.media_group_id}"
+    
+    if album_key not in temp_albums:
+        temp_albums[album_key] = []
+        # Запускаем таймер для финализации альбома
+        asyncio.create_task(finalize_album(msg, state, album_key))
+    
+    temp_albums[album_key].append(msg)
+
+
+async def finalize_album(msg: Message, state: FSMContext, album_key: str):
+    """
+    Финализирует сбор альбома и обрабатывает все file_id
+    """
+    await asyncio.sleep(3)  # Ждём, пока придут все сообщения альбома
+    
+    if album_key not in temp_albums:
+        return
+    
+    messages = temp_albums[album_key]
+    
+    # Собираем все file_id из альбома
+    all_file_ids = []
+    
+    for msg in messages:
+        if msg.photo:
+            # Берём самое большое фото (последний элемент)
+            file_id = msg.photo[-1].file_id
+            all_file_ids.append(file_id)
+    
+    # Сохраняем полученные фотографии
+    await state.update_data(media_files=all_file_ids)
+    
+    # Очищаем хранилище
+    del temp_albums[album_key]
+
     await finalize_auth(msg, state)
 
 async def finalize_auth(msg: Message, state: FSMContext):
@@ -144,8 +199,8 @@ async def finalize_auth(msg: Message, state: FSMContext):
         id=msg.from_user.id,
         name=data["name"],
         city=data["city"],
-        description=data.get("descr"),
-        media_files=data.get("media_files", [os.getenv("NO_PHOTO_FILE_ID")]),
+        description=data["descr"],
+        media_files=data["media_files"],
     )
 
     if "user" in data:
@@ -177,23 +232,6 @@ async def finalize_auth(msg: Message, state: FSMContext):
         [KeyboardButton(text="Готово")],
     ], resize_keyboard=True)
     await show_profile_with_keyboard(msg, state, user, keyboard)
-
-@router.message(Auth.media_files)
-async def auth_media(msg: Message, state: FSMContext):
-    if msg.text == "Пропустить":
-        await finalize_auth(msg, state)
-        return
-
-    data = await state.get_data()
-    if msg.text == "Оставить текущие фотографии" and "user" in data:
-        # Если пользователь решил оставить фото и у нас есть информация о его старых фото
-        await state.update_data(media_files=data["user"]["media_files"])
-        await finalize_auth(msg, state)
-        return
-    
-    done = await handle_media_upload(msg, state, 3)
-    if done:
-        await finalize_auth(msg, state)
 
 async def show_profile_with_keyboard(msg: Message, state: FSMContext, user: User, keyboard: ReplyKeyboardMarkup):
     await state.set_state(MainMenu.profile)
