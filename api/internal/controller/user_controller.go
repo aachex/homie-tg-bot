@@ -23,6 +23,7 @@ type usersRepo interface {
 }
 
 type premiumRepo interface {
+	PremiumData(ctx context.Context, userId int64) (model.PremiumData, error)
 	UserLimits(ctx context.Context, userId int64) (model.UserLimits, error)
 	RenewPremium(ctx context.Context, userId int64, daysCount int) (model.PremiumData, error)
 }
@@ -154,6 +155,33 @@ func (c Users) Limits(ctx *gin.Context) {
 	)
 
 	ctx.JSON(http.StatusOK, limits)
+}
+
+func (c Users) PremiumData(ctx *gin.Context) {
+	userIDStr := ctx.Param("id")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		c.logger.Error("premium data: invalid user id", "error", err, "user_id", userIDStr)
+		controllerError(ctx, errors.New("invalid user id"), http.StatusBadRequest)
+		return
+	}
+
+	c.logger.Info("getting premium data", "user_id", userID)
+
+	premiumData, err := c.premiumRepo.PremiumData(ctx, userID)
+	if err != nil {
+		c.logger.Error("failed to get premium data", "user_id", userID, "error", err)
+		controllerError(ctx, errors.New("failed to get premium data"), http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("premium data retrieved",
+		"user_id", userID,
+		"is_premium", premiumData.IsPremium,
+		"premium_until", premiumData.Until,
+	)
+
+	ctx.JSON(http.StatusOK, premiumData)
 }
 
 func (c Users) RenewPremium(ctx *gin.Context) {

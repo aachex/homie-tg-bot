@@ -14,6 +14,7 @@ from app.handlers.auth import router as auth_router
 from app.handlers.offer import router as manage_offers_router
 from app.handlers.search_offers import router as search_offers_router
 from app.handlers.admin import router as admin_router
+from app.handlers.premium import router as premium_router
 
 async def main():
     redis_password = os.getenv("REDIS_PASSWORD")
@@ -34,6 +35,7 @@ async def main():
     dp.include_router(manage_offers_router)
     dp.include_router(search_offers_router)
     dp.include_router(admin_router)
+    dp.include_router(premium_router)
 
     proxy_url = os.getenv("PROXY_URL")
     session = AiohttpSession(proxy=proxy_url)

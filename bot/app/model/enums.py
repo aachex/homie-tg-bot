@@ -36,7 +36,7 @@ class SexEnum(str, Enum):
     MALE = "male"
     FEMALE = "female"
 
-class PremiumTariff(str, Enum):
+class PremiumPeriod(str, Enum):
     WEEK = "week"
     MONTH = "month"
     THREE_MONTHS = "three_months"

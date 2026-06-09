@@ -72,21 +72,43 @@ class UsersApi(APIClient):
         data = asdict(user)
         await self._request("PUT", f"user/{user_id}", data=data, expected_status=200)
 
-    async def get_limits(self, user_id: int) -> UserLimits:
+    async def get_premium_data(self, user_id: int) -> PremiumData | None:
+        result = await self._request("GET", f"user/{user_id}/premium", expected_status=200)
+        if result is None:
+            return None
+        
+        return PremiumData(
+            is_premium=result.get("is_premium", False),
+            until=datetime.fromisoformat(result.get("premium_until", datetime.now()))
+        )
+
+    async def get_limits(self, user_id: int) -> UserLimits | None:
         """Получает лимиты пользователя"""
         result = await self._request("GET", f"user/{user_id}/limits", expected_status=200)
+        if result is None:
+            return None
+        
+        premium_data = result.get("premium_data")
+        
         return UserLimits(
-            is_premium=result.get("is_premium"),
+            premium=PremiumData(
+                is_premium=premium_data.get("is_premium"),
+                until=datetime.fromisoformat(premium_data.get("premium_until", datetime.now()))
+            ),
             max_offers=result.get("max_offers_count"),
             max_likes_per_day=result.get("max_likes_per_day")
         )
     
-    async def renew_premium(self, user_id: int, days: int):
+    async def renew_premium(self, user_id: int, days: int) -> datetime | None:
         data = {
             "user_id": user_id,
             "days": days,
         }
-        await self._request("POST", "user/renew-premium", data=data)
+        resp_json = await self._request("POST", "user/renew-premium", data=data)
+        if resp_json is None:
+            return None
+        
+        return datetime.fromisoformat(resp_json["premium_until"])
 
 _users_api = UsersApi()
 
@@ -102,5 +124,8 @@ async def edit_user(id: int, u: UserEdit):
 async def get_user_limits(id: int) -> UserLimits:
     return await _users_api.get_limits(id)
 
-async def renew_premium(user_id: int, days: int):
+async def get_premium_data(user_id: int) -> PremiumData | None:
+    return await _users_api.get_premium_data(user_id)
+
+async def renew_premium(user_id: int, days: int) -> datetime | None:
     return await _users_api.renew_premium(user_id, days)
