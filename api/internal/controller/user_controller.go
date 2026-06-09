@@ -24,7 +24,7 @@ type usersRepo interface {
 
 type premiumRepo interface {
 	UserLimits(ctx context.Context, userId int64) (model.UserLimits, error)
-	RenewPremium(ctx context.Context, userId int64, daysCount int) error
+	RenewPremium(ctx context.Context, userId int64, daysCount int) (model.PremiumData, error)
 }
 
 type Users struct {
@@ -165,17 +165,14 @@ func (c Users) RenewPremium(ctx *gin.Context) {
 		return
 	}
 
-	err = c.premiumRepo.RenewPremium(ctx, request.UserId, request.DaysCount)
+	premiumData, err := c.premiumRepo.RenewPremium(ctx, request.UserId, request.DaysCount)
 	if err != nil {
 		c.logger.Error("failed to activate premium", "user_id", request.UserId)
 		controllerError(ctx, errors.New("failed to activate premium"), http.StatusInternalServerError)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, defaultResp{
-		StatusCode: http.StatusOK,
-		Message:    fmt.Sprintf("premium subscription is renewed by %d days", request.DaysCount),
-	})
+	ctx.JSON(http.StatusOK, premiumData)
 }
 
 // updateFlags извлекает флаги из описания юзера и обновляет их в БД.

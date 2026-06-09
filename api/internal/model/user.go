@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // UserFlags представляет флаги арендатора.
 type UserFlags struct {
 	Smoking        *bool         `json:"smoking,omitempty"`
@@ -41,11 +43,16 @@ type UserEdit struct {
 	MediaFiles  []string `json:"media_files"`
 }
 
+type PremiumData struct {
+	IsPremium bool      `json:"is_premium"`
+	Until     time.Time `json:"premium_until"`
+}
+
 // UserLimits показывает какие лимиты есть у пользователя.
 type UserLimits struct {
-	IsPremium      bool `json:"is_premium"`
-	MaxOffersCount int  `json:"max_offers_count"`
-	MaxLikesPerDay int  `json:"max_likes_per_day"`
+	PremiumData    `json:"premium_data"`
+	MaxOffersCount int `json:"max_offers_count"`
+	MaxLikesPerDay int `json:"max_likes_per_day"`
 }
 
 // RenewPremiumRequest представляет запрос на активацию премиума.

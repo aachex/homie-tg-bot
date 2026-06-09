@@ -3,6 +3,7 @@ package premium
 import (
 	"context"
 	"homie-api/internal/model"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,68 +23,79 @@ func (r Repository) UserLimits(ctx context.Context, userId int64) (limits model.
 	return r.UserLimitsTx(ctx, r.connPool, userId)
 }
 
-func (r *Repository) RenewPremium(ctx context.Context, userId int64, daysCount int) error {
+func (r Repository) PremiumData(ctx context.Context, userId int64) (premData model.PremiumData, err error) {
+	return r.PremiumDataTx(ctx, r.connPool, userId)
+}
+
+func (r *Repository) RenewPremium(ctx context.Context, userId int64, daysCount int) (premData model.PremiumData, err error) {
 	query := `
 		INSERT INTO premium (user_id, until)
 		VALUES ($1, NOW() + $2 * INTERVAL '1 day')
 		ON CONFLICT (user_id) DO
 		UPDATE SET
-			until = until + $2 * INTERVAL '1 day'
-		WHERE user_id = $1
+			until = premium.until + $2 * INTERVAL '1 day'
+		WHERE premium.user_id = $1
+		RETURNING until
 	`
 
-	_, err := r.connPool.Exec(ctx, query, userId, daysCount)
-	return err
+	row := r.connPool.QueryRow(ctx, query, userId, daysCount)
+	err = row.Scan(&premData.Until)
+	if err != nil {
+		return model.PremiumData{}, err
+	}
+	premData.IsPremium = true
+
+	return premData, err
 }
 
 type rowQueryer interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-func (r Repository) UserLimitsTx(ctx context.Context, q rowQueryer, userId int64) (limits model.UserLimits, err error) {
+func (r Repository) UserLimitsTx(ctx context.Context, tx rowQueryer, userId int64) (limits model.UserLimits, err error) {
 	if userId == 1 {
 		return model.UserLimits{
-			IsPremium:      false,
+			PremiumData: model.PremiumData{
+				IsPremium: true,
+				Until:     time.Now().Add(time.Hour * 100),
+			},
 			MaxOffersCount: 2000,
 			MaxLikesPerDay: 2000,
 		}, nil
 	}
 
-	hasPrem, err := r.CheckPremiumTx(ctx, q, userId)
+	limits.PremiumData, err = r.PremiumDataTx(ctx, tx, userId)
 	if err != nil {
 		return model.UserLimits{}, err
 	}
 
-	limits.IsPremium = hasPrem
-
 	// Максимальное количество объявлений
 	limits.MaxOffersCount = 1
-	if hasPrem {
-		limits.MaxOffersCount = 10
-	}
-
 	// Максимальное количество лайков в день
 	limits.MaxLikesPerDay = 10
-	if hasPrem {
+
+	// Повышаем лимиты если есть премиум
+	if limits.IsPremium {
+		limits.MaxOffersCount = 10
 		limits.MaxLikesPerDay = 100
 	}
 
 	return limits, nil
 }
 
-func (r Repository) CheckPremiumTx(ctx context.Context, tx rowQueryer, userId int64) (hasPremium bool, err error) {
+func (r Repository) PremiumDataTx(ctx context.Context, tx rowQueryer, userId int64) (premiumData model.PremiumData, err error) {
 	if tx == nil {
 		tx = r.connPool
 	}
 
 	query := `
-		SELECT EXISTS (
-			SELECT until
-			FROM premium
-			WHERE user_id = $1 AND NOW() < until
-		)
+		SELECT
+			now() < until as is_premium,
+			until
+		FROM premium
+		WHERE user_id = $1
 	`
 	row := tx.QueryRow(ctx, query, userId)
-	err = row.Scan(&hasPremium)
-	return hasPremium, err
+	err = row.Scan(&premiumData.IsPremium, &premiumData.Until)
+	return premiumData, err
 }
