@@ -25,14 +25,14 @@ class Tariff:
 
         label_parts = []
         label_parts.append(f"Премиум на {days_count} дней")
-        label_parts.append(f"{default_price} ⭐" if discount_percent == 0 else f"<s>{default_price}</s> {self.price} ⭐")
+        label_parts.append(f"⭐ {default_price}" if discount_percent == 0 else f"⭐ <s>{default_price}</s> {self.price}")
         self.label = " | ".join(label_parts)
 
-PRICE_STARS_PER_DAY = 1
+PRICE_STARS_PER_DAY = 30
 
 TARIFFS_STARS = {
     # Неделя
-    PremiumPeriod.WEEK: Tariff(days_count=7, default_price=PRICE_STARS_PER_DAY * 1, currency="XTR"),
+    PremiumPeriod.WEEK: Tariff(days_count=7, default_price=PRICE_STARS_PER_DAY * 7, currency="XTR"),
     
     # Месяц
     PremiumPeriod.MONTH: Tariff(days_count=30, default_price=PRICE_STARS_PER_DAY * 30, currency="XTR", discount_percent=20),
@@ -48,11 +48,11 @@ async def premium(msg: Message):
         tariff = TARIFFS_STARS[tariff_key]
 
         callback_data = f"premium:{tariff_key.value}"
-        btn = InlineKeyboardButton(
-            text=f"Премиум на {tariff.days_count} дней",
-            callback_data=callback_data
-        )
-        kb.row(btn)
+        btn_text = f"Премиум на {tariff.days_count} дней"
+        if tariff.discount_percent > 0:
+            btn_text += f" (-{tariff.discount_percent}%)"
+
+        kb.row(InlineKeyboardButton(text=btn_text, callback_data=callback_data))
 
     prices = '\n'.join([tariff.label for tariff in TARIFFS_STARS.values()])
     txt = f"🌟 Премиум: безлимитные лайки, ранний доступ, приоритет в выдаче.\n\n{prices}"
