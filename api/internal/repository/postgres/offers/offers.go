@@ -145,7 +145,7 @@ func (r *Repository) AddLike(ctx context.Context, like model.AddLikeRequest) err
 		}
 
 		// Превысили лимит - не пускаем дальше
-		if limits.MaxLikesPerDay != premium.Unlimited && todayLikesCount >= limits.MaxLikesPerDay {
+		if todayLikesCount >= limits.MaxLikesPerDay {
 			return ErrLikesLimitExceeded
 		}
 
@@ -698,7 +698,7 @@ func (r *Repository) CreateOffer(ctx context.Context, offer model.HouseOfferCrea
 		}
 
 		// Проверяем, не превысили ли лимит имеющихся объявлений
-		if limits.MaxOffersCount != premium.Unlimited && offersCount >= limits.MaxOffersCount {
+		if offersCount >= limits.MaxOffersCount {
 			return ErrOffersLimitExceeded
 		}
 

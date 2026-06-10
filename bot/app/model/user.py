@@ -61,3 +61,10 @@ class UserLimits:
     premium: PremiumData
     max_offers: int
     max_likes_per_day: int
+
+
+@dataclass
+class TodayLikes:
+    user_id: int
+    likes_count: int
+    max_likes: int

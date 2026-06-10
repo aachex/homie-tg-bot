@@ -5,7 +5,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKey
 
 from aiogram.fsm.context import FSMContext
 
-from ..api.users import get_user_by_id
+from ..api.users import get_user_by_id, get_today_likes
 from ..api.offers import get_rand_offer, add_like_to_offer, get_offer_by_id
 from ..api.reports import create_report
 
@@ -36,6 +36,14 @@ async def search_start(msg: Message, state: FSMContext):
     if user is not None:
         kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
         await state.update_data(user=asdict(user))
+
+    today_likes = await get_today_likes(msg.from_user.id)
+    if not today_likes:
+        await msg.answer("Произошла непредвиденная ошибка на сервере. Попробуйте позже или сообщите в техподдержку: @homie_bot_support")
+        return
+
+    await state.update_data(today_likes_count=today_likes.likes_count)
+    await state.update_data(max_likes_count=today_likes.max_likes)
 
     await msg.answer("Из какого города показывать объявления?", reply_markup=kb)
     await state.set_state(SearchOffers.city)
@@ -94,7 +102,7 @@ async def show_next_offer(msg: Message, state: FSMContext, id: int = 0, relevanc
             [KeyboardButton(text="Главное меню")],
         ], resize_keyboard=True)
 
-        await msg.answer("Произошла непредвиденная ошибка... Извините", reply_markup=kb)
+        await msg.answer("Вы просмотрели все доступные на сегодня предложения. Возвращайтесь позже!", reply_markup=kb)
         return
 
     await state.update_data(offer_id=offer.id)
@@ -111,6 +119,21 @@ async def evaluate_offer(msg: Message, state: FSMContext):
     # Если поставили лайк - фиксируем в бд
     if msg.text == "❤️":
         data = await state.get_data()
+        today_likes_count = int(data.get("today_likes_count"))
+        max_likes_count = int(data["max_likes_count"])
+
+        if today_likes_count >= max_likes_count:
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🌟 Премиум", callback_data="buy_premium")]
+            ])
+            txt = "<b>Слишком много ❤️ за сегодня</b>\n\nОформите премиум, чтобы лайкать без ограничений и быстрее найти подходящее предложение"
+            await msg.answer(
+                text=txt,
+                parse_mode="HTML",
+                reply_markup=kb,   
+            )
+            return
+
         offer_id = int(data["offer_id"])
         relevance = int(data["offer_relevance"])
 

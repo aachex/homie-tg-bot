@@ -58,7 +58,7 @@ async def premium(msg: Message):
     txt = f"🌟 Премиум: безлимитные лайки, ранний доступ, приоритет в выдаче.\n\n{prices}"
 
     prem_data = await get_premium_data(msg.from_user.id)
-    if prem_data.is_premium:
+    if prem_data and prem_data.is_premium:
         until = prem_data.until.strftime("%d.%m.%Y")
         txt = f"<b>Ваша премиум-подписка действует до {until}. Вы можете продлить её, используя кнопки ниже.</b>\n\n" + txt
 

@@ -72,6 +72,17 @@ class UsersApi(APIClient):
         data = asdict(user)
         await self._request("PUT", f"user/{user_id}", data=data, expected_status=200)
 
+    async def get_today_likes(self, user_id: int) -> TodayLikes | None:
+        resp_json = await self._request("GET", f"user/{user_id}/today-likes")
+        if resp_json is None:
+            return None
+        
+        return TodayLikes(
+            user_id=resp_json.get("user_id"),
+            likes_count=resp_json.get("likes_count"),
+            max_likes=resp_json.get("max_likes")
+        )
+
     async def get_premium_data(self, user_id: int) -> PremiumData | None:
         result = await self._request("GET", f"user/{user_id}/premium", expected_status=200)
         if result is None:
@@ -120,6 +131,9 @@ async def create_user(u: UserCreate):
 
 async def edit_user(id: int, u: UserEdit):
     await _users_api.edit_user(id, u)
+
+async def get_today_likes(user_id: int) -> TodayLikes | None:
+    return await _users_api.get_today_likes(user_id)
 
 async def get_user_limits(id: int) -> UserLimits:
     return await _users_api.get_limits(id)

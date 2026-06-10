@@ -50,7 +50,7 @@ async def my_offers(msg: Message, state: FSMContext):
         create_offer_button.text = "🔒 Создать объявление"
         create_offer_button.callback_data = "offers_limit_exceeded"
         create_offer_button.style = None
-        await state.update_data(has_premium=limits.is_premium)
+        await state.update_data(has_premium=limits.premium.is_premium)
         await state.update_data(offers_limit_reached=True)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[

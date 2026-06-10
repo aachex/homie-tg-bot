@@ -43,6 +43,12 @@ type UserEdit struct {
 	MediaFiles  []string `json:"media_files"`
 }
 
+type TodayLikes struct {
+	UserId     int64 `json:"user_id"`
+	TodayLikes int   `json:"likes_count"`
+	MaxLikes   int   `json:"max_likes"`
+}
+
 type PremiumData struct {
 	IsPremium bool      `json:"is_premium"`
 	Until     time.Time `json:"premium_until"`

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 )
 
 type usersRepo interface {
@@ -138,21 +139,28 @@ func (c Users) TodayLikes(ctx *gin.Context) {
 		return
 	}
 
-	c.logger.Info("getting today likes count", "user_id", userID)
-
-	// Получаем количество лайков за сегодня
-	likesCount, err := c.usersRepo.TodayLikesCount(ctx, userID)
-	if err != nil {
-		c.logger.Error("failed to get today likes count", "user_id", userID, "error", err)
-		controllerError(ctx, errors.New("failed to get today likes count"), http.StatusInternalServerError)
-		return
-	}
-
 	// Получаем лимиты пользователя (для информации)
 	limits, err := c.premiumRepo.UserLimits(ctx, userID)
 	if err != nil {
 		c.logger.Error("failed to get user limits", "user_id", userID, "error", err)
 		controllerError(ctx, errors.New("failed to get user limits"), http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("getting today likes count", "user_id", userID)
+
+	// Получаем количество лайков за сегодня
+	likesCount, err := c.usersRepo.TodayLikesCount(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		ctx.JSON(http.StatusOK, model.TodayLikes{
+			UserId:     userID,
+			TodayLikes: 0,
+		})
+		return
+	}
+	if err != nil {
+		c.logger.Error("failed to get today likes count", "user_id", userID, "error", err)
+		controllerError(ctx, errors.New("failed to get today likes count"), http.StatusInternalServerError)
 		return
 	}
 
@@ -162,13 +170,7 @@ func (c Users) TodayLikes(ctx *gin.Context) {
 		"max_likes", limits.MaxLikesPerDay,
 	)
 
-	type response struct {
-		UserId     int64 `json:"user_id"`
-		TodayLikes int   `json:"today_likes"`
-		MaxLikes   int   `json:"max_likes"`
-	}
-
-	ctx.JSON(http.StatusOK, response{
+	ctx.JSON(http.StatusOK, model.TodayLikes{
 		UserId:     userID,
 		TodayLikes: likesCount,
 		MaxLikes:   limits.MaxLikesPerDay,

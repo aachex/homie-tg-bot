@@ -2,14 +2,17 @@ package premium
 
 import (
 	"context"
+	"errors"
 	"homie-api/internal/model"
 	"homie-api/internal/repository/postgres"
+	"math"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const Unlimited = -1
+const Unlimited int = math.MaxInt
 
 type Repository struct {
 	connPool *pgxpool.Pool
@@ -50,29 +53,30 @@ func (r *Repository) RenewPremium(ctx context.Context, userId int64, daysCount i
 	return premData, err
 }
 
+// DefaultLimits хранит лимиты для пользователей без премиума.
+var DefaultLimits model.UserLimits = model.UserLimits{
+	PremiumData: model.PremiumData{
+		IsPremium: false,
+		Until:     time.Time{},
+	},
+	MaxOffersCount: 1,
+	MaxLikesPerDay: 10,
+}
+
 func (r Repository) UserLimitsTx(ctx context.Context, tx postgres.RowQueryer, userId int64) (limits model.UserLimits, err error) {
+	limits = DefaultLimits
+
 	// userId = 1 это специальный юзер, который создаёт мок-объявления.
-	// Поэтому их у него может быть бесконечно, но лайкать он ничего не может.
+	// Поэтому их у него может быть бесконечно.
 	if userId == 1 {
-		return model.UserLimits{
-			PremiumData: model.PremiumData{
-				IsPremium: true,
-				Until:     time.Now().Add(time.Hour * 100),
-			},
-			MaxOffersCount: Unlimited,
-			MaxLikesPerDay: 0,
-		}, nil
+		limits.MaxOffersCount = Unlimited
+		return limits, nil
 	}
 
 	limits.PremiumData, err = r.PremiumDataTx(ctx, tx, userId)
 	if err != nil {
-		return model.UserLimits{}, err
+		return limits, err
 	}
-
-	// Максимальное количество объявлений
-	limits.MaxOffersCount = 1
-	// Максимальное количество лайков в день
-	limits.MaxLikesPerDay = 10
 
 	// Повышаем лимиты если есть премиум
 	if limits.IsPremium {
@@ -84,18 +88,21 @@ func (r Repository) UserLimitsTx(ctx context.Context, tx postgres.RowQueryer, us
 }
 
 func (r Repository) PremiumDataTx(ctx context.Context, tx postgres.RowQueryer, userId int64) (premiumData model.PremiumData, err error) {
-	if tx == nil {
-		tx = r.connPool
-	}
-
 	query := `
 		SELECT
-			now() < until as is_premium,
+			NOW() < until as is_premium,
 			until
 		FROM premium
 		WHERE user_id = $1
 	`
+
 	row := tx.QueryRow(ctx, query, userId)
 	err = row.Scan(&premiumData.IsPremium, &premiumData.Until)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.PremiumData{
+			IsPremium: false,
+		}, nil
+	}
+
 	return premiumData, err
 }
