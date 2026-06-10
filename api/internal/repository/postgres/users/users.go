@@ -162,7 +162,7 @@ func (r Repository) UpdateFlags(ctx context.Context, userID int64, flags model.U
 	return nil
 }
 
-func (r *Repository) TodayLikesCount(ctx context.Context, tx postgres.RowQueryer, userId int64) (count int, err error) {
+func (r *Repository) TodayLikesCount(ctx context.Context, userId int64) (count int, err error) {
 	return r.TodayLikesCountTx(ctx, r.connPool, userId)
 }
 

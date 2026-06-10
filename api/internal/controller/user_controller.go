@@ -20,6 +20,7 @@ type usersRepo interface {
 	CreateUser(ctx context.Context, userData model.UserCreate) error
 	UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error
 	EditUser(ctx context.Context, userId int64, patch model.UserEdit) error
+	TodayLikesCount(ctx context.Context, userId int64) (int, error)
 }
 
 type premiumRepo interface {
@@ -128,18 +129,26 @@ func (c Users) EditUser(ctx *gin.Context) {
 	go c.updateFlags(context.Background(), userId, text)
 }
 
-func (c Users) Limits(ctx *gin.Context) {
-	// Получаем user_id из path параметра
+func (c Users) TodayLikes(ctx *gin.Context) {
 	userIDStr := ctx.Param("id")
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
-		c.logger.Error("limits: invalid user id", "error", err, "user_id", userIDStr)
+		c.logger.Error("today likes: invalid user id", "error", err, "user_id", userIDStr)
 		controllerError(ctx, errors.New("invalid user id"), http.StatusBadRequest)
 		return
 	}
 
-	c.logger.Info("getting user limits", "user_id", userID)
+	c.logger.Info("getting today likes count", "user_id", userID)
 
+	// Получаем количество лайков за сегодня
+	likesCount, err := c.usersRepo.TodayLikesCount(ctx, userID)
+	if err != nil {
+		c.logger.Error("failed to get today likes count", "user_id", userID, "error", err)
+		controllerError(ctx, errors.New("failed to get today likes count"), http.StatusInternalServerError)
+		return
+	}
+
+	// Получаем лимиты пользователя (для информации)
 	limits, err := c.premiumRepo.UserLimits(ctx, userID)
 	if err != nil {
 		c.logger.Error("failed to get user limits", "user_id", userID, "error", err)
@@ -147,16 +156,24 @@ func (c Users) Limits(ctx *gin.Context) {
 		return
 	}
 
-	c.logger.Info("user limits retrieved",
+	c.logger.Info("today likes count retrieved",
 		"user_id", userID,
-		"is_premium", limits.IsPremium,
-		"max_offers", limits.MaxOffersCount,
+		"likes_count", likesCount,
 		"max_likes", limits.MaxLikesPerDay,
 	)
 
-	ctx.JSON(http.StatusOK, limits)
-}
+	type response struct {
+		UserId     int64 `json:"user_id"`
+		TodayLikes int   `json:"today_likes"`
+		MaxLikes   int   `json:"max_likes"`
+	}
 
+	ctx.JSON(http.StatusOK, response{
+		UserId:     userID,
+		TodayLikes: likesCount,
+		MaxLikes:   limits.MaxLikesPerDay,
+	})
+}
 func (c Users) PremiumData(ctx *gin.Context) {
 	userIDStr := ctx.Param("id")
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
@@ -201,6 +218,35 @@ func (c Users) RenewPremium(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, premiumData)
+}
+
+func (c Users) Limits(ctx *gin.Context) {
+	// Получаем user_id из path параметра
+	userIDStr := ctx.Param("id")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		c.logger.Error("limits: invalid user id", "error", err, "user_id", userIDStr)
+		controllerError(ctx, errors.New("invalid user id"), http.StatusBadRequest)
+		return
+	}
+
+	c.logger.Info("getting user limits", "user_id", userID)
+
+	limits, err := c.premiumRepo.UserLimits(ctx, userID)
+	if err != nil {
+		c.logger.Error("failed to get user limits", "user_id", userID, "error", err)
+		controllerError(ctx, errors.New("failed to get user limits"), http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("user limits retrieved",
+		"user_id", userID,
+		"is_premium", limits.IsPremium,
+		"max_offers", limits.MaxOffersCount,
+		"max_likes", limits.MaxLikesPerDay,
+	)
+
+	ctx.JSON(http.StatusOK, limits)
 }
 
 // updateFlags извлекает флаги из описания юзера и обновляет их в БД.

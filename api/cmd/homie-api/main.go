@@ -69,7 +69,7 @@ func main() {
 	v1.PUT("/user/:id", usersController.EditUser)
 	v1.GET("/user/:id/offers", offersController.UserOffers)
 	v1.GET("/user/:id/limits", usersController.Limits)
-	v1.GET("/user/:id/today-likes")
+	v1.GET("/user/:id/today-likes", usersController.TodayLikes)
 	v1.GET("/user/:id/premium", usersController.PremiumData)
 	v1.POST("/user/renew-premium", usersController.RenewPremium)
 
