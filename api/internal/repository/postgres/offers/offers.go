@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"homie-api/internal/model"
+	"homie-api/internal/repository/postgres"
 	"homie-api/internal/repository/postgres/premium"
 	"log/slog"
 
@@ -21,7 +22,7 @@ var (
 )
 
 type usersRepo interface {
-	TodayLikesCountTx(ctx context.Context, tx pgx.Tx, userId int64) (count int, err error)
+	TodayLikesCountTx(ctx context.Context, tx postgres.RowQueryer, userId int64) (count int, err error)
 	IncrementTodayLikesTx(ctx context.Context, tx pgx.Tx, userId int64) error
 }
 

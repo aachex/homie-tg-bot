@@ -41,11 +41,11 @@ async def my_offers(msg: Message, state: FSMContext):
         "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом",
         reply_markup=kb)
 
+    limits = await get_user_limits(msg.from_user.id)
     offers = await get_user_offers(msg.from_user.id)
     await state.update_data(offers_count=len(offers))
 
     create_offer_button = InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary")
-    limits = await get_user_limits(msg.from_user.id)
     if len(offers) >= limits.max_offers:
         create_offer_button.text = "🔒 Создать объявление"
         create_offer_button.callback_data = "offers_limit_exceeded"

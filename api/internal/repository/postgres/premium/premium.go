@@ -3,9 +3,9 @@ package premium
 import (
 	"context"
 	"homie-api/internal/model"
+	"homie-api/internal/repository/postgres"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -50,11 +50,7 @@ func (r *Repository) RenewPremium(ctx context.Context, userId int64, daysCount i
 	return premData, err
 }
 
-type rowQueryer interface {
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
-
-func (r Repository) UserLimitsTx(ctx context.Context, tx rowQueryer, userId int64) (limits model.UserLimits, err error) {
+func (r Repository) UserLimitsTx(ctx context.Context, tx postgres.RowQueryer, userId int64) (limits model.UserLimits, err error) {
 	// userId = 1 это специальный юзер, который создаёт мок-объявления.
 	// Поэтому их у него может быть бесконечно, но лайкать он ничего не может.
 	if userId == 1 {
@@ -87,7 +83,7 @@ func (r Repository) UserLimitsTx(ctx context.Context, tx rowQueryer, userId int6
 	return limits, nil
 }
 
-func (r Repository) PremiumDataTx(ctx context.Context, tx rowQueryer, userId int64) (premiumData model.PremiumData, err error) {
+func (r Repository) PremiumDataTx(ctx context.Context, tx postgres.RowQueryer, userId int64) (premiumData model.PremiumData, err error) {
 	if tx == nil {
 		tx = r.connPool
 	}
