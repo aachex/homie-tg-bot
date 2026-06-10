@@ -1,7 +1,7 @@
 from aiogram.types import Message
 from aiogram.utils.media_group import MediaGroupBuilder
 
-from ..api.offers import HouseOffer, RelevantOffer
+from ..api.offers import HouseOffer
 from ..model.enums import *
 from .shared import get_relevance_emoji
 
@@ -17,7 +17,7 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
         for photo_id in offer.media_files[:10]:
             media_group.add_photo(media=photo_id)
         await msg.answer_media_group(media=media_group.build())
-        return
+        return None
     
     # ========== Форматирование цены и залога ==========
     price_parts = []
@@ -153,4 +153,4 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     for photo_id in offer.media_files[:10]:
         media_group.add_photo(media=photo_id)
     await msg.answer_media_group(media=media_group.build())
-    await msg.answer(message_text, parse_mode="HTML")
+    return await msg.answer(message_text, parse_mode="HTML")

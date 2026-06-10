@@ -100,50 +100,63 @@ async def show_next_offer(msg: Message, state: FSMContext):
 
     await state.update_data(offer_id=offer.id)
     await state.update_data(offer_relevance=relevance)
-    await show_offer(msg, offer, relevance)
+    
+    offer_message = await show_offer(msg, offer, relevance)
+    await state.update_data(previous_offer_message_id=offer_message.message_id)
+    
     await state.set_state(SearchOffers.choice)
 
 @router.message(SearchOffers.choice, F.text.in_({"❤️", "👎"}))
-async def evaluate_offer(msg: Message, state: FSMContext):    
-    if msg.text != "❤️" and msg.text != "👎":
-        await msg.answer("Поставьте ❤️ или 👎 этому объявлению")
-        return
-    
-    # Если поставили лайк - фиксируем в бд
-    if msg.text == "❤️":
+async def evaluate_offer(msg: Message, state: FSMContext):
+    try:
         data = await state.get_data()
-        today_likes_count = int(data.get("today_likes_count"))
-        max_likes_count = int(data["max_likes_count"])
-
-        if today_likes_count >= max_likes_count:
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🌟 Премиум", callback_data="buy_premium")]
-            ])
-            txt = "<b>Слишком много ❤️ за сегодня</b>\n\nОформите премиум, чтобы лайкать без ограничений и быстрее найти подходящее предложение"
-            await msg.answer(
-                text=txt,
-                parse_mode="HTML",
-                reply_markup=kb,   
-            )
-            return
-
-        # Проверяем что пользователь зарегистрирован
-        if "user" not in data:
-            await show_unauthorized(msg)
-            return
-        
         offer_id = int(data["offer_id"])
-        user_id = int(data["user"]["id"])
-        relevance = int(data["offer_relevance"])
-        
-        like = AddLikeRequest(
-            offer_id=offer_id,
-            user_id=user_id,
-            relevance=relevance
+
+        # Если поставили лайк - фиксируем в бд
+        if msg.text == "❤️":
+            today_likes_count = int(data["today_likes_count"])
+            max_likes_count = int(data["max_likes_count"])
+
+            if today_likes_count >= max_likes_count:
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🌟 Премиум", callback_data="buy_premium")]
+                ])
+                txt = "<b>Слишком много ❤️ за сегодня</b>\n\nОформите премиум, чтобы лайкать без ограничений и быстрее найти подходящее предложение"
+                await msg.answer(
+                    text=txt,
+                    parse_mode="HTML",
+                    reply_markup=kb,   
+                )
+                return
+
+            # Проверяем что пользователь зарегистрирован
+            if "user" not in data:
+                await show_unauthorized(msg)
+                return
+            
+            user_id = int(data["user"]["id"])
+            relevance = int(data["offer_relevance"])
+            
+            like = AddLikeRequest(
+                offer_id=offer_id,
+                user_id=user_id,
+                relevance=relevance
+            )
+            await add_like_to_offer(like)
+            await state.update_data(today_likes_count=today_likes_count+1)
+
+        await show_next_offer(msg, state)
+
+    finally:
+        # Прикрепляем к предыдущему сообщению inline-клавиатуру "Вернуться"
+        previous_offer_message_id = int(data["previous_offer_message_id"])
+        await msg.bot.edit_message_reply_markup(
+            chat_id=msg.chat.id,
+            message_id=previous_offer_message_id,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Вернуться к этому объявлению", callback_data=f"return_to_offer:{offer_id}")]
+            ])
         )
-        await add_like_to_offer(like)
-    
-    await show_next_offer(msg, state)
 
 @router.message(SearchOffers.choice, F.text == "Главное меню")
 async def main_menu(msg: Message, state: FSMContext):

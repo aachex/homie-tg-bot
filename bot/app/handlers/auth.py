@@ -32,7 +32,7 @@ async def my_profile(msg: Message, state: FSMContext):
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Заполнить профиль заново")],
-        [KeyboardButton(text="Готово")],
+        [KeyboardButton(text="Главное меню")],
     ], resize_keyboard=True)
     await show_profile_with_keyboard(msg, state, user, keyboard)
 
