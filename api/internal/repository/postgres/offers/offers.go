@@ -14,8 +14,7 @@ import (
 )
 
 var (
-	ErrLikeAlreadyExists = errors.New("like already exists")
-	ErrLikeNotFound      = errors.New("like not found")
+	ErrLikeNotFound = errors.New("like not found")
 
 	ErrOffersLimitExceeded = errors.New("failed to create offer: max offers count exceeded")
 	ErrLikesLimitExceeded  = errors.New("failed to create like: today limit exceeded")
@@ -834,13 +833,9 @@ func (r *Repository) createPendingLikeTx(ctx context.Context, tx pgx.Tx, like mo
 			ON CONFLICT (offer_id, user_id) DO NOTHING
 		`
 
-	cmdTag, err := tx.Exec(ctx, query, like.OfferId, like.UserId, like.Relevance)
+	_, err := tx.Exec(ctx, query, like.OfferId, like.UserId, like.Relevance)
 	if err != nil {
 		return fmt.Errorf("failed to insert like: %w", err)
-	}
-
-	if cmdTag.RowsAffected() == 0 {
-		return ErrLikeAlreadyExists
 	}
 
 	return nil
