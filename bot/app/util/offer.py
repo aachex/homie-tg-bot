@@ -5,7 +5,7 @@ from ..api.offers import HouseOffer
 from ..model.enums import *
 from .shared import get_relevance_emoji
 
-async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
+async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0) -> list[Message]:
     """Отображает созданное объявление для подтверждения"""
     
     descr = f"<blockquote expandable>{offer.description}</blockquote>"
@@ -16,8 +16,7 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
         media_group = MediaGroupBuilder(caption="⌛ Обрабатывается...")
         for photo_id in offer.media_files[:10]:
             media_group.add_photo(media=photo_id)
-        await msg.answer_media_group(media=media_group.build())
-        return None
+        return await msg.answer_media_group(media=media_group.build())
     
     # ========== Форматирование цены и залога ==========
     price_parts = []
@@ -152,5 +151,8 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     media_group = MediaGroupBuilder()
     for photo_id in offer.media_files[:10]:
         media_group.add_photo(media=photo_id)
-    await msg.answer_media_group(media=media_group.build())
-    return await msg.answer(message_text, parse_mode="HTML")
+    messages = await msg.answer_media_group(media=media_group.build())
+    caption_message = await msg.answer(message_text, parse_mode="HTML")
+    
+    messages.append(caption_message)
+    return messages
