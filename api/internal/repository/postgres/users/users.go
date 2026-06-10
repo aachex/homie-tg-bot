@@ -174,3 +174,14 @@ func (r *Repository) TodayLikesCountTx(ctx context.Context, tx pgx.Tx, userId in
 	}
 	return count, nil
 }
+
+func (r *Repository) IncrementTodayLikesTx(ctx context.Context, tx pgx.Tx, userId int64) error {
+	query := `
+			INSERT INTO daily_likes (user_id, likes_count)
+			VALUES ($1, 1)
+			ON CONFLICT (user_id, date) DO 
+			UPDATE SET likes_count = daily_likes.likes_count + 1
+		`
+	_, err := tx.Exec(ctx, query, userId)
+	return err
+}

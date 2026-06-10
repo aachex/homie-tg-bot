@@ -40,7 +40,7 @@ func main() {
 	// Репозитории
 	usersRepo := users.NewRepository(connPool)
 	premRepo := premium.NewRepository(connPool)
-	offersRepo := offers.NewRepository(logger, connPool, premRepo)
+	offersRepo := offers.NewRepository(logger, connPool, usersRepo, premRepo)
 	reportsRepo := reports.NewRepository(connPool)
 	statsRepo := stats.NewRepository(connPool)
 

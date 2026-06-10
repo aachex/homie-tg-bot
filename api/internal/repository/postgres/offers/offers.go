@@ -17,19 +17,27 @@ var (
 	ErrLikeNotFound      = errors.New("like not found")
 
 	ErrOffersLimitExceeded = errors.New("failed to create offer: max offers count exceeded")
+	ErrLikesLimitExceeded  = errors.New("failed to create like: today limit exceeded")
 )
+
+type usersRepo interface {
+	TodayLikesCountTx(ctx context.Context, tx pgx.Tx, userId int64) (count int, err error)
+	IncrementTodayLikesTx(ctx context.Context, tx pgx.Tx, userId int64) error
+}
 
 type Repository struct {
 	logger      *slog.Logger
 	connPool    *pgxpool.Pool
+	usersRepo   usersRepo
 	premiumRepo *premium.Repository
 	recent      *recentOffersCache
 }
 
-func NewRepository(logger *slog.Logger, connPool *pgxpool.Pool, premiumRepo *premium.Repository) *Repository {
+func NewRepository(logger *slog.Logger, connPool *pgxpool.Pool, usersRepo usersRepo, premiumRepo *premium.Repository) *Repository {
 	return &Repository{
 		logger:      logger,
 		connPool:    connPool,
+		usersRepo:   usersRepo,
 		premiumRepo: premiumRepo,
 		recent:      newRecentOffersCache(logger, 20, 0),
 	}
@@ -100,7 +108,7 @@ func (r *Repository) OfferLikes(ctx context.Context, offerId int64) (likes []mod
 			offer_id,
 			user_id,
 			relevance
-		FROM offer_like
+		FROM pending_likes
 		WHERE offer_id = $1`
 	rows, err := r.connPool.Query(ctx, query, offerId)
 	if err != nil {
@@ -121,25 +129,41 @@ func (r *Repository) OfferLikes(ctx context.Context, offerId int64) (likes []mod
 }
 
 func (r *Repository) AddLike(ctx context.Context, like model.AddLikeRequest) error {
-	query := `
-        INSERT INTO offer_like (offer_id, user_id, relevance)
-		SELECT $1, $2, $3
-		WHERE EXISTS (SELECT 1 FROM tg_house_offer WHERE id = $1)
-		ON CONFLICT (offer_id, user_id) DO NOTHING`
-	cmdTag, err := r.connPool.Exec(ctx, query, like.OfferId, like.UserId, like.Relevance)
-	if err != nil {
-		return fmt.Errorf("failed to insert like: %w", err)
-	}
+	err := r.transaction(ctx, func(tx pgx.Tx) error {
+		// Проверяем, не превысили ли лимит ежедневных лайков
+		// 1. Узнаём, сколько максимум лайков можно поставить за день
+		limits, err := r.premiumRepo.UserLimitsTx(ctx, tx, like.UserId)
+		if err != nil {
+			return err
+		}
 
-	if cmdTag.RowsAffected() == 0 {
-		return ErrLikeAlreadyExists
-	}
-	return nil
+		// 2. Получение лайков, которые юзер поставил за сегодня
+		todayLikesCount, err := r.usersRepo.TodayLikesCountTx(ctx, tx, like.UserId)
+		if err != nil {
+			return err
+		}
+
+		// Превысили лимит - не пускаем дальше
+		if limits.MaxLikesPerDay != premium.Unlimited && todayLikesCount >= limits.MaxLikesPerDay {
+			return ErrLikesLimitExceeded
+		}
+
+		// Всё ОК - увеличиваем число сегодняшних лайков
+		err = r.usersRepo.IncrementTodayLikesTx(ctx, tx, like.UserId)
+		if err != nil {
+			return err
+		}
+
+		// Добавляем лайк к объявлению
+		return r.createPendingLikeTx(ctx, tx, like)
+	})
+
+	return err
 }
 
 func (r *Repository) DeleteLike(ctx context.Context, offerId int64, userId int64) error {
 	query := `
-        DELETE FROM offer_like
+        DELETE FROM pending_likes
         WHERE offer_id = $1 AND user_id = $2
     `
 	cmdTag, err := r.connPool.Exec(ctx, query, offerId, userId)
@@ -640,9 +664,9 @@ func (r *Repository) UserOffers(ctx context.Context, userId int64) (offers []mod
 				THEN LEFT(tg_house_offer.description, 30) || '...'
 				ELSE tg_house_offer.description
 			END as title,
-			COUNT(offer_like.offer_id) as likes_count
+			COUNT(pending_likes.offer_id) as likes_count
 		FROM tg_house_offer 
-		LEFT JOIN offer_like ON tg_house_offer.id = offer_like.offer_id
+		LEFT JOIN pending_likes ON tg_house_offer.id = pending_likes.offer_id
 		WHERE owner_id = $1
 		GROUP BY tg_house_offer.id, tg_house_offer.is_active, tg_house_offer.description
 		ORDER BY tg_house_offer.created_at DESC`
@@ -673,7 +697,7 @@ func (r *Repository) CreateOffer(ctx context.Context, offer model.HouseOfferCrea
 		}
 
 		// Проверяем, не превысили ли лимит имеющихся объявлений
-		if offersCount >= limits.MaxOffersCount {
+		if limits.MaxOffersCount != premium.Unlimited && offersCount >= limits.MaxOffersCount {
 			return ErrOffersLimitExceeded
 		}
 
@@ -799,4 +823,24 @@ func (r *Repository) createOfferTx(ctx context.Context, tx pgx.Tx, offer model.H
 	).Scan(&id)
 
 	return id, err
+}
+
+func (r *Repository) createPendingLikeTx(ctx context.Context, tx pgx.Tx, like model.AddLikeRequest) error {
+	query := `
+			INSERT INTO pending_likes (offer_id, user_id, relevance)
+			SELECT $1, $2, $3
+			WHERE EXISTS (SELECT 1 FROM tg_house_offer WHERE id = $1)
+			ON CONFLICT (offer_id, user_id) DO NOTHING
+		`
+
+	cmdTag, err := tx.Exec(ctx, query, like.OfferId, like.UserId, like.Relevance)
+	if err != nil {
+		return fmt.Errorf("failed to insert like: %w", err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return ErrLikeAlreadyExists
+	}
+
+	return nil
 }
