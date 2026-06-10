@@ -9,6 +9,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const Unlimited = -1
+
 type Repository struct {
 	connPool *pgxpool.Pool
 }
@@ -53,14 +55,16 @@ type rowQueryer interface {
 }
 
 func (r Repository) UserLimitsTx(ctx context.Context, tx rowQueryer, userId int64) (limits model.UserLimits, err error) {
+	// userId = 1 это специальный юзер, который создаёт мок-объявления.
+	// Поэтому их у него может быть бесконечно, но лайкать он ничего не может.
 	if userId == 1 {
 		return model.UserLimits{
 			PremiumData: model.PremiumData{
 				IsPremium: true,
 				Until:     time.Now().Add(time.Hour * 100),
 			},
-			MaxOffersCount: 2000,
-			MaxLikesPerDay: 2000,
+			MaxOffersCount: Unlimited,
+			MaxLikesPerDay: 0,
 		}, nil
 	}
 
@@ -77,7 +81,7 @@ func (r Repository) UserLimitsTx(ctx context.Context, tx rowQueryer, userId int6
 	// Повышаем лимиты если есть премиум
 	if limits.IsPremium {
 		limits.MaxOffersCount = 10
-		limits.MaxLikesPerDay = 100
+		limits.MaxLikesPerDay = Unlimited
 	}
 
 	return limits, nil
