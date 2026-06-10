@@ -54,7 +54,7 @@ async def select_city(msg: Message, state: FSMContext):
         await msg.answer("Укажите город")
         return
     city = normalize_city(msg.text)
-    _user_city[msg.from_user.id] = city
+    await state.update_data(city=city)
 
     # Проверка что в указанном городе есть объявления
     data = await state.get_data()
@@ -77,25 +77,15 @@ async def select_city(msg: Message, state: FSMContext):
     await send_mag(msg)
     await show_next_offer(msg, state)
 
-async def show_next_offer(msg: Message, state: FSMContext, id: int = 0, relevance: int = 0):
-    offer = None
-    user_id = msg.from_user.id
-    
-    if id == 0 and user_id in _user_city:
-        data = await state.get_data()
-        flags = None
-        if "user" in data and "flags" in data["user"]:
-            flags = UserFlags(**data["user"]["flags"])
+async def show_next_offer(msg: Message, state: FSMContext):
+    data = await state.get_data()
+    flags = None
+    if "user" in data and "flags" in data["user"]:
+        flags = UserFlags(**data["user"]["flags"])
 
-        city = _user_city[user_id]
+    city = data["city"]
         
-        offer = await get_rand_offer(msg.from_user.id, city, flags)
-        if offer is not None:
-            relevance = offer.relevance_percent
-            offer = offer.offer
-    elif id != 0:
-        offer = await get_offer_by_id(id)
-    
+    offer = await get_rand_offer(msg.from_user.id, city, flags)
     if offer is None:
         await state.set_state(SearchOffers.offer_not_found)
         kb = ReplyKeyboardMarkup(keyboard=[
@@ -104,6 +94,9 @@ async def show_next_offer(msg: Message, state: FSMContext, id: int = 0, relevanc
 
         await msg.answer("Вы просмотрели все доступные на сегодня предложения. Возвращайтесь позже!", reply_markup=kb)
         return
+    
+    relevance = offer.relevance_percent
+    offer = offer.offer
 
     await state.update_data(offer_id=offer.id)
     await state.update_data(offer_relevance=relevance)
@@ -134,15 +127,14 @@ async def evaluate_offer(msg: Message, state: FSMContext):
             )
             return
 
-        offer_id = int(data["offer_id"])
-        relevance = int(data["offer_relevance"])
-
         # Проверяем что пользователь зарегистрирован
         if "user" not in data:
-            await show_unauthorized(msg, offer_id, relevance)
+            await show_unauthorized(msg)
             return
         
+        offer_id = int(data["offer_id"])
         user_id = int(data["user"]["id"])
+        relevance = int(data["offer_relevance"])
         
         like = AddLikeRequest(
             offer_id=offer_id,

@@ -10,7 +10,6 @@ from aiogram.fsm.context import FSMContext
 from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
 from .main_menu import main_menu as show_main_menu
-from .search_offers import show_next_offer, send_mag
 
 from ..util.auth import show_profile, show_unauthorized
 from ..util.shared import handle_media_upload, normalize_city
@@ -52,20 +51,10 @@ async def auth_start(msg: Message, state: FSMContext, first_name: str):
     await msg.answer("Пожалуйста, введите Ваше имя", reply_markup=kb)
     await state.set_state(Auth.name)
 
-@router.callback_query(F.data.startswith("authorize:"))
+@router.callback_query(F.data == "authorize")
 async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.clear()
-
-    callback_data = callback.data.split(':')
-    offer_id = int(callback_data[1])
-    if offer_id != 0:
-        await state.update_data(offer_id=offer_id)
-
-    offer_relevance = int(callback_data[2])
-    if offer_relevance != 0:
-        await state.update_data(offer_relevance=offer_relevance)
-
     await auth_start(callback.message, state, callback.from_user.first_name)
 
 @router.message(MainMenu.profile, F.text == "Заполнить профиль заново")
@@ -97,6 +86,9 @@ async def auth_city(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Введите название города")
         return
+    if len(msg.text) > 200:
+        await msg.answer("Название слишком длинное")
+        return
     await state.update_data(city=normalize_city(msg.text))
 
     data = await state.get_data()
@@ -114,6 +106,9 @@ async def auth_city(msg: Message, state: FSMContext):
 async def auth_descr(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Нужно ввести текст")
+        return
+    if len(msg.text) > 1500:
+        await msg.answer("Длина описания не должна превышать 1500 символов")
         return
     
     data = await state.get_data()
@@ -162,7 +157,6 @@ async def handle_album(msg: Message, state: FSMContext):
         asyncio.create_task(finalize_album(msg, state, album_key))
     
     temp_albums[album_key].append(msg)
-
 
 async def finalize_album(msg: Message, state: FSMContext, album_key: str):
     """
@@ -229,7 +223,7 @@ async def finalize_auth(msg: Message, state: FSMContext):
     )
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="Готово")],
+        [KeyboardButton(text="Главное меню")],
     ], resize_keyboard=True)
     await show_profile_with_keyboard(msg, state, user, keyboard)
 
@@ -238,16 +232,3 @@ async def show_profile_with_keyboard(msg: Message, state: FSMContext, user: User
     
     await msg.answer("Так выглядит ваш профиль", reply_markup=keyboard)
     await show_profile(msg, user)
-
-@router.message(MainMenu.profile, F.text == "Готово")
-async def profile_done(msg: Message, state: FSMContext):
-    data = await state.get_data()
-    if "offer_id" not in data or "offer_relevance" not in data:
-        await show_main_menu(msg, state)
-        return
-    
-    await send_mag(msg)
-
-    offer_id = int(data["offer_id"])
-    offer_relevance = int(data["offer_relevance"])
-    await show_next_offer(msg, state, offer_id, offer_relevance)
