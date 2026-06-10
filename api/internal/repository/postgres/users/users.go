@@ -2,6 +2,8 @@ package users
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"homie-api/internal/model"
 	"strings"
@@ -157,4 +159,18 @@ func (r Repository) UpdateFlags(ctx context.Context, userID int64, flags model.U
 	}
 
 	return nil
+}
+
+// TodayLikesCountTx возвращает количество лайков, которое поставил юзер за сегодня.
+func (r *Repository) TodayLikesCountTx(ctx context.Context, tx pgx.Tx, userId int64) (count int, err error) {
+	query := `
+		SELECT likes_count FROM daily_likes
+		WHERE user_id = $1 AND date = CURRENT_DATE
+	`
+	row := tx.QueryRow(ctx, query, userId)
+	err = row.Scan(&count)
+	if !errors.Is(err, sql.ErrNoRows) && err != nil {
+		return 0, err
+	}
+	return count, nil
 }
