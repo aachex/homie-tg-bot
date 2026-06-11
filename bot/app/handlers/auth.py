@@ -81,13 +81,15 @@ async def auth_name(msg: Message, state: FSMContext):
     await state.update_data(name=msg.text)
     await state.set_state(Auth.city)
 
+MAX_CITY_LEN = 50
+
 @router.message(Auth.city)
 async def auth_city(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Введите название города")
         return
-    if len(msg.text) > 200:
-        await msg.answer("Название слишком длинное")
+    if len(msg.text) > MAX_CITY_LEN:
+        await msg.answer(f"Название слишком длинное (максимум {MAX_CITY_LEN} символов).")
         return
     await state.update_data(city=normalize_city(msg.text))
 
@@ -102,13 +104,15 @@ async def auth_city(msg: Message, state: FSMContext):
     await msg.answer(txt, parse_mode="HTML", reply_markup=kb)
     await state.set_state(Auth.descr)
 
+MAX_USER_DESCR_LEN = 800
+
 @router.message(Auth.descr)
 async def auth_descr(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Нужно ввести текст")
         return
-    if len(msg.text) > 1500:
-        await msg.answer("Длина описания не должна превышать 1500 символов")
+    if len(msg.text) > MAX_USER_DESCR_LEN:
+        await msg.answer(f"Длина описания не должна превышать {MAX_USER_DESCR_LEN} символов")
         return
     
     data = await state.get_data()

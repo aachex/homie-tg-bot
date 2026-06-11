@@ -213,27 +213,36 @@ async def create_start(callback: CallbackQuery, state: FSMContext):
 
     await state.set_state(OfferCreate.city)
 
+MAX_CITY_LEN = 50
+
 @router.message(OfferCreate.city)
 async def select_city(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Пожалуйста, введите название города")
+        return
+    if len(msg.text) > MAX_CITY_LEN:
+        await msg.answer(f"Название города слишком длинное (максимум {MAX_CITY_LEN} символов).")
         return
     
     await state.update_data(city=normalize_city(msg.text))
     await msg.answer("Опишите свободным языком ваше предложение: сколько комнат, стоимость, залог и так далее", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.description)
 
+MAX_OFFER_DESCR_LEN = 2500
+
 @router.message(OfferCreate.description)
 async def enter_descr(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Нужно ввести текст")
+        return
+    if len(msg.text) > MAX_OFFER_DESCR_LEN:
+        await msg.answer(f"Описание слишком длинное. Его длина не должна превышать {MAX_OFFER_DESCR_LEN} символов")
         return
 
     await state.update_data(descr=msg.text)
     
     await msg.answer("Теперь нужно отправить фотографии вашей недвижимости. Чем больше — тем лучше", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.media)
-
 
 
 # Хранилище для временного сбора альбомов
@@ -282,6 +291,22 @@ async def finalize_album(msg: Message, state: FSMContext, album_key: str):
 
     await finalize_create_offer(msg, state)
 
+@router.message(OfferCreate.media, F.photo)
+async def handle_single_photo(msg: Message, state: FSMContext):
+    """
+    Обработчик одиночного фото (не альбом)
+    """
+    if msg.media_group_id:
+        return  # Игнорируем, это часть альбома
+    
+    # Получаем file_id одиночного фото
+    file_id = msg.photo[-1].file_id
+    
+    # Сохраняем в состояние как список с одним элементом
+    await state.update_data(media_files=[file_id])
+    
+    # Сразу завершаем создание объявления
+    await finalize_create_offer(msg, state)
 
 async def finalize_create_offer(msg: Message, state: FSMContext):
     data = await state.get_data()
