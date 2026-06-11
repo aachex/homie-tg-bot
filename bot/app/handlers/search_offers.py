@@ -1,11 +1,11 @@
 from dataclasses import asdict
 
 from aiogram import F, Router
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 
 from aiogram.fsm.context import FSMContext
 
-from ..api.users import get_user_by_id
+from ..api.users import get_user_by_id, get_today_likes
 from ..api.offers import get_rand_offer, add_like_to_offer, get_offer_by_id
 from ..api.reports import create_report
 
@@ -37,6 +37,14 @@ async def search_start(msg: Message, state: FSMContext):
         kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=user.city)]], resize_keyboard=True)
         await state.update_data(user=asdict(user))
 
+    today_likes = await get_today_likes(msg.from_user.id)
+    if not today_likes:
+        await msg.answer("Произошла непредвиденная ошибка на сервере. Попробуйте позже или сообщите в техподдержку: @homie_bot_support")
+        return
+
+    await state.update_data(today_likes_count=today_likes.likes_count)
+    await state.update_data(max_likes_count=today_likes.max_likes)
+
     await msg.answer("Из какого города показывать объявления?", reply_markup=kb)
     await state.set_state(SearchOffers.city)
 
@@ -46,7 +54,7 @@ async def select_city(msg: Message, state: FSMContext):
         await msg.answer("Укажите город")
         return
     city = normalize_city(msg.text)
-    _user_city[msg.from_user.id] = city
+    await state.update_data(city=city)
 
     # Проверка что в указанном городе есть объявления
     data = await state.get_data()
@@ -69,64 +77,70 @@ async def select_city(msg: Message, state: FSMContext):
     await send_mag(msg)
     await show_next_offer(msg, state)
 
-async def show_next_offer(msg: Message, state: FSMContext, id: int = 0, relevance: int = 0):
-    offer = None
-    user_id = msg.from_user.id
-    
-    if id == 0 and user_id in _user_city:
-        data = await state.get_data()
-        flags = None
-        if "user" in data and "flags" in data["user"]:
-            flags = UserFlags(**data["user"]["flags"])
+async def show_next_offer(msg: Message, state: FSMContext):
+    data = await state.get_data()
+    flags = None
+    if "user" in data and "flags" in data["user"]:
+        flags = UserFlags(**data["user"]["flags"])
 
-        city = _user_city[user_id]
+    city = data["city"]
         
-        offer = await get_rand_offer(msg.from_user.id, city, flags)
-        relevance = offer.relevance_percent
-        offer = offer.offer
-    elif id != 0:
-        offer = await get_offer_by_id(id)
-    
+    offer = await get_rand_offer(msg.from_user.id, city, flags)
     if offer is None:
         await state.set_state(SearchOffers.offer_not_found)
         kb = ReplyKeyboardMarkup(keyboard=[
             [KeyboardButton(text="Главное меню")],
         ], resize_keyboard=True)
 
-        await msg.answer("Произошла непредвиденная ошибка... Извините", reply_markup=kb)
+        await msg.answer("Вы просмотрели все доступные на сегодня предложения. Возвращайтесь позже!", reply_markup=kb)
         return
+    
+    relevance = offer.relevance_percent
+    offer = offer.offer
 
     await state.update_data(offer_id=offer.id)
     await state.update_data(offer_relevance=relevance)
+    
     await show_offer(msg, offer, relevance)
     await state.set_state(SearchOffers.choice)
 
 @router.message(SearchOffers.choice, F.text.in_({"❤️", "👎"}))
-async def evaluate_offer(msg: Message, state: FSMContext):    
-    if msg.text != "❤️" and msg.text != "👎":
-        await msg.answer("Поставьте ❤️ или 👎 этому объявлению")
-        return
-    
+async def evaluate_offer(msg: Message, state: FSMContext):
     # Если поставили лайк - фиксируем в бд
     if msg.text == "❤️":
         data = await state.get_data()
-        offer_id = int(data["offer_id"])
-        relevance = int(data["offer_relevance"])
+
+        today_likes_count = int(data["today_likes_count"])
+        max_likes_count = int(data["max_likes_count"])
+
+        if today_likes_count >= max_likes_count:
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🌟 Премиум", callback_data="buy_premium")]
+            ])
+            txt = (
+                "<b>Слишком много ❤️ за сегодня(</b>\n\n"
+                "У премиум-пользователей ограничений нет. С помощью команды /premium Вы можете узнать подробности"
+            )
+            await msg.answer(
+                text=txt,
+                parse_mode="HTML",
+                reply_markup=kb,   
+            )
+            return
 
         # Проверяем что пользователь зарегистрирован
         if "user" not in data:
-            await show_unauthorized(msg, offer_id, relevance)
+            await show_unauthorized(msg)
             return
-        
-        user_id = int(data["user"]["id"])
-        
+
         like = AddLikeRequest(
-            offer_id=offer_id,
-            user_id=user_id,
-            relevance=relevance
+            offer_id=int(data["offer_id"]),
+            user_id=int(data["user"]["id"]),
+            relevance=int(data["offer_relevance"])
         )
         await add_like_to_offer(like)
-    
+        await state.update_data(today_likes_count=today_likes_count+1)
+
     await show_next_offer(msg, state)
 
 @router.message(SearchOffers.choice, F.text == "Главное меню")

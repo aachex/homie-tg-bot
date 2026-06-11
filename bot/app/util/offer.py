@@ -1,29 +1,36 @@
 from aiogram.types import Message
 from aiogram.utils.media_group import MediaGroupBuilder
 
-from ..api.offers import HouseOffer, RelevantOffer
+from ..api.offers import HouseOffer
 from ..model.enums import *
 from .shared import get_relevance_emoji
 
-async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
+async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0) -> list[Message]:
     """Отображает созданное объявление для подтверждения"""
     
     descr = f"<blockquote expandable>{offer.description}</blockquote>"
 
+    # Данные ещё не извлечены
     if offer.flag_processing:
         # Отправляем медиагруппу с базовой информацией
-        caption = f"📍 {offer.city}\n\n<b>📝 Описание:</b>\n{descr}"
-        
-        media_group = MediaGroupBuilder(caption=caption)
+        media_group = MediaGroupBuilder(caption="⌛ Обрабатывается...")
         for photo_id in offer.media_files[:10]:
-            media_group.add_photo(media=photo_id, parse_mode="HTML")
-        await msg.answer_media_group(media=media_group.build())
-        return
+            media_group.add_photo(media=photo_id)
+        return await msg.answer_media_group(media=media_group.build())
     
-    # ========== Форматирование цены ==========
+    # ========== Форматирование цены и залога ==========
+    price_parts = []
+
     if offer.flags.price and offer.flags.price > 0:
         price_str = f"{int(offer.flags.price):,}".replace(',', ' ')
-        price_line = f"💰 {price_str} ₽/месяц"
+        price_parts.append(f"💰 {price_str} ₽/месяц")
+
+    if offer.flags.deposit and offer.flags.deposit > 0:
+        deposit_str = f"{int(offer.flags.deposit):,}".replace(',', ' ')
+        price_parts.append(f"🔒 Залог: {deposit_str} ₽")
+
+    if price_parts:
+        price_line = " | ".join(price_parts)
     else:
         price_line = "💰 Цена не указана"
     
@@ -113,7 +120,7 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
     relevance_text = ""
     if relevance > 0:
         emoji = get_relevance_emoji(relevance)
-        relevance_text = f"\n\n<b>{emoji} Совместимость:</b> {relevance}%"
+        relevance_text = f"<b>{emoji} Совместимость:</b> {relevance}%"
     
     district = f", {offer.flags.district}" if offer.flags.district else ""
     
@@ -135,11 +142,17 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0):
 {descr}
 
 <b>📋 Требования к арендатору:</b>
-{rules_text}{relevance_text}
+{rules_text}
+
+{relevance_text}
 """
     
     # ========== Отправка созданного объявления ==========
-    media_group = MediaGroupBuilder(caption=message_text)
+    media_group = MediaGroupBuilder()
     for photo_id in offer.media_files[:10]:
-        media_group.add_photo(media=photo_id, parse_mode="HTML")
-    await msg.answer_media_group(media=media_group.build())
+        media_group.add_photo(media=photo_id)
+    messages = await msg.answer_media_group(media=media_group.build())
+    caption_message = await msg.answer(message_text, parse_mode="HTML")
+    
+    messages.append(caption_message)
+    return messages

@@ -55,7 +55,7 @@ func (c *Client) ExtractUserFlags(ctx context.Context, text string) (model.UserF
 		ResponseFormat: &openai.ChatCompletionResponseFormat{
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		},
-		Temperature: 0.1,
+		Temperature: 0.0,
 	})
 	if err != nil {
 		c.logger.Error("LLM request failed", "error", err)

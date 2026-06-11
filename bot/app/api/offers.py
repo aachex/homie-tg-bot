@@ -28,8 +28,9 @@ class HouseOffersApi(APIClient):
         flags_json = offer_json.get("flags", {})
         flags = OfferFlags(
             district=flags_json.get("district"),
+            deposit=flags_json.get("deposit"),
             rooms_count=flags_json.get("rooms_count"),
-            price=offer_json.get("price"),
+            price=flags_json.get("price"),
 
             smoking=flags_json.get("smoking"),
             children=ChildrenEnum(flags_json["children"]) if flags_json.get("children") else None,
@@ -69,6 +70,7 @@ class HouseOffersApi(APIClient):
         
         flags = OfferFlags(
             district=flags_json.get("district"),
+            deposit=flags_json.get("deposit"),
             rooms_count=flags_json.get("rooms_count"),
             price=flags_json.get("price"),
 

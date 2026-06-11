@@ -22,8 +22,7 @@ async def main_menu(msg: Message, state: FSMContext):
 
     kb = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="🏡 Найти жильё")],
-        [KeyboardButton(text="Мой профиль")],
-        [KeyboardButton(text="Мои объявления")],
+        [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Мои объявления")],
     ], resize_keyboard=True)
 
     if msg.from_user.id in ADMIN_IDS:
@@ -35,7 +34,8 @@ async def main_menu(msg: Message, state: FSMContext):
         "Главное меню:\n"
         "🔍 <b>Найти жильё</b> — подбор квартир и домов\n"
         "👤 <b>Профиль</b> — ваша анкета для владельцев\n"
-        "📋 <b>Мои объявления</b> — ваши предложения\n"
+        "📋 <b>Мои объявления</b> — ваши предложения\n\n"
+        "/premium — узнать о преимуществах премиум-подписки"
     )
     await msg.answer_photo(
         photo=LOGO_FILE_ID,

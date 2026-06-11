@@ -40,7 +40,7 @@ func main() {
 	// Репозитории
 	usersRepo := users.NewRepository(connPool)
 	premRepo := premium.NewRepository(connPool)
-	offersRepo := offers.NewRepository(logger, connPool, premRepo)
+	offersRepo := offers.NewRepository(logger, connPool, usersRepo, premRepo)
 	reportsRepo := reports.NewRepository(connPool)
 	statsRepo := stats.NewRepository(connPool)
 
@@ -69,6 +69,9 @@ func main() {
 	v1.PUT("/user/:id", usersController.EditUser)
 	v1.GET("/user/:id/offers", offersController.UserOffers)
 	v1.GET("/user/:id/limits", usersController.Limits)
+	v1.GET("/user/:id/today-likes", usersController.TodayLikes)
+	v1.GET("/user/:id/premium", usersController.PremiumData)
+	v1.POST("/user/renew-premium", usersController.RenewPremium)
 
 	v1.GET("/offer/:id", offersController.OfferById)
 	v1.POST("/offer/relevant", offersController.RelevantOffer)

@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import asdict
 
 from aiogram import F, Router
@@ -40,16 +41,16 @@ async def my_offers(msg: Message, state: FSMContext):
         "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом",
         reply_markup=kb)
 
+    limits = await get_user_limits(msg.from_user.id)
     offers = await get_user_offers(msg.from_user.id)
     await state.update_data(offers_count=len(offers))
 
     create_offer_button = InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary")
-    limits = await get_user_limits(msg.from_user.id)
     if len(offers) >= limits.max_offers:
         create_offer_button.text = "🔒 Создать объявление"
         create_offer_button.callback_data = "offers_limit_exceeded"
         create_offer_button.style = None
-        await state.update_data(has_premium=limits.is_premium)
+        await state.update_data(has_premium=limits.premium.is_premium)
         await state.update_data(offers_limit_reached=True)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -212,20 +213,30 @@ async def create_start(callback: CallbackQuery, state: FSMContext):
 
     await state.set_state(OfferCreate.city)
 
+MAX_CITY_LEN = 50
+
 @router.message(OfferCreate.city)
 async def select_city(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Пожалуйста, введите название города")
+        return
+    if len(msg.text) > MAX_CITY_LEN:
+        await msg.answer(f"Название города слишком длинное (максимум {MAX_CITY_LEN} символов).")
         return
     
     await state.update_data(city=normalize_city(msg.text))
     await msg.answer("Опишите свободным языком ваше предложение: сколько комнат, стоимость, залог и так далее", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.description)
 
+MAX_OFFER_DESCR_LEN = 2500
+
 @router.message(OfferCreate.description)
 async def enter_descr(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Нужно ввести текст")
+        return
+    if len(msg.text) > MAX_OFFER_DESCR_LEN:
+        await msg.answer(f"Описание слишком длинное. Его длина не должна превышать {MAX_OFFER_DESCR_LEN} символов")
         return
 
     await state.update_data(descr=msg.text)
@@ -233,7 +244,70 @@ async def enter_descr(msg: Message, state: FSMContext):
     await msg.answer("Теперь нужно отправить фотографии вашей недвижимости. Чем больше — тем лучше", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.media)
 
-@router.message(OfferCreate.media, F.text == "Завершить")
+
+# Хранилище для временного сбора альбомов
+temp_albums: dict[str, list[Message]] = {}
+
+@router.message(OfferCreate.media, F.media_group_id)
+async def handle_album(msg: Message, state: FSMContext):
+    """
+    Обработчик медиагруппы (альбома) — собирает все file_id из всех фото
+    """
+    album_key = f"{msg.chat.id}_{msg.media_group_id}"
+    
+    if album_key not in temp_albums:
+        temp_albums[album_key] = []
+        # Запускаем таймер для финализации альбома
+        asyncio.create_task(finalize_album(msg, state, album_key))
+    
+    temp_albums[album_key].append(msg)
+
+
+async def finalize_album(msg: Message, state: FSMContext, album_key: str):
+    """
+    Финализирует сбор альбома и обрабатывает все file_id
+    """
+    await asyncio.sleep(3)  # Ждём, пока придут все сообщения альбома
+    
+    if album_key not in temp_albums:
+        return
+    
+    messages = temp_albums[album_key]
+    
+    # Собираем все file_id из альбома
+    all_file_ids = []
+    
+    for msg in messages:
+        if msg.photo:
+            # Берём самое большое фото (последний элемент)
+            file_id = msg.photo[-1].file_id
+            all_file_ids.append(file_id)
+    
+    # Сохраняем полученные фотографии
+    await state.update_data(media_files=all_file_ids)
+    
+    # Очищаем хранилище
+    del temp_albums[album_key]
+
+    await finalize_create_offer(msg, state)
+
+@router.message(OfferCreate.media, F.photo)
+async def handle_single_photo(msg: Message, state: FSMContext):
+    """
+    Обработчик одиночного фото (не альбом)
+    """
+    if msg.media_group_id:
+        return  # Игнорируем, это часть альбома
+    
+    # Получаем file_id одиночного фото
+    file_id = msg.photo[-1].file_id
+    
+    # Сохраняем в состояние как список с одним элементом
+    await state.update_data(media_files=[file_id])
+    
+    # Сразу завершаем создание объявления
+    await finalize_create_offer(msg, state)
+
 async def finalize_create_offer(msg: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
@@ -263,12 +337,6 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
     ], resize_keyboard=True)
     msg_text = f"<b>Готово!</b> Вы успешно создали объявление о сдаче вашей недвижимости. Для более детального взаимодействия с вашими объявлениями ищите вкладку <b>Мои объявления</b> в главном меню."
     await msg.answer(msg_text, parse_mode="HTML", reply_markup=keyboard)
-
-@router.message(OfferCreate.media)
-async def upload_media(msg: Message, state: FSMContext):
-    done = await handle_media_upload(msg, state, 10)
-    if done:
-        await finalize_create_offer(msg, state)
 
 # ========== Просмотр лайков ==========
 

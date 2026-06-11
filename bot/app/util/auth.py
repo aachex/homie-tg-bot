@@ -120,9 +120,9 @@ async def show_profile(msg: Message, user: User, relevance: int = 0):
     else:
         await msg.answer(caption, parse_mode="HTML")
 
-async def show_unauthorized(msg: Message, offer_id: int = 0, relevance: int = 0):    
+async def show_unauthorized(msg: Message):    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Заполнить профиль", callback_data=f"authorize:{offer_id}:{relevance}")]
+        [InlineKeyboardButton(text="Заполнить профиль", callback_data=f"authorize")]
     ], resize_keyboard=True)
     txt = (
         "💡 <b>Чтобы оценивать объявления, нужен профиль</b>\n\n"

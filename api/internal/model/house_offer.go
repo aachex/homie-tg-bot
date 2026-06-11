@@ -3,6 +3,7 @@ package model
 // OfferFlags представляет предпочтения арендодателя (кого он хочет)
 type OfferFlags struct {
 	Price      *int    `json:"price"`
+	Deposit    *int    `json:"deposit"`
 	RoomsCount *int    `json:"rooms_count"`
 	District   *string `json:"district"`
 

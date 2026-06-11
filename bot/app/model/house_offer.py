@@ -5,6 +5,7 @@ from .enums import *
 class OfferFlags:
     """Флаги объявления"""
     price: int | None = 0
+    deposit: int | None = 0
     rooms_count: int | None = 0
     district: str | None = ""
 

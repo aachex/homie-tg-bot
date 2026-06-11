@@ -98,14 +98,12 @@ func (c HouseOffers) AddLike(ctx *gin.Context) {
 
 	err = c.houseOffersRepo.AddLike(ctx, like)
 	if err != nil {
-		code := http.StatusInternalServerError
-		if errors.Is(err, offers.ErrLikeAlreadyExists) {
-			code = http.StatusConflict
-			c.logger.Warn("like already exists", "offer_id", like.OfferId, "user_id", like.UserId)
-			controllerError(ctx, errors.New("like already exists"), code)
+		if errors.Is(err, offers.ErrLikesLimitExceeded) {
+			c.logger.Info("today likes limit exceeded", "user_id", like.UserId)
+			controllerError(ctx, errors.New("today likes limit exceeded"), http.StatusForbidden)
 		} else {
 			c.logger.Error("failed to add like", "offer_id", like.OfferId, "user_id", like.UserId, "error", err)
-			controllerError(ctx, errors.New("failed to like offer"), code)
+			controllerError(ctx, errors.New("failed to like offer"), http.StatusInternalServerError)
 		}
 		return
 	}

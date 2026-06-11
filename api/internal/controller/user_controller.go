@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 )
 
 type usersRepo interface {
@@ -20,10 +21,13 @@ type usersRepo interface {
 	CreateUser(ctx context.Context, userData model.UserCreate) error
 	UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error
 	EditUser(ctx context.Context, userId int64, patch model.UserEdit) error
+	TodayLikesCount(ctx context.Context, userId int64) (int, error)
 }
 
 type premiumRepo interface {
+	PremiumData(ctx context.Context, userId int64) (model.PremiumData, error)
 	UserLimits(ctx context.Context, userId int64) (model.UserLimits, error)
+	RenewPremium(ctx context.Context, userId int64, daysCount int) (model.PremiumData, error)
 }
 
 type Users struct {
@@ -124,6 +128,98 @@ func (c Users) EditUser(ctx *gin.Context) {
 
 	text := fmt.Sprintf("\nМеня зовут %s. %s", patch.Name, patch.Description)
 	go c.updateFlags(context.Background(), userId, text)
+}
+
+func (c Users) TodayLikes(ctx *gin.Context) {
+	userIDStr := ctx.Param("id")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		c.logger.Error("today likes: invalid user id", "error", err, "user_id", userIDStr)
+		controllerError(ctx, errors.New("invalid user id"), http.StatusBadRequest)
+		return
+	}
+
+	// Получаем лимиты пользователя (для информации)
+	limits, err := c.premiumRepo.UserLimits(ctx, userID)
+	if err != nil {
+		c.logger.Error("failed to get user limits", "user_id", userID, "error", err)
+		controllerError(ctx, errors.New("failed to get user limits"), http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("getting today likes count", "user_id", userID)
+
+	// Получаем количество лайков за сегодня
+	likesCount, err := c.usersRepo.TodayLikesCount(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		ctx.JSON(http.StatusOK, model.TodayLikes{
+			UserId:     userID,
+			TodayLikes: 0,
+		})
+		return
+	}
+	if err != nil {
+		c.logger.Error("failed to get today likes count", "user_id", userID, "error", err)
+		controllerError(ctx, errors.New("failed to get today likes count"), http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("today likes count retrieved",
+		"user_id", userID,
+		"likes_count", likesCount,
+		"max_likes", limits.MaxLikesPerDay,
+	)
+
+	ctx.JSON(http.StatusOK, model.TodayLikes{
+		UserId:     userID,
+		TodayLikes: likesCount,
+		MaxLikes:   limits.MaxLikesPerDay,
+	})
+}
+func (c Users) PremiumData(ctx *gin.Context) {
+	userIDStr := ctx.Param("id")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		c.logger.Error("premium data: invalid user id", "error", err, "user_id", userIDStr)
+		controllerError(ctx, errors.New("invalid user id"), http.StatusBadRequest)
+		return
+	}
+
+	c.logger.Info("getting premium data", "user_id", userID)
+
+	premiumData, err := c.premiumRepo.PremiumData(ctx, userID)
+	if err != nil {
+		c.logger.Error("failed to get premium data", "user_id", userID, "error", err)
+		controllerError(ctx, errors.New("failed to get premium data"), http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("premium data retrieved",
+		"user_id", userID,
+		"is_premium", premiumData.IsPremium,
+		"premium_until", premiumData.Until,
+	)
+
+	ctx.JSON(http.StatusOK, premiumData)
+}
+
+func (c Users) RenewPremium(ctx *gin.Context) {
+	var request model.RenewPremiumRequest
+	err := ctx.BindJSON(&request)
+	if err != nil {
+		c.logger.Error("failed to parse request body")
+		controllerError(ctx, errors.New("activate premium: invalid request body"), http.StatusBadRequest)
+		return
+	}
+
+	premiumData, err := c.premiumRepo.RenewPremium(ctx, request.UserId, request.DaysCount)
+	if err != nil {
+		c.logger.Error("failed to activate premium", "user_id", request.UserId)
+		controllerError(ctx, errors.New("failed to activate premium"), http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, premiumData)
 }
 
 func (c Users) Limits(ctx *gin.Context) {
