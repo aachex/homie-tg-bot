@@ -39,7 +39,7 @@ func NewRepository(logger *slog.Logger, connPool *pgxpool.Pool, usersRepo usersR
 		connPool:    connPool,
 		usersRepo:   usersRepo,
 		premiumRepo: premiumRepo,
-		recent:      newRecentOffersCache(logger, 20, 0),
+		recent:      newRecentOffersCache(logger, 100, 0),
 	}
 }
 
