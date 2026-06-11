@@ -114,17 +114,13 @@ async def evaluate_offer(msg: Message, state: FSMContext):
         max_likes_count = int(data["max_likes_count"])
 
         if today_likes_count >= max_likes_count:
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🌟 Премиум", callback_data="buy_premium")]
-            ])
             txt = (
                 "<b>Слишком много ❤️ за сегодня</b>\n\n"
                 "У премиум-пользователей ограничений нет. С помощью команды /premium Вы можете узнать подробности"
             )
             await msg.answer(
                 text=txt,
-                parse_mode="HTML",
-                reply_markup=kb,   
+                parse_mode="HTML", 
             )
             return
 
