@@ -2,6 +2,7 @@ from math import floor
 
 from aiogram import Bot, Router, F
 from aiogram.types import Message, CallbackQuery, PreCheckoutQuery, LabeledPrice, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from ..model.enums import PremiumPeriod
@@ -41,7 +42,7 @@ TARIFFS_STARS = {
     PremiumPeriod.THREE_MONTHS: Tariff(days_count=90, default_price=PRICE_STARS_PER_DAY * 90, currency="XTR", discount_percent=50),
 }
 
-@router.message(MainMenu.main_menu, F.text == "🌟 Премиум")
+@router.message(Command("premium"))
 async def premium(msg: Message):
     kb = InlineKeyboardBuilder()
     for tariff_key in TARIFFS_STARS:

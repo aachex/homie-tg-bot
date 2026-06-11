@@ -48,7 +48,7 @@ async def auth_start(msg: Message, state: FSMContext, first_name: str):
         await msg.answer("Пожалуйста, немного подождите...")
         return
     
-    await msg.answer("Пожалуйста, введите Ваше имя", reply_markup=kb)
+    await msg.answer("Как Вас зовут?", reply_markup=kb)
     await state.set_state(Auth.name)
 
 @router.callback_query(F.data == "authorize")
@@ -61,11 +61,12 @@ async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
 async def auth_start_msg(msg: Message, state: FSMContext):
     await auth_start(msg, state, msg.from_user.first_name)
 
+MAX_NAME_LEN = 100
+
 @router.message(Auth.name)
 async def auth_name(msg: Message, state: FSMContext):
-    maxNameLen = 100
-    if len(msg.text) > maxNameLen:
-        await msg.answer(f"Име не может быть длиннее {maxNameLen} символов")
+    if len(msg.text) > MAX_NAME_LEN:
+        await msg.answer(f"Име не может быть длиннее {MAX_NAME_LEN} символов")
         return
     
     kb = ReplyKeyboardRemove()
@@ -100,7 +101,7 @@ async def auth_city(msg: Message, state: FSMContext):
             [KeyboardButton(text="Оставить текущее описание")],
         ], resize_keyboard=True)
 
-    txt = "<b>Расскажите о себе, и я найду лучшие объявления для Вас</b>\n\nПример: Студент 3-го курса, работаю удалённо, не курю, не устраиваю вечеринок. Ищу уютную двушку до 50к"
+    txt = "<b>Расскажите о себе свободным языком. Я запомню и найду лучшие варианты</b>\n\nПример: Студент 3-го курса, работаю удалённо, не курю, не устраиваю вечеринок. Ищем с девушкой бюджетную двушку"
     await msg.answer(txt, parse_mode="HTML", reply_markup=kb)
     await state.set_state(Auth.descr)
 
@@ -127,7 +128,7 @@ async def auth_descr(msg: Message, state: FSMContext):
         kb_array.append([KeyboardButton(text="Оставить текущие фотографии")])
 
     kb = ReplyKeyboardMarkup(keyboard=kb_array, resize_keyboard=True)
-    await msg.answer("Пожалуйста, отправьте фотографию с вашим лицом. Профилям без лица меньше доверяют", reply_markup=kb)
+    await msg.answer("Теперь нужно отправить фотографии с вашим лицом. Профилям без лица меньше доверяют", reply_markup=kb)
     await state.set_state(Auth.media_files)
 
 @router.message(Auth.media_files, F.text == "Пропустить")
@@ -188,6 +189,23 @@ async def finalize_album(msg: Message, state: FSMContext, album_key: str):
     # Очищаем хранилище
     del temp_albums[album_key]
 
+    await finalize_auth(msg, state)
+
+@router.message(Auth.media_files, F.photo)
+async def handle_single_photo(msg: Message, state: FSMContext):
+    """
+    Обработчик одиночного фото (не альбом)
+    """
+    if msg.media_group_id:
+        return  # Игнорируем, это часть альбома
+    
+    # Получаем file_id одиночного фото
+    file_id = msg.photo[-1].file_id
+    
+    # Сохраняем в состояние как список с одним элементом
+    await state.update_data(media_files=[file_id])
+    
+    # Сразу завершаем создание объявления
     await finalize_auth(msg, state)
 
 async def finalize_auth(msg: Message, state: FSMContext):

@@ -31,11 +31,11 @@ async def main():
     dp.callback_query.middleware(LoggingMiddleware())
 
     dp.include_router(base_router)
+    dp.include_router(premium_router)
     dp.include_router(auth_router)
     dp.include_router(manage_offers_router)
     dp.include_router(search_offers_router)
     dp.include_router(admin_router)
-    dp.include_router(premium_router)
 
     proxy_url = os.getenv("PROXY_URL")
     session = AiohttpSession(proxy=proxy_url)

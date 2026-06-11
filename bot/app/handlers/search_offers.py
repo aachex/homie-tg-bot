@@ -117,7 +117,10 @@ async def evaluate_offer(msg: Message, state: FSMContext):
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🌟 Премиум", callback_data="buy_premium")]
             ])
-            txt = "<b>Слишком много ❤️ за сегодня</b>\n\nОформите премиум, чтобы лайкать без ограничений и быстрее найти подходящее предложение"
+            txt = (
+                "<b>Слишком много ❤️ за сегодня(</b>\n\n"
+                "У премиум-пользователей ограничений нет. С помощью команды /premium Вы можете узнать подробности"
+            )
             await msg.answer(
                 text=txt,
                 parse_mode="HTML",
