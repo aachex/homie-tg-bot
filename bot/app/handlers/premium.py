@@ -25,7 +25,7 @@ class Tariff:
         self.discount_percent = discount_percent
 
         label_parts = []
-        label_parts.append(f"Премиум на {days_count} дней")
+        label_parts.append(f"{days_count} дней")
         label_parts.append(f"⭐ {default_price}" if discount_percent == 0 else f"⭐ <s>{default_price}</s> {self.price}")
         self.label = " | ".join(label_parts)
 
@@ -56,7 +56,7 @@ async def premium(msg: Message):
         kb.row(InlineKeyboardButton(text=btn_text, callback_data=callback_data))
 
     prices = '\n'.join([tariff.label for tariff in TARIFFS_STARS.values()])
-    txt = f"🌟 Премиум: безлимитные лайки, ранний доступ, приоритет в выдаче.\n\n{prices}"
+    txt = f"<b>🌟 Премиум: безлимитные лайки, ранний доступ, приоритет в выдаче.</b>\n\n{prices}"
 
     prem_data = await get_premium_data(msg.from_user.id)
     if prem_data and prem_data.is_premium:

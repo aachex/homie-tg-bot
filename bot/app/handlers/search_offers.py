@@ -25,18 +25,17 @@ from ..keyboards import back_to_main_menu_keyboard
 router = Router()
 
 @router.message(MainMenu.main_menu, F.text == "🏡 Найти жильё")
-@router.message(SearchOffers.offer_not_found, F.text == "Указать город повторно")
 async def search_start(msg: Message, state: FSMContext):
     await state.clear()
 
     user = await get_user_by_id(msg.from_user.id)
 
     if not user:  # Если юзер не заполнял профиль, то просим его указать город явно
-        await msg.answer("В каком городе искать объявления?")
+        await msg.answer("В каком городе искать объявления?", reply_markup=ReplyKeyboardRemove())
         await state.set_state(SearchOffers.city)
         return
 
-    await state.update_data(flags=asdict(user.flags))
+    await state.update_data(user=asdict(user))
     await state.update_data(city=user.city)
 
     today_likes = await get_today_likes(msg.from_user.id)
@@ -65,14 +64,11 @@ async def select_city(msg: Message, state: FSMContext):
     # Проверка что в указанном городе есть объявления
     offer = await get_rand_offer(msg.from_user.id, city, None)
     if not offer:
-        await state.set_state(SearchOffers.offer_not_found)
-        kb = ReplyKeyboardMarkup(keyboard=[
-            [KeyboardButton(text="Указать город повторно")],
-            [KeyboardButton(text="Главное меню")],
-        ], resize_keyboard=True)
-
         await msg.answer("🔎")
-        await msg.answer("Мы не нашли ни одного объявления в указанном городе. Возможно опечатка?", reply_markup=kb)
+        await msg.answer(
+            "Мы не нашли ни одного объявления в указанном городе. Введите название ещё раз",
+            reply_markup=back_to_main_menu_keyboard
+        )
         return
     
     await send_mag(msg)
@@ -82,13 +78,12 @@ async def select_city(msg: Message, state: FSMContext):
 async def show_next_offer(msg: Message, state: FSMContext):
     data = await state.get_data()
 
-    flags = UserFlags(**data["flags"]) if "flags" in data else None
+    flags = UserFlags(**data["user"]["flags"]) if "flags" in data.get("user", {}) else None
 
     city = data["city"]
         
     offer = await get_rand_offer(msg.from_user.id, city, flags)
     if offer is None:
-        await state.set_state(SearchOffers.offer_not_found)
         await msg.answer(
             "Вы просмотрели все доступные на сегодня предложения. Возвращайтесь позже!",
             reply_markup=back_to_main_menu_keyboard
