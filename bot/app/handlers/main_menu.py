@@ -6,7 +6,7 @@ from aiogram.filters import CommandStart, StateFilter
 
 from aiogram.fsm.context import FSMContext
 
-from ..states import MainMenu, SearchOffers, Offer
+from ..states import MainMenu, Offer
 
 router = Router()
 
@@ -15,7 +15,7 @@ ADMIN_IDS = [int(admin_id) for admin_id in os.getenv("ADMIN_IDS").split(',')]
 LOGO_FILE_ID = os.getenv("LOGO_FILE_ID")
 
 @router.message(CommandStart())
-@router.message(~StateFilter(SearchOffers.choice, Offer.view_likes), F.text == "Главное меню")
+@router.message(~StateFilter(Offer.view_likes), F.text == "Главное меню")
 async def main_menu(msg: Message, state: FSMContext):
     await state.clear()
     await state.set_state(MainMenu.main_menu)
