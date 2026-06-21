@@ -22,7 +22,6 @@ type houseOffersRepo interface {
 	AddLike(ctx context.Context, like model.AddLikeRequest) error
 	DeleteLike(ctx context.Context, offerId int64, userId int64) error
 	RelevantOffer(ctx context.Context, userId int64, city string, user model.UserFlags) (model.RelevantOffer, error)
-	GetOfferRelevance(ctx context.Context, offerId int64, userFlags model.UserFlags) (int, error)
 	UserOffers(ctx context.Context, userId int64) ([]model.HouseOfferPreview, error)
 	CreateOffer(ctx context.Context, data model.HouseOfferCreate) (int64, error)
 	DeleteOffer(ctx context.Context, id int64) error
@@ -194,56 +193,6 @@ func (c HouseOffers) RelevantOffer(ctx *gin.Context) {
 		"relevance", offer.RelevancePercent,
 	)
 	ctx.JSON(http.StatusOK, offer)
-}
-
-func (c HouseOffers) GetOfferRelevance(ctx *gin.Context) {
-	var req struct {
-		OfferID   int64           `json:"offer_id" binding:"required"`
-		UserFlags model.UserFlags `json:"user_flags"`
-	}
-
-	err := ctx.ShouldBindJSON(&req)
-	if err != nil {
-		c.logger.Error("get offer relevance: invalid JSON", "error", err)
-		controllerError(ctx, errors.New("invalid request body"), http.StatusBadRequest)
-		return
-	}
-
-	c.logger.Info("get offer relevance request",
-		"offer_id", req.OfferID,
-		"smoking", req.UserFlags.Smoking,
-		"children", req.UserFlags.Children,
-		"pets", req.UserFlags.Pets,
-		"occupants_count", req.UserFlags.OccupantsCount,
-		"noise_lvl", req.UserFlags.NoiseLvl,
-		"works_from_home", req.UserFlags.WorksFromHome,
-		"alcohol", req.UserFlags.Alcohol,
-		"age_min", req.UserFlags.AgeMin,
-		"age_max", req.UserFlags.AgeMax,
-		"sex", req.UserFlags.Sex,
-	)
-
-	relevancePercent, err := c.houseOffersRepo.GetOfferRelevance(ctx, req.OfferID, req.UserFlags)
-	if errors.Is(err, sql.ErrNoRows) {
-		c.logger.Warn("offer not found for relevance calculation", "offer_id", req.OfferID)
-		controllerError(ctx, errors.New("offer not found"), http.StatusNotFound)
-		return
-	}
-	if err != nil {
-		c.logger.Error("failed to calculate offer relevance", "offer_id", req.OfferID, "error", err)
-		controllerError(ctx, errors.New("failed to calculate relevance"), http.StatusInternalServerError)
-		return
-	}
-
-	c.logger.Info("offer relevance calculated",
-		"offer_id", req.OfferID,
-		"relevance_percent", relevancePercent,
-	)
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"offer_id":          req.OfferID,
-		"relevance_percent": relevancePercent,
-	})
 }
 
 func (c HouseOffers) UserOffers(ctx *gin.Context) {
