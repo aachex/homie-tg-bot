@@ -110,6 +110,11 @@ async def evaluate_offer(msg: Message, state: FSMContext):
     if msg.text == "❤️":
         data = await state.get_data()
 
+        # Проверяем что пользователь зарегистрирован
+        if "user" not in data:
+            await show_unauthorized(msg)
+            return
+
         # Проверяем, не превысили ли дневной лимит лайков
         today_likes_count = int(data["today_likes_count"])
         max_likes_count = int(data["max_likes_count"])
@@ -123,11 +128,6 @@ async def evaluate_offer(msg: Message, state: FSMContext):
                 text=txt,
                 parse_mode="HTML", 
             )
-            return
-
-        # Проверяем что пользователь зарегистрирован
-        if "user" not in data:
-            await show_unauthorized(msg)
             return
 
         # Фиксируем лайк в бд
