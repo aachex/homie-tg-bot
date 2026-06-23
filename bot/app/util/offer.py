@@ -54,10 +54,8 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0) -> lis
         rules_lines.append("❌ Без детей")
     elif offer.flags.children == ChildrenEnum.ONE:
         rules_lines.append("✅ Можно с одним ребёнком")
-    elif offer.flags.children == ChildrenEnum.TWO_PLUS:
+    elif offer.flags.children == ChildrenEnum.TWO_PLUS or offer.flags.children == ChildrenEnum.PLANNING:
         rules_lines.append("✅ Можно с детьми")
-    elif offer.flags.children == ChildrenEnum.PLANNING:
-        rules_lines.append("✅ Можно планирующим ребёнка")
     
     # Животные
     if offer.flags.pets == PetsEnum.NONE:
@@ -67,7 +65,7 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0) -> lis
     elif offer.flags.pets == PetsEnum.DOGS:
         rules_lines.append("✅ Можно с собаками")
     elif offer.flags.pets == PetsEnum.OTHER:
-        rules_lines.append("✅ Можно с другими животными")
+        rules_lines.append("✅ Можно с небольшими животными")
     elif offer.flags.pets == PetsEnum.ANY:
         rules_lines.append("🐾 Можно с любыми животными")
     
@@ -77,11 +75,9 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0) -> lis
     
     # Уровень шума
     if offer.flags.noise_lvl == NoiseLvlEnum.QUIET:
-        rules_lines.append("🔇 Только тихие")
-    elif offer.flags.noise_lvl == NoiseLvlEnum.NORMAL:
-        rules_lines.append("🔊 Обычный уровень шума")
+        rules_lines.append("🔇 Не шуметь")
     elif offer.flags.noise_lvl == NoiseLvlEnum.LOUD:
-        rules_lines.append("📢 Можно шумные")
+        rules_lines.append("📢 Можно шуметь")
     
     # Работа из дома
     if offer.flags.works_from_home is True:
