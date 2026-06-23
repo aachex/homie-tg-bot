@@ -46,7 +46,7 @@ func main() {
 
 	// LLM
 	llmApiKey := os.Getenv("OPENROUTER_API_KEY")
-	llmClient := llm.NewClient(logger, llmApiKey, "openai/gpt-oss-120b:free")
+	llmClient := llm.NewClient(logger, llmApiKey, os.Getenv("OPENROUTER_MODEL"))
 
 	// Контроллеры
 	usersController := controller.NewUsers(logger, llmClient, usersRepo, premRepo)
