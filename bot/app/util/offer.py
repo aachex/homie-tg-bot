@@ -122,11 +122,11 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0) -> lis
     
     # Заголовок с количеством комнат (если известно)
     if offer.flags.rooms_count == 0:
-        title = "Студия"
+        title = f"Студия (#<code>{offer.id}</code>)"
     elif offer.flags.rooms_count:
-        title = f"{offer.flags.rooms_count}-комнатная квартира"
+        title = f"{offer.flags.rooms_count}-комнатная квартира (#<code>{offer.id}</code>)"
     else:
-        title = f"Предложение #{offer.id}"
+        title = f"Объявление #<code>{offer.id}</code>"
     
     message_text = f"""
 <b>📋 {title}</b>

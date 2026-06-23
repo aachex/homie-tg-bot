@@ -108,7 +108,11 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
     likes_count = int(callback.data.split(':')[2])
     if likes_count > 0:
         kb_array.insert(1, [KeyboardButton(text=f"Посмотреть интересующихся ({likes_count})")])
-        await state.update_data(offer_title=offer.city + ", " + offer.flags.district)
+
+        offer_title = f"#<code>{offer.id}</code>"
+        if offer.flags.district:
+            offer_title = f"\"{offer.city}, {offer.flags.district} (#<code>{offer.id}</code>)\""
+        await state.update_data(offer_title=offer_title)
     
     kb = ReplyKeyboardMarkup(keyboard=kb_array)
     kb.resize_keyboard = True
@@ -391,7 +395,7 @@ async def evaluate_user(msg: Message, state: FSMContext):
         title = data["offer_title"]
         owner_name = msg.from_user.first_name if msg.from_user.first_name != "" else "Владелец"
         owner_link = f'<a href="https://t.me/{msg.from_user.username}">{owner_name}</a>'
-        txt = f"Владелец объявления <b>\"{title}\"</b> готов обсудить сделку! Пишите 👉 {owner_link}"
+        txt = f"Владелец объявления <b>{title}</b> готов обсудить сделку! Пишите 👉 {owner_link}"
         await msg.bot.send_message(user_id, txt, parse_mode="HTML")
 
     await state.update_data(likes=likes[1:])
