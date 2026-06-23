@@ -178,8 +178,7 @@ func (r *Repository) DeleteLike(ctx context.Context, offerId int64, userId int64
 }
 
 func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city string, userFlags model.UserFlags) (offer model.RelevantOffer, err error) {
-	const maxRelevanceSum = 200
-	const maxBoostSum = 400
+	const maxBoostSum = 450
 
 	err = r.transaction(ctx, func(tx pgx.Tx) error {
 		query := `
@@ -369,7 +368,7 @@ func (r *Repository) RelevantOffer(ctx context.Context, userId int64, city strin
 					(
 						-- Объявление создано настоящим человеком (не мок)
 						CASE
-							WHEN o.owner_id != 0 THEN 50
+							WHEN o.owner_id != 0 THEN 100
 							ELSE 0
 						END +
 						-- Владелец продвигал своё объявление

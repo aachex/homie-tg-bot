@@ -108,6 +108,7 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
     likes_count = int(callback.data.split(':')[2])
     if likes_count > 0:
         kb_array.insert(1, [KeyboardButton(text=f"Посмотреть интересующихся ({likes_count})")])
+        await state.update_data(offer_title=offer.city + ", " + offer.flags.district)
     
     kb = ReplyKeyboardMarkup(keyboard=kb_array)
     kb.resize_keyboard = True
@@ -344,7 +345,7 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
 async def show_next_like(msg: Message, state: FSMContext):
     data = await state.get_data()
 
-    if "user_ids" not in data:
+    if "likes" not in data:
         await msg.answer("👀", reply_markup=evaluate_keyboard)
 
         offer_id = int(data["offer_id"])
@@ -354,7 +355,7 @@ async def show_next_like(msg: Message, state: FSMContext):
         data["likes"] = likes
     
     likes = data["likes"]
-    if len(likes) == 0:
+    if not likes:
         kb = ReplyKeyboardMarkup(keyboard=[
             [KeyboardButton(text="Мои объявления")],
             [KeyboardButton(text="Главное меню")]
@@ -364,7 +365,8 @@ async def show_next_like(msg: Message, state: FSMContext):
 
     like = likes[0]
     user = await get_user_by_id(like["user_id"])
-    await show_profile(msg, user, relevance=like["relevance"])
+    user_link = f"tg://user?id={user.id}"
+    await show_profile(msg, user, relevance=like["relevance"], link=user_link)
 
     await state.set_state(Offer.view_likes)
 

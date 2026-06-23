@@ -6,7 +6,7 @@ from ..api.users import User
 from ..model.enums import *
 from .shared import get_relevance_emoji
 
-async def show_profile(msg: Message, user: User, relevance: int = 0):
+async def show_profile(msg: Message, user: User, relevance: int = 0, link: str | None = None):
     lines = []
 
     # Совместимость
@@ -113,10 +113,17 @@ async def show_profile(msg: Message, user: User, relevance: int = 0):
     
     # Отправка с фото или без
     if user.media_files:
-        media_group = MediaGroupBuilder(caption=caption)
+        media_group = MediaGroupBuilder()
         for file in user.media_files[:10]:
-            media_group.add_photo(media=file, parse_mode="HTML")
+            media_group.add_photo(media=file)
         await msg.answer_media_group(media=media_group.build())
+
+        kb = None
+        if link:
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Посмотреть профиль", url=link)]
+            ])
+        await msg.answer(caption, parse_mode="HTML", reply_markup=kb)
     else:
         await msg.answer(caption, parse_mode="HTML")
 
