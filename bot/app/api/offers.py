@@ -19,24 +19,29 @@ class HouseOffersApi(APIClient):
             "user_flags": asdict(user_flags) if user_flags else None,
         }
         
-        resp_json = await self._request("POST", "offer/rand", data=data, expected_status=200)
+        resp_json = await self._request("POST", "offer/relevant", data=data, expected_status=200)
         if resp_json is None:
             return None
 
         offer_json = resp_json.get("offer", {})
 
-        prefs_json = offer_json.get("preferences", {})
-        preferences = OwnerPreferences(
-            smoking=prefs_json.get("smoking"),
-            children=ChildrenEnum(prefs_json["children"]) if prefs_json.get("children") else None,
-            pets=PetsEnum(prefs_json["pets"]) if prefs_json.get("pets") else None,
-            occupants_count=prefs_json.get("occupants_count"),
-            noise_lvl=NoiseLvlEnum(prefs_json["noise_lvl"]) if prefs_json.get("noise_lvl") else None,
-            works_from_home=prefs_json.get("works_from_home"),
-            alcohol=AlcoholEnum(prefs_json["alcohol"]) if prefs_json.get("alcohol") else None,
-            age_min=prefs_json.get("age_min"),
-            age_max=prefs_json.get("age_max"),
-            sex=prefs_json.get("sex")
+        flags_json = offer_json.get("flags", {})
+        flags = OfferFlags(
+            district=flags_json.get("district"),
+            deposit=flags_json.get("deposit"),
+            rooms_count=flags_json.get("rooms_count"),
+            price=flags_json.get("price"),
+
+            smoking=flags_json.get("smoking"),
+            children=ChildrenEnum(flags_json["children"]) if flags_json.get("children") else None,
+            pets=PetsEnum(flags_json["pets"]) if flags_json.get("pets") else None,
+            occupants_count=flags_json.get("occupants_count"),
+            noise_lvl=NoiseLvlEnum(flags_json["noise_lvl"]) if flags_json.get("noise_lvl") else None,
+            works_from_home=flags_json.get("works_from_home"),
+            alcohol=AlcoholEnum(flags_json["alcohol"]) if flags_json.get("alcohol") else None,
+            age_min=flags_json.get("age_min"),
+            age_max=flags_json.get("age_max"),
+            sex=flags_json.get("sex")
         )
 
         offer = RelevantOffer(
@@ -46,14 +51,11 @@ class HouseOffersApi(APIClient):
                 id=int(offer_json.get("id", 0)),
                 owner_id=int(offer_json.get("owner_id", 0)),
                 is_active=bool(offer_json.get("is_active", False)),
-                title=offer_json.get("title", ""),
                 description=offer_json.get("description", ""),
                 city=offer_json.get("city", ""),
-                district=offer_json.get("district", ""),
-                price=int(offer_json.get("price", 0)),
                 media_files=list(offer_json.get("media_files", [])),
                 flag_processing=offer_json.get("flag_processing", False),
-                preferences=preferences,
+                flags=flags,
             )
         )
 
@@ -64,33 +66,36 @@ class HouseOffersApi(APIClient):
         if offer_json is None:
             return None
         
-        prefs_json = offer_json.get("preferences", {})
+        flags_json = offer_json.get("flags", {})
         
-        preferences = OwnerPreferences(
-            smoking=prefs_json.get("smoking"),
-            children=ChildrenEnum(prefs_json["children"]) if prefs_json.get("children") else None,
-            pets=PetsEnum(prefs_json["pets"]) if prefs_json.get("pets") else None,
-            occupants_count=prefs_json.get("occupants_count"),
-            noise_lvl=NoiseLvlEnum(prefs_json["noise_lvl"]) if prefs_json.get("noise_lvl") else None,
-            works_from_home=prefs_json.get("works_from_home"),
-            alcohol=AlcoholEnum(prefs_json["alcohol"]) if prefs_json.get("alcohol") else None,
-            age_min=prefs_json.get("age_min"),
-            age_max=prefs_json.get("age_max"),
-            sex=prefs_json.get("sex")
+        flags = OfferFlags(
+            district=flags_json.get("district"),
+            deposit=flags_json.get("deposit"),
+            rooms_count=flags_json.get("rooms_count"),
+            price=flags_json.get("price"),
+
+            smoking=flags_json.get("smoking"),
+            children=ChildrenEnum(flags_json["children"]) if flags_json.get("children") else None,
+            pets=PetsEnum(flags_json["pets"]) if flags_json.get("pets") else None,
+            occupants_count=flags_json.get("occupants_count"),
+            noise_lvl=NoiseLvlEnum(flags_json["noise_lvl"]) if flags_json.get("noise_lvl") else None,
+            works_from_home=flags_json.get("works_from_home"),
+            alcohol=AlcoholEnum(flags_json["alcohol"]) if flags_json.get("alcohol") else None,
+            age_min=flags_json.get("age_min"),
+            age_max=flags_json.get("age_max"),
+            sex=flags_json.get("sex")
         )
         
         return HouseOffer(
             id=int(offer_json.get("id", 0)),
             owner_id=int(offer_json.get("owner_id", 0)),
             is_active=bool(offer_json.get("is_active", False)),
-            title=offer_json.get("title", ""),
             description=offer_json.get("description", ""),
             city=offer_json.get("city", ""),
-            district=offer_json.get("district", ""),
-            price=int(offer_json.get("price", 0)),
+            
             media_files=list(offer_json.get("media_files", [])),
             flag_processing=offer_json.get("flag_processing", False),
-            preferences=preferences,
+            flags=flags,
         )
 
     async def get_user_offers(self, user_id: int) -> list[HouseOfferPreview]:

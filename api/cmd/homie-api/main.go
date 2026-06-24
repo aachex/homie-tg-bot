@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"homie-api/internal/controller"
 	"homie-api/internal/llm"
-	"homie-api/internal/repository/postgres"
+	"homie-api/internal/repository/postgres/offers"
+	"homie-api/internal/repository/postgres/premium"
+	"homie-api/internal/repository/postgres/reports"
+	"homie-api/internal/repository/postgres/stats"
+	"homie-api/internal/repository/postgres/users"
 	"homie-api/pkg/middleware"
 	"log"
 	"log/slog"
@@ -34,17 +38,18 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &opts))
 
 	// Репозитории
-	usersRepo := postgres.NewUsersRepo(connPool)
-	offersRepo := postgres.NewOffersRepo(connPool)
-	reportsRepo := postgres.NewReportsRepo(connPool)
-	statsRepo := postgres.NewStatsRepo(connPool)
+	usersRepo := users.NewRepository(connPool)
+	premRepo := premium.NewRepository(connPool)
+	offersRepo := offers.NewRepository(logger, connPool, usersRepo, premRepo)
+	reportsRepo := reports.NewRepository(connPool)
+	statsRepo := stats.NewRepository(connPool)
 
 	// LLM
 	llmApiKey := os.Getenv("OPENROUTER_API_KEY")
-	llmClient := llm.NewClient(logger, llmApiKey, "openai/gpt-oss-120b:free")
+	llmClient := llm.NewClient(logger, llmApiKey, os.Getenv("OPENROUTER_MODEL"))
 
 	// Контроллеры
-	usersController := controller.NewUsers(logger, llmClient, usersRepo)
+	usersController := controller.NewUsers(logger, llmClient, usersRepo, premRepo)
 	offersController := controller.NewHouseOffers(logger, llmClient, offersRepo)
 	reportsController := controller.NewReports(logger, reportsRepo)
 	statsController := controller.NewStats(logger, statsRepo)
@@ -63,10 +68,13 @@ func main() {
 	v1.POST("/user", usersController.CreateUser)
 	v1.PUT("/user/:id", usersController.EditUser)
 	v1.GET("/user/:id/offers", offersController.UserOffers)
+	v1.GET("/user/:id/limits", usersController.Limits)
+	v1.GET("/user/:id/today-likes", usersController.TodayLikes)
+	v1.GET("/user/:id/premium", usersController.PremiumData)
+	v1.POST("/user/renew-premium", usersController.RenewPremium)
 
 	v1.GET("/offer/:id", offersController.OfferById)
-	v1.POST("/offer/rand", offersController.RandRelevantOffer)
-	v1.POST("/offer/relevance", offersController.GetOfferRelevance)
+	v1.POST("/offer/relevant", offersController.RelevantOffer)
 	v1.POST("/offer", offersController.CreateOffer)
 	v1.DELETE("/offer/:id", offersController.DeleteOffer)
 	v1.PATCH("/offer/:id", offersController.SetActiveOffer)

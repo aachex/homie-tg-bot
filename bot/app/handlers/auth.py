@@ -1,4 +1,5 @@
 import os
+import asyncio
 from dataclasses import asdict
 
 from aiogram import F, Router
@@ -9,7 +10,6 @@ from aiogram.fsm.context import FSMContext
 from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
 from .main_menu import main_menu as show_main_menu
-from .search_offers import show_next_offer, send_mag
 
 from ..util.auth import show_profile, show_unauthorized
 from ..util.shared import handle_media_upload, normalize_city
@@ -32,7 +32,7 @@ async def my_profile(msg: Message, state: FSMContext):
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="Заполнить профиль заново")],
-        [KeyboardButton(text="Готово")],
+        [KeyboardButton(text="Главное меню")],
     ], resize_keyboard=True)
     await show_profile_with_keyboard(msg, state, user, keyboard)
 
@@ -48,34 +48,25 @@ async def auth_start(msg: Message, state: FSMContext, first_name: str):
         await msg.answer("Пожалуйста, немного подождите...")
         return
     
-    await msg.answer("Пожалуйста, введите Ваше имя", reply_markup=kb)
+    await msg.answer("Как Вас зовут?", reply_markup=kb)
     await state.set_state(Auth.name)
 
-@router.callback_query(F.data.startswith("authorize:"))
+@router.callback_query(F.data == "authorize")
 async def auth_start_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.clear()
-
-    callback_data = callback.data.split(':')
-    offer_id = int(callback_data[1])
-    if offer_id != 0:
-        await state.update_data(offer_id=offer_id)
-
-    offer_relevance = int(callback_data[2])
-    if offer_relevance != 0:
-        await state.update_data(offer_relevance=offer_relevance)
-
     await auth_start(callback.message, state, callback.from_user.first_name)
 
 @router.message(MainMenu.profile, F.text == "Заполнить профиль заново")
 async def auth_start_msg(msg: Message, state: FSMContext):
     await auth_start(msg, state, msg.from_user.first_name)
 
+MAX_NAME_LEN = 100
+
 @router.message(Auth.name)
 async def auth_name(msg: Message, state: FSMContext):
-    maxNameLen = 100
-    if len(msg.text) > maxNameLen:
-        await msg.answer(f"Име не может быть длиннее {maxNameLen} символов")
+    if len(msg.text) > MAX_NAME_LEN:
+        await msg.answer(f"Име не может быть длиннее {MAX_NAME_LEN} символов")
         return
     
     kb = ReplyKeyboardRemove()
@@ -91,10 +82,15 @@ async def auth_name(msg: Message, state: FSMContext):
     await state.update_data(name=msg.text)
     await state.set_state(Auth.city)
 
+MAX_CITY_LEN = 50
+
 @router.message(Auth.city)
 async def auth_city(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Введите название города")
+        return
+    if len(msg.text) > MAX_CITY_LEN:
+        await msg.answer(f"Название слишком длинное (максимум {MAX_CITY_LEN} символов).")
         return
     await state.update_data(city=normalize_city(msg.text))
 
@@ -105,14 +101,19 @@ async def auth_city(msg: Message, state: FSMContext):
             [KeyboardButton(text="Оставить текущее описание")],
         ], resize_keyboard=True)
 
-    txt = "<b>Расскажите о себе, и я найду лучшие объявления для Вас</b>\n\nПример: Студент 3-го курса, работаю удалённо, не курю, не устраиваю вечеринок. Ищу уютную двушку до 50к"
+    txt = "<b>Расскажите о себе свободным языком. Я запомню и найду лучшие варианты</b>\n\nПример: Студент 3-го курса, работаю удалённо, не курю, не устраиваю вечеринок. Ищем с девушкой бюджетную двушку"
     await msg.answer(txt, parse_mode="HTML", reply_markup=kb)
     await state.set_state(Auth.descr)
+
+MAX_USER_DESCR_LEN = 800
 
 @router.message(Auth.descr)
 async def auth_descr(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Нужно ввести текст")
+        return
+    if len(msg.text) > MAX_USER_DESCR_LEN:
+        await msg.answer(f"Длина описания не должна превышать {MAX_USER_DESCR_LEN} символов")
         return
     
     data = await state.get_data()
@@ -127,14 +128,84 @@ async def auth_descr(msg: Message, state: FSMContext):
         kb_array.append([KeyboardButton(text="Оставить текущие фотографии")])
 
     kb = ReplyKeyboardMarkup(keyboard=kb_array, resize_keyboard=True)
-    await msg.answer("Пожалуйста, отправьте фотографию с вашим лицом. Профилям без лица меньше доверяют", reply_markup=kb)
+    await msg.answer("Теперь нужно отправить фотографии с вашим лицом. Профилям без лица меньше доверяют", reply_markup=kb)
     await state.set_state(Auth.media_files)
 
-@router.message(Auth.media_files, F.text == "Завершить")
-async def finalize_auth_handler(msg: Message, state: FSMContext):
+@router.message(Auth.media_files, F.text == "Пропустить")
+async def skip_media(msg: Message, state: FSMContext):
+    await state.update_data(media_files=[os.getenv("NO_PHOTO_FILE_ID")])
+    await finalize_auth(msg, state)
+
+@router.message(Auth.media_files, F.text == "Оставить текущие фотографии")
+async def leave_previous_media(msg: Message, state: FSMContext):
     data = await state.get_data()
-    if "media_files" not in data:
+    if "user" not in data:
         return
+
+    previous_media_files = data["user"]["media_files"]
+    await state.update_data(media_files=previous_media_files)
+    await finalize_auth(msg, state)
+
+# Хранилище для временного сбора альбомов
+temp_albums: dict[str, list[Message]] = {}
+
+@router.message(Auth.media_files, F.media_group_id)
+async def handle_album(msg: Message, state: FSMContext):
+    """
+    Обработчик медиагруппы (альбома) — собирает все file_id из всех фото
+    """
+    album_key = f"{msg.chat.id}_{msg.media_group_id}"
+    
+    if album_key not in temp_albums:
+        temp_albums[album_key] = []
+        # Запускаем таймер для финализации альбома
+        asyncio.create_task(finalize_album(msg, state, album_key))
+    
+    temp_albums[album_key].append(msg)
+
+async def finalize_album(msg: Message, state: FSMContext, album_key: str):
+    """
+    Финализирует сбор альбома и обрабатывает все file_id
+    """
+    await asyncio.sleep(3)  # Ждём, пока придут все сообщения альбома
+    
+    if album_key not in temp_albums:
+        return
+    
+    messages = temp_albums[album_key]
+    
+    # Собираем все file_id из альбома
+    all_file_ids = []
+    
+    for msg in messages:
+        if msg.photo:
+            # Берём самое большое фото (последний элемент)
+            file_id = msg.photo[-1].file_id
+            all_file_ids.append(file_id)
+    
+    # Сохраняем полученные фотографии
+    await state.update_data(media_files=all_file_ids)
+    
+    # Очищаем хранилище
+    del temp_albums[album_key]
+
+    await finalize_auth(msg, state)
+
+@router.message(Auth.media_files, F.photo)
+async def handle_single_photo(msg: Message, state: FSMContext):
+    """
+    Обработчик одиночного фото (не альбом)
+    """
+    if msg.media_group_id:
+        return  # Игнорируем, это часть альбома
+    
+    # Получаем file_id одиночного фото
+    file_id = msg.photo[-1].file_id
+    
+    # Сохраняем в состояние как список с одним элементом
+    await state.update_data(media_files=[file_id])
+    
+    # Сразу завершаем создание объявления
     await finalize_auth(msg, state)
 
 async def finalize_auth(msg: Message, state: FSMContext):
@@ -144,8 +215,8 @@ async def finalize_auth(msg: Message, state: FSMContext):
         id=msg.from_user.id,
         name=data["name"],
         city=data["city"],
-        description=data.get("descr"),
-        media_files=data.get("media_files", [os.getenv("NO_PHOTO_FILE_ID")]),
+        description=data["descr"],
+        media_files=data["media_files"],
     )
 
     if "user" in data:
@@ -174,42 +245,12 @@ async def finalize_auth(msg: Message, state: FSMContext):
     )
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="Готово")],
+        [KeyboardButton(text="Главное меню")],
     ], resize_keyboard=True)
     await show_profile_with_keyboard(msg, state, user, keyboard)
-
-@router.message(Auth.media_files)
-async def auth_media(msg: Message, state: FSMContext):
-    if msg.text == "Пропустить":
-        await finalize_auth(msg, state)
-        return
-
-    data = await state.get_data()
-    if msg.text == "Оставить текущие фотографии" and "user" in data:
-        # Если пользователь решил оставить фото и у нас есть информация о его старых фото
-        await state.update_data(media_files=data["user"]["media_files"])
-        await finalize_auth(msg, state)
-        return
-    
-    done = await handle_media_upload(msg, state, 3)
-    if done:
-        await finalize_auth(msg, state)
 
 async def show_profile_with_keyboard(msg: Message, state: FSMContext, user: User, keyboard: ReplyKeyboardMarkup):
     await state.set_state(MainMenu.profile)
     
     await msg.answer("Так выглядит ваш профиль", reply_markup=keyboard)
     await show_profile(msg, user)
-
-@router.message(MainMenu.profile, F.text == "Готово")
-async def profile_done(msg: Message, state: FSMContext):
-    data = await state.get_data()
-    if "offer_id" not in data or "offer_relevance" not in data:
-        await show_main_menu(msg, state)
-        return
-    
-    await send_mag(msg)
-
-    offer_id = int(data["offer_id"])
-    offer_relevance = int(data["offer_relevance"])
-    await show_next_offer(msg, state, offer_id, offer_relevance)

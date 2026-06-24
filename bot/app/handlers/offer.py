@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import asdict
 
 from aiogram import F, Router
@@ -14,7 +15,7 @@ from ..util.auth import show_profile
 from ..util.shared import handle_media_upload, normalize_city
 from ..keyboards import skip_keyboard, evaluate_keyboard, yes_no_keyboard
 
-from ..api.users import get_user_by_id
+from ..api.users import get_user_by_id, get_user_limits
 from ..api.offers import get_user_offers, create_offer, get_offer_by_id, set_active_offer, delete_offer, get_offer_likes, delete_like, HouseOfferCreate, HouseOffer
 
 from ..states import OfferCreate, Offer, MainMenu
@@ -26,6 +27,7 @@ router = Router()
 @router.message(
     StateFilter(
         MainMenu.main_menu,
+        MainMenu.my_offers,
         OfferCreate.finalize,
         *Offer.__states__),
     F.text == "Мои объявления"
@@ -39,10 +41,20 @@ async def my_offers(msg: Message, state: FSMContext):
         "Ниже представлены ваши объявления.\nАктивные отмечены 🟢зелёным цветом",
         reply_markup=kb)
 
+    limits = await get_user_limits(msg.from_user.id)
     offers = await get_user_offers(msg.from_user.id)
+    await state.update_data(offers_count=len(offers))
+
+    create_offer_button = InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary")
+    if len(offers) >= limits.max_offers:
+        create_offer_button.text = "🔒 Создать объявление"
+        create_offer_button.callback_data = "offers_limit_exceeded"
+        create_offer_button.style = None
+        await state.update_data(has_premium=limits.premium.is_premium)
+        await state.update_data(offers_limit_reached=True)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Создать объявление", callback_data="create_offer", style="primary")]
+        [create_offer_button]
     ])
 
     builder = InlineKeyboardBuilder()
@@ -75,7 +87,6 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
     offer = await get_offer_by_id(offer_id)
 
     await state.update_data(offer_id=offer_id)
-    await state.update_data(offer_title=offer.title)
 
     kb_array = [
         [KeyboardButton(text="Отключить объявление")],
@@ -97,6 +108,11 @@ async def show_house_offer(callback: CallbackQuery, state: FSMContext):
     likes_count = int(callback.data.split(':')[2])
     if likes_count > 0:
         kb_array.insert(1, [KeyboardButton(text=f"Посмотреть интересующихся ({likes_count})")])
+
+        offer_title = f"#<code>{offer.id}</code>"
+        if offer.flags.district:
+            offer_title = f"\"{offer.city}, {offer.flags.district} (#<code>{offer.id}</code>)\""
+        await state.update_data(offer_title=offer_title)
     
     kb = ReplyKeyboardMarkup(keyboard=kb_array)
     kb.resize_keyboard = True
@@ -166,9 +182,30 @@ async def del_offer(msg: Message, state: FSMContext):
 
 # ========== Создание объявления ==========
 
+@router.callback_query(F.data == "offers_limit_exceeded")
+async def offers_limit_reached(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    has_premium = data.get("has_premium", False)
+
+    text = f"Достигнут лимит объявлений."
+    if not has_premium:
+        text += " Приобретите премиум, чтобы увеличить лимиты."
+
+    await callback.answer(
+        text=text,
+        show_alert=True
+    )
+
+
 @router.callback_query(MainMenu.my_offers, F.data == "create_offer")
 async def create_start(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
+
+    data = await state.get_data()
+    offers_limit_reached = data.get("offers_limit_reached", False)
+    if offers_limit_reached:
+        return
+
     await state.clear()
 
     keyboard = ReplyKeyboardRemove()
@@ -181,72 +218,101 @@ async def create_start(callback: CallbackQuery, state: FSMContext):
 
     await state.set_state(OfferCreate.city)
 
+MAX_CITY_LEN = 50
+
 @router.message(OfferCreate.city)
 async def select_city(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Пожалуйста, введите название города")
         return
+    if len(msg.text) > MAX_CITY_LEN:
+        await msg.answer(f"Название города слишком длинное (максимум {MAX_CITY_LEN} символов).")
+        return
     
     await state.update_data(city=normalize_city(msg.text))
-    await msg.answer("Где находится объект? Укажите район или улицу", reply_markup=skip_keyboard)
-    await state.set_state(OfferCreate.district)
-
-@router.message(OfferCreate.district)
-async def enter_district(msg: Message, state: FSMContext):
-    if msg.text != "Пропустить":
-        await state.update_data(district=msg.text)
-        
-    await msg.answer("Какого жильца вы хотите видеть? Опишите свободным языком", reply_markup=ReplyKeyboardRemove())
-    await state.set_state(OfferCreate.tenant)
-
-@router.message(OfferCreate.tenant)
-async def enter_tenant_descr(msg: Message, state: FSMContext):
-    if not msg.text:
-        await msg.answer("Опишите, каких жильцов хотите видеть")
-        return
-    await state.update_data(tenant=msg.text)
-
-    txt = "<b>Дайте короткое название вашему объявлению</b>\n\nПример: Комната в общежитии в центре"
-    await msg.answer(txt, parse_mode="HTML")
-    await state.set_state(OfferCreate.title)
-
-@router.message(OfferCreate.title)
-async def enter_title(msg: Message, state: FSMContext):
-    if not msg.text:
-        await msg.answer("Нужно написать название")
-        return
-    
-    await state.update_data(title=msg.text)
-
-    txt = "Укажите, сколько рублей в месяц стоит аренда вашей недвижимости. Этот этап можно пропустить"
-    await msg.answer(txt, reply_markup=skip_keyboard)
-    await state.set_state(OfferCreate.price)
-
-@router.message(OfferCreate.price)
-async def enter_price(msg: Message, state: FSMContext):
-    if msg.text != "Пропустить":
-        price_str = msg.text.replace(' ', '') # Удаление пробелов
-        if not is_int(price_str):
-            await msg.answer("Укажите целое число")
-            return
-        await state.update_data(price=price_str)
-
-    txt = "Напишите подробное описание вашего объявления. Так Вы повысите вероятность найти арендатора"
-    await msg.answer(txt, reply_markup=skip_keyboard)
+    await msg.answer("Опишите свободным языком ваше предложение: сколько комнат, стоимость, залог и так далее", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.description)
+
+MAX_OFFER_DESCR_LEN = 2500
 
 @router.message(OfferCreate.description)
 async def enter_descr(msg: Message, state: FSMContext):
     if not msg.text:
         await msg.answer("Нужно ввести текст")
         return
-    if msg.text != "Пропустить":
-        await state.update_data(descr=msg.text)
+    if len(msg.text) > MAX_OFFER_DESCR_LEN:
+        await msg.answer(f"Описание слишком длинное. Его длина не должна превышать {MAX_OFFER_DESCR_LEN} символов")
+        return
+
+    await state.update_data(descr=msg.text)
     
     await msg.answer("Теперь нужно отправить фотографии вашей недвижимости. Чем больше — тем лучше", reply_markup=ReplyKeyboardRemove())
     await state.set_state(OfferCreate.media)
 
-@router.message(OfferCreate.media, F.text == "Завершить")
+
+# Хранилище для временного сбора альбомов
+temp_albums: dict[str, list[Message]] = {}
+
+@router.message(OfferCreate.media, F.media_group_id)
+async def handle_album(msg: Message, state: FSMContext):
+    """
+    Обработчик медиагруппы (альбома) — собирает все file_id из всех фото
+    """
+    album_key = f"{msg.chat.id}_{msg.media_group_id}"
+    
+    if album_key not in temp_albums:
+        temp_albums[album_key] = []
+        # Запускаем таймер для финализации альбома
+        asyncio.create_task(finalize_album(msg, state, album_key))
+    
+    temp_albums[album_key].append(msg)
+
+
+async def finalize_album(msg: Message, state: FSMContext, album_key: str):
+    """
+    Финализирует сбор альбома и обрабатывает все file_id
+    """
+    await asyncio.sleep(3)  # Ждём, пока придут все сообщения альбома
+    
+    if album_key not in temp_albums:
+        return
+    
+    messages = temp_albums[album_key]
+    
+    # Собираем все file_id из альбома
+    all_file_ids = []
+    
+    for msg in messages:
+        if msg.photo:
+            # Берём самое большое фото (последний элемент)
+            file_id = msg.photo[-1].file_id
+            all_file_ids.append(file_id)
+    
+    # Сохраняем полученные фотографии
+    await state.update_data(media_files=all_file_ids)
+    
+    # Очищаем хранилище
+    del temp_albums[album_key]
+
+    await finalize_create_offer(msg, state)
+
+@router.message(OfferCreate.media, F.photo)
+async def handle_single_photo(msg: Message, state: FSMContext):
+    """
+    Обработчик одиночного фото (не альбом)
+    """
+    if msg.media_group_id:
+        return  # Игнорируем, это часть альбома
+    
+    # Получаем file_id одиночного фото
+    file_id = msg.photo[-1].file_id
+    
+    # Сохраняем в состояние как список с одним элементом
+    await state.update_data(media_files=[file_id])
+    
+    # Сразу завершаем создание объявления
+    await finalize_create_offer(msg, state)
+
 async def finalize_create_offer(msg: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
@@ -254,24 +320,17 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
 
     offer_create = HouseOfferCreate(
         owner_id=msg.from_user.id,
-        title=data["title"],
-        description=data.get("descr", ""),
+        description=data["descr"],
         city=data["city"],
-        district=data.get("district", ""),
-        price=int(data.get("price", 0)),
         media_files=data["media_files"],
-        tenant_description=data["tenant"]
     )
     await create_offer(offer_create)  # Отправляем на создание в API
 
     # Конвертируем в HouseOffer для отображения
     offer = HouseOffer(
         owner_id=offer_create.owner_id,
-        title=offer_create.title,
         description=offer_create.description,
         city=offer_create.city,
-        district=offer_create.district,
-        price=offer_create.price,
         media_files=offer_create.media_files,
         flag_processing=True,  # пока флаги не обработаны
     )
@@ -284,19 +343,13 @@ async def finalize_create_offer(msg: Message, state: FSMContext):
     msg_text = f"<b>Готово!</b> Вы успешно создали объявление о сдаче вашей недвижимости. Для более детального взаимодействия с вашими объявлениями ищите вкладку <b>Мои объявления</b> в главном меню."
     await msg.answer(msg_text, parse_mode="HTML", reply_markup=keyboard)
 
-@router.message(OfferCreate.media)
-async def upload_media(msg: Message, state: FSMContext):
-    done = await handle_media_upload(msg, state, 10)
-    if done:
-        await finalize_create_offer(msg, state)
-
 # ========== Просмотр лайков ==========
 
 @router.message(StateFilter(Offer.active_offer_interact, Offer.inactive_offer_interact), F.text.startswith("Посмотреть интересующихся"))
 async def show_next_like(msg: Message, state: FSMContext):
     data = await state.get_data()
 
-    if "user_ids" not in data:
+    if "likes" not in data:
         await msg.answer("👀", reply_markup=evaluate_keyboard)
 
         offer_id = int(data["offer_id"])
@@ -306,7 +359,7 @@ async def show_next_like(msg: Message, state: FSMContext):
         data["likes"] = likes
     
     likes = data["likes"]
-    if len(likes) == 0:
+    if not likes:
         kb = ReplyKeyboardMarkup(keyboard=[
             [KeyboardButton(text="Мои объявления")],
             [KeyboardButton(text="Главное меню")]
@@ -316,7 +369,8 @@ async def show_next_like(msg: Message, state: FSMContext):
 
     like = likes[0]
     user = await get_user_by_id(like["user_id"])
-    await show_profile(msg, user, relevance=like["relevance"])
+    user_link = f"tg://user?id={user.id}"
+    await show_profile(msg, user, relevance=like["relevance"], link=user_link)
 
     await state.set_state(Offer.view_likes)
 
@@ -341,7 +395,7 @@ async def evaluate_user(msg: Message, state: FSMContext):
         title = data["offer_title"]
         owner_name = msg.from_user.first_name if msg.from_user.first_name != "" else "Владелец"
         owner_link = f'<a href="https://t.me/{msg.from_user.username}">{owner_name}</a>'
-        txt = f"Владелец объявления <b>\"{title}\"</b> готов обсудить сделку! Пишите 👉 {owner_link}"
+        txt = f"Владелец объявления <b>{title}</b> готов обсудить сделку! Пишите 👉 {owner_link}"
         await msg.bot.send_message(user_id, txt, parse_mode="HTML")
 
     await state.update_data(likes=likes[1:])

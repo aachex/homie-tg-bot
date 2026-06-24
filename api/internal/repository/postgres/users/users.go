@@ -1,26 +1,29 @@
-package postgres
+package users
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"homie-api/internal/model"
+	"homie-api/internal/repository/postgres"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type UsersRepo struct {
+type Repository struct {
 	connPool *pgxpool.Pool
 }
 
-func NewUsersRepo(connPool *pgxpool.Pool) *UsersRepo {
-	return &UsersRepo{
+func NewRepository(connPool *pgxpool.Pool) *Repository {
+	return &Repository{
 		connPool: connPool,
 	}
 }
 
-func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err error) {
+func (r Repository) GetById(ctx context.Context, id int64) (user model.User, err error) {
 	query := `
 		SELECT
 			id,
@@ -62,7 +65,7 @@ func (r UsersRepo) GetById(ctx context.Context, id int64) (user model.User, err 
 	return user, err
 }
 
-func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) error {
+func (r Repository) CreateUser(ctx context.Context, userData model.UserCreate) error {
 	query := `
 		INSERT INTO tg_user (
 			id,
@@ -88,7 +91,7 @@ func (r UsersRepo) CreateUser(ctx context.Context, userData model.UserCreate) er
 	return err
 }
 
-func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserEdit) error {
+func (r Repository) EditUser(ctx context.Context, userId int64, patch model.UserEdit) error {
 	args := pgx.NamedArgs{}
 
 	query := "UPDATE tg_user SET "
@@ -121,7 +124,7 @@ func (r UsersRepo) EditUser(ctx context.Context, userId int64, patch model.UserE
 	return err
 }
 
-func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error {
+func (r Repository) UpdateFlags(ctx context.Context, userID int64, flags model.UserFlags) error {
 	query := `
 		UPDATE tg_user SET
             smoking = $1,
@@ -157,4 +160,33 @@ func (r UsersRepo) UpdateFlags(ctx context.Context, userID int64, flags model.Us
 	}
 
 	return nil
+}
+
+func (r *Repository) TodayLikesCount(ctx context.Context, userId int64) (count int, err error) {
+	return r.TodayLikesCountTx(ctx, r.connPool, userId)
+}
+
+// TodayLikesCountTx возвращает количество лайков, которое поставил юзер за сегодня.
+func (r *Repository) TodayLikesCountTx(ctx context.Context, tx postgres.RowQueryer, userId int64) (count int, err error) {
+	query := `
+		SELECT likes_count FROM daily_likes
+		WHERE user_id = $1 AND date = CURRENT_DATE
+	`
+	row := tx.QueryRow(ctx, query, userId)
+	err = row.Scan(&count)
+	if !errors.Is(err, sql.ErrNoRows) && err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repository) IncrementTodayLikesTx(ctx context.Context, tx pgx.Tx, userId int64) error {
+	query := `
+			INSERT INTO daily_likes (user_id, likes_count)
+			VALUES ($1, 1)
+			ON CONFLICT (user_id, date) DO 
+			UPDATE SET likes_count = daily_likes.likes_count + 1
+		`
+	_, err := tx.Exec(ctx, query, userId)
+	return err
 }

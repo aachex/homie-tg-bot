@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from .enums import *
 
 
@@ -46,3 +47,24 @@ class UserEdit:
     city: str | None = None
     description: str | None = None
     media_files: list[str] = field(default_factory=list)
+
+
+@dataclass
+class PremiumData:
+    is_premium: bool
+    until: datetime
+
+
+@dataclass
+class UserLimits:
+    """Лимиты пользователя (обычный или премиум)"""
+    premium: PremiumData
+    max_offers: int
+    max_likes_per_day: int
+
+
+@dataclass
+class TodayLikes:
+    user_id: int
+    likes_count: int
+    max_likes: int

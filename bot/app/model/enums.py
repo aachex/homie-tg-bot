@@ -35,3 +35,8 @@ class SexEnum(str, Enum):
     """Пол арендатора"""
     MALE = "male"
     FEMALE = "female"
+
+class PremiumPeriod(str, Enum):
+    WEEK = "week"
+    MONTH = "month"
+    THREE_MONTHS = "three_months"

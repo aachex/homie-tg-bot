@@ -21,10 +21,6 @@ class Auth(StatesGroup):
 
 class OfferCreate(StatesGroup):
     city = State()
-    district = State()
-    tenant = State()
-    title = State()
-    price = State()
     description = State()
     media = State()
     finalize = State()
