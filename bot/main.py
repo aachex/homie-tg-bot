@@ -1,7 +1,8 @@
 import asyncio
 import os
 import aiohttp
-from typing import Optional, List
+from typing import Optional
+from urllib.parse import quote_plus
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -114,7 +115,11 @@ async def main():
     redis_password = os.getenv("REDIS_PASSWORD")
     redis_host = os.getenv("REDIS_HOST")
     redis_port = os.getenv("REDIS_PORT")
-    redis_url = f"redis://:{redis_password}@{redis_host}:{redis_port}/0"
+
+    redis_url = f"redis://{redis_host}:{redis_port}/0"
+    if redis_password:
+        redis_password = quote_plus(redis_password)
+        redis_url = f"redis://:{redis_password}@{redis_host}:{redis_port}/0"
 
     redis_client = Redis.from_url(redis_url)
     fsm_storage = RedisStorage(redis=redis_client)
