@@ -31,7 +31,7 @@ class Tariff:
         self.label = " | ".join(label_parts)
 
 
-PRICE_STARS_PER_DAY = int(os.getenv("PRICE_STARS_PER_DAY"))
+PRICE_STARS_PER_DAY = int(os.getenv("PRICE_STARS_PER_DAY", 15))
 
 TARIFFS_STARS = {
     # Неделя
@@ -58,7 +58,17 @@ async def premium(msg: Message):
         kb.row(InlineKeyboardButton(text=btn_text, callback_data=callback_data))
 
     prices = '\n'.join([tariff.label for tariff in TARIFFS_STARS.values()])
-    txt = f"<b>🌟 Премиум: безлимитные лайки, ранний доступ, приоритет в выдаче.</b>\n\n{prices}"
+    txt = (
+        "<b>🌟 Премиум: безлимитные лайки, ранний доступ к объявлениям, приоритет в выдаче объявлений.</b>\n\n"
+        "<blockquote>"
+        f"{prices}"
+        "</blockquote>\n\n"
+        "Что даёт Премиум:\n"
+        "• Ранний доступ — объявления появляются на 12 часов раньше, чем в общем доступе\n"
+        "• Безлимитные лайки — не тратьте лимит, отмечайте сколько угодно вариантов\n"
+        "• Приоритетная выдача — ваши объявления видят раньше и чаще, если вы сдаёте жильё\n\n"
+        "Премиум подходит и тем, кто ищет жильё, и тем, кто сдаёт."
+    )
 
     prem_data = await get_premium_data(msg.from_user.id)
     if prem_data and prem_data.is_premium:
