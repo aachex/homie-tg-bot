@@ -71,9 +71,9 @@ async def select_city(msg: Message, state: FSMContext):
     await send_mag(msg)
     await show_next_offer(msg, state)
 
-async def show_next_offer(msg: Message, state: FSMContext, offer_id: int = 0, relevance: int = 0):
-    if offer_id != 0 and relevance == 0:
-        raise Exception("relevance == 0 when offer_id != 0")
+async def show_next_offer(msg: Message, state: FSMContext, offer_id: int | None = None, relevance: int | None = None):
+    if (offer_id is None) != (relevance is None):
+        raise Exception("relevance and offer_id should be both None or both not None")
 
     data = await state.get_data()
 
@@ -81,7 +81,7 @@ async def show_next_offer(msg: Message, state: FSMContext, offer_id: int = 0, re
 
     city = data["city"]
     
-    if offer_id != 0:
+    if offer_id:
         offer = await get_offer_by_id(offer_id)
         if offer is None:
             await show_server_error(msg)
@@ -99,6 +99,9 @@ async def show_next_offer(msg: Message, state: FSMContext, offer_id: int = 0, re
         offer = offer.offer
 
     await state.update_data(offer_id=offer.id)
+
+    if "user" not in data:
+        relevance = None  # Не показываем совместимость если юзер не заполнял профиль
     await state.update_data(offer_relevance=relevance)
     
     await show_offer(msg, offer, relevance)
@@ -126,7 +129,7 @@ async def evaluate_offer(msg: Message, state: FSMContext):
             )
             await msg.answer(
                 text=txt,
-                parse_mode="HTML", 
+                parse_mode="HTML",
             )
             return
 
@@ -137,7 +140,7 @@ async def evaluate_offer(msg: Message, state: FSMContext):
             relevance=int(data["offer_relevance"])
         )
         await add_like_to_offer(like)
-        await state.update_data(today_likes_count=today_likes_count+1)
+        await state.update_data(today_likes_count=today_likes_count + 1)
 
     await show_next_offer(msg, state)
 

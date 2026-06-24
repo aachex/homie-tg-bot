@@ -5,7 +5,7 @@ from ..api.offers import HouseOffer
 from ..model.enums import *
 from .shared import get_relevance_emoji
 
-async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0) -> list[Message]:
+async def show_offer(msg: Message, offer: HouseOffer, relevance: int | None = None) -> list[Message]:
     """Отображает созданное объявление для подтверждения"""
     
     descr = f"<blockquote expandable>{offer.description}</blockquote>"
@@ -113,10 +113,7 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0) -> lis
         rules_text = "<blockquote>⚪ Нет особых требований</blockquote>"
     
     # Формирование релевантности
-    relevance_text = ""
-    if relevance > 0:
-        emoji = get_relevance_emoji(relevance)
-        relevance_text = f"<b>{emoji} Совместимость:</b> {relevance}%"
+    
     
     district = f", {offer.flags.district}" if offer.flags.district else ""
     
@@ -128,20 +125,21 @@ async def show_offer(msg: Message, offer: HouseOffer, relevance: int = 0) -> lis
     else:
         title = f"Объявление #<code>{offer.id}</code>"
     
-    message_text = f"""
-<b>📋 {title}</b>
+    message_text = (
+        f"<b>📋 {title}</b>\n\n"
+        f"📍 {offer.city}{district}\n"
+        f"{price_line}\n\n"
+        f"<b>📝 Описание:</b>\n"
+        f"{descr}\n\n"
+        f"<b>📋 Требования к арендатору:</b>\n"
+        f"{rules_text}"
+    )
 
-📍 {offer.city}{district}
-{price_line}
-
-<b>📝 Описание:</b>
-{descr}
-
-<b>📋 Требования к арендатору:</b>
-{rules_text}
-
-{relevance_text}
-"""
+    if relevance:
+        # Известна релевантность - добавляем её
+        emoji = get_relevance_emoji(relevance)
+        relevance_text = f"<b>{emoji} Совместимость:</b> {relevance}%"
+        message_text += f"\n\n{relevance_text}"
     
     # ========== Отправка созданного объявления ==========
     media_group = MediaGroupBuilder()
