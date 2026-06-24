@@ -1,3 +1,4 @@
+import os
 from math import floor
 
 from aiogram import Bot, Router, F
@@ -29,7 +30,7 @@ class Tariff:
         label_parts.append(f"⭐ {default_price}" if discount_percent == 0 else f"⭐ <s>{default_price}</s> {self.price}")
         self.label = " | ".join(label_parts)
 
-PRICE_STARS_PER_DAY = 30
+PRICE_STARS_PER_DAY = int(os.getenv("PRICE_STARS_PER_DAY"))
 
 TARIFFS_STARS = {
     # Неделя
