@@ -104,8 +104,9 @@ async def show_next_offer(msg: Message, state: FSMContext, offer_id: int | None 
         relevance = None  # Не показываем совместимость если юзер не заполнял профиль
     await state.update_data(offer_relevance=relevance)
     
-    await show_offer(msg, offer, relevance)
+    # show_offer может вызвать FloodWait, поэтому состояние меняем строго до его вызова.
     await state.set_state(SearchOffers.choice)
+    await show_offer(msg, offer, relevance)
 
 @router.message(SearchOffers.choice, F.text.in_({"❤️", "👎"}))
 async def evaluate_offer(msg: Message, state: FSMContext):
