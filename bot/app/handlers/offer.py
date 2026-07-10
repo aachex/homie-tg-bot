@@ -370,7 +370,7 @@ async def show_next_like(msg: Message, state: FSMContext):
     like = likes[0]
     user = await get_user_by_id(like["user_id"])
     user_link = f"tg://user?id={user.id}"
-    await show_profile(msg, user, relevance=like["relevance"], link=user_link)
+    await show_profile(msg, user, relevance=like["relevance"])
 
     await state.set_state(Offer.view_likes)
 
